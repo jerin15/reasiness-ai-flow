@@ -12,9 +12,10 @@ type AddTaskDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onTaskAdded: () => void;
+  defaultAssignedTo?: string;
 };
 
-export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded }: AddTaskDialogProps) => {
+export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssignedTo }: AddTaskDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
@@ -31,14 +32,21 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded }: AddTaskDialog
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase.from("tasks").insert({
+      const taskData: any = {
         title,
         description: description || null,
         priority: priority as "low" | "medium" | "high" | "urgent",
         due_date: dueDate || null,
         created_by: user.id,
         status: "todo" as const,
-      });
+      };
+
+      // If admin is creating task for another user, assign it
+      if (defaultAssignedTo && defaultAssignedTo !== user.id) {
+        taskData.assigned_to = defaultAssignedTo;
+      }
+
+      const { error } = await supabase.from("tasks").insert(taskData);
 
       if (error) throw error;
 

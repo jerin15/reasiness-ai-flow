@@ -27,7 +27,13 @@ type Column = {
   status: string;
 };
 
-export const KanbanBoard = ({ userRole }: { userRole: string }) => {
+type KanbanBoardProps = {
+  userRole: string;
+  viewingUserId?: string;
+  isAdmin?: boolean;
+};
+
+export const KanbanBoard = ({ userRole, viewingUserId, isAdmin }: KanbanBoardProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,11 +80,17 @@ export const KanbanBoard = ({ userRole }: { userRole: string }) => {
 
   const fetchTasks = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("tasks")
         .select("*")
-        .is("deleted_at", null)
-        .order("position");
+        .is("deleted_at", null);
+
+      // If admin is viewing a specific user's tasks, filter by that user
+      if (isAdmin && viewingUserId) {
+        query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
+      }
+
+      const { data, error } = await query.order("position");
 
       if (error) throw error;
       setTasks(data || []);
@@ -112,7 +124,7 @@ export const KanbanBoard = ({ userRole }: { userRole: string }) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [viewingUserId]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -177,7 +189,9 @@ export const KanbanBoard = ({ userRole }: { userRole: string }) => {
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">My Tasks</h2>
+        <h2 className="text-2xl font-bold">
+          {isAdmin && viewingUserId ? "Team Member Tasks" : "My Tasks"}
+        </h2>
         <Button onClick={() => setShowAddTask(true)} size="sm">
           <Plus className="h-4 w-4 mr-2" />
           Add Task
@@ -214,6 +228,7 @@ export const KanbanBoard = ({ userRole }: { userRole: string }) => {
         open={showAddTask}
         onOpenChange={setShowAddTask}
         onTaskAdded={handleTaskAdded}
+        defaultAssignedTo={isAdmin && viewingUserId ? viewingUserId : undefined}
       />
     </div>
   );

@@ -3,13 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { Button } from "@/components/ui/button";
-import { LogOut, MessageSquare, BarChart3 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LogOut, MessageSquare, BarChart3, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +31,9 @@ const Dashboard = () => {
         return;
       }
 
+      setCurrentUserId(session.user.id);
+      setSelectedUserId(session.user.id);
+
       // Get user profile and role
       const { data: profile } = await supabase
         .from("profiles")
@@ -38,11 +45,30 @@ const Dashboard = () => {
         setUserName(profile.full_name || profile.email);
         const role = profile.user_roles?.[0]?.role || "operations";
         setUserRole(role);
+
+        // If admin, fetch all team members
+        if (role === "admin") {
+          fetchTeamMembers();
+        }
       }
     } catch (error) {
       console.error("Error checking auth:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTeamMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, user_roles(*)")
+        .order("full_name");
+
+      if (error) throw error;
+      setTeamMembers(data || []);
+    } catch (error) {
+      console.error("Error fetching team members:", error);
     }
   };
 
@@ -65,6 +91,12 @@ const Dashboard = () => {
     );
   }
 
+  const getSelectedUserName = () => {
+    if (selectedUserId === currentUserId) return "My Tasks";
+    const user = teamMembers.find((u) => u.id === selectedUserId);
+    return user ? `${user.full_name || user.email}'s Tasks` : "Tasks";
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card shadow-sm sticky top-0 z-10">
@@ -78,14 +110,45 @@ const Dashboard = () => {
             </div>
             <div className="flex items-center gap-2">
               {userRole === "admin" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate("/analytics")}
-                >
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Analytics
-                </Button>
+                <>
+                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                    <SelectTrigger className="w-[240px]">
+                      <SelectValue>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          <span>{getSelectedUserName()}</span>
+                        </div>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={currentUserId}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">My Tasks</span>
+                        </div>
+                      </SelectItem>
+                      {teamMembers
+                        .filter((user) => user.id !== currentUserId)
+                        .map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            <div className="flex flex-col items-start">
+                              <span>{user.full_name || user.email}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {user.user_roles?.[0]?.role}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/analytics")}
+                  >
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Analytics
+                  </Button>
+                </>
               )}
               <Button
                 variant="outline"
@@ -105,7 +168,11 @@ const Dashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <KanbanBoard userRole={userRole} />
+        <KanbanBoard 
+          userRole={userRole} 
+          viewingUserId={selectedUserId}
+          isAdmin={userRole === "admin"}
+        />
       </main>
     </div>
   );
