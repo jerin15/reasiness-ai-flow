@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, MessageSquare, BarChart3, Users } from "lucide-react";
 import { toast } from "sonner";
+import reaLogo from "@/assets/rea_logo_h.jpg";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -102,11 +103,13 @@ const Dashboard = () => {
       <header className="border-b bg-card shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-primary">R-EAsiness</h1>
-              <p className="text-sm text-muted-foreground">
-                Welcome, {userName} ({userRole})
-              </p>
+            <div className="flex items-center gap-4">
+              <img src={reaLogo} alt="REA Advertising" className="h-10 w-auto" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Welcome, {userName} ({userRole})
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               {userRole === "admin" && (

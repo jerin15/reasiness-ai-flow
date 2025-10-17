@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import reaLogo from "@/assets/rea_logo_h.jpg";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -77,9 +78,8 @@ const Auth = () => {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="flex items-center justify-center mb-4">
-            <CheckCircle2 className="h-10 w-10 text-primary" />
+            <img src={reaLogo} alt="REA Advertising Logo" className="h-16 w-auto" />
           </div>
-          <CardTitle className="text-3xl font-bold">R-EAsiness</CardTitle>
           <CardDescription>
             Task management for REA Creative Agency
           </CardDescription>
