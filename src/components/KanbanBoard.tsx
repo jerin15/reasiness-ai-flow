@@ -1,0 +1,220 @@
+import { useState, useEffect } from "react";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { KanbanColumn } from "./KanbanColumn";
+import { TaskCard } from "./TaskCard";
+import { AddTaskDialog } from "./AddTaskDialog";
+import { Button } from "./ui/button";
+import { Plus } from "lucide-react";
+
+type Task = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  position: number;
+  assigned_to: string | null;
+  created_by: string;
+};
+
+type Column = {
+  id: string;
+  title: string;
+  status: string;
+};
+
+export const KanbanBoard = ({ userRole }: { userRole: string }) => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showAddTask, setShowAddTask] = useState(false);
+
+  // Define columns based on role
+  const getColumnsForRole = (): Column[] => {
+    switch (userRole) {
+      case "estimation":
+        return [
+          { id: "todo", title: "To-Do List", status: "todo" },
+          { id: "supplier_quotes", title: "Supplier Quotes", status: "supplier_quotes" },
+          { id: "admin_approval", title: "Admin Cost Approval", status: "admin_approval" },
+          { id: "quotation_bill", title: "Quotation Bill", status: "quotation_bill" },
+          { id: "production", title: "Production", status: "production" },
+          { id: "final_invoice", title: "Final Invoice", status: "final_invoice" },
+          { id: "done", title: "Done", status: "done" },
+        ];
+      case "designer":
+        return [
+          { id: "todo", title: "To-Do List", status: "todo" },
+          { id: "mockup_pending", title: "Mockup Pending", status: "mockup_pending" },
+          { id: "production_pending", title: "Production Pending", status: "production_pending" },
+          { id: "with_client", title: "With Client", status: "with_client" },
+          { id: "done", title: "Done", status: "done" },
+        ];
+      case "operations":
+        return [
+          { id: "todo", title: "To-Do List", status: "todo" },
+          { id: "approval", title: "Approval", status: "approval" },
+          { id: "production", title: "Production", status: "production" },
+          { id: "delivery", title: "Delivery", status: "delivery" },
+          { id: "done", title: "Done", status: "done" },
+        ];
+      default:
+        return [
+          { id: "todo", title: "To-Do List", status: "todo" },
+          { id: "done", title: "Done", status: "done" },
+        ];
+    }
+  };
+
+  const columns = getColumnsForRole();
+
+  const fetchTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .is("deleted_at", null)
+        .order("position");
+
+      if (error) throw error;
+      setTasks(data || []);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      toast.error("Failed to load tasks");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel("tasks-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tasks",
+        },
+        () => {
+          fetchTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t.id === event.active.id);
+    setActiveTask(task || null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const newStatus = over.id as string;
+
+    // Find the task
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Check if status is in valid columns for this role
+    const validStatuses = columns.map((col) => col.status);
+    if (!validStatuses.includes(newStatus)) {
+      toast.error("Invalid status for your role");
+      return;
+    }
+
+    try {
+      const updates: any = {
+        status: newStatus,
+        previous_status: task.status,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (newStatus === "done") {
+        updates.completed_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase.from("tasks").update(updates).eq("id", taskId);
+
+      if (error) throw error;
+
+      toast.success("Task moved successfully");
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast.error("Failed to move task");
+    }
+  };
+
+  const handleTaskAdded = () => {
+    fetchTasks();
+    setShowAddTask(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">My Tasks</h2>
+        <Button onClick={() => setShowAddTask(true)} size="sm">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Task
+        </Button>
+      </div>
+
+      <DndContext
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          <SortableContext
+            items={columns.map((col) => col.id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            {columns.map((column) => (
+              <KanbanColumn
+                key={column.id}
+                id={column.id}
+                title={column.title}
+                tasks={tasks.filter((task) => task.status === column.status)}
+              />
+            ))}
+          </SortableContext>
+        </div>
+
+        <DragOverlay>
+          {activeTask ? <TaskCard task={activeTask} isDragging /> : null}
+        </DragOverlay>
+      </DndContext>
+
+      <AddTaskDialog
+        open={showAddTask}
+        onOpenChange={setShowAddTask}
+        onTaskAdded={handleTaskAdded}
+      />
+    </div>
+  );
+};

@@ -1,0 +1,98 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Card, CardContent } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Calendar, GripVertical } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+
+type Task = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  position: number;
+};
+
+type TaskCardProps = {
+  task: Task;
+  isDragging?: boolean;
+};
+
+export const TaskCard = ({ task, isDragging }: TaskCardProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging: isSortableDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "urgent":
+        return "bg-priority-urgent text-white";
+      case "high":
+        return "bg-priority-high text-white";
+      case "medium":
+        return "bg-priority-medium text-white";
+      case "low":
+        return "bg-priority-low text-white";
+      default:
+        return "bg-muted";
+    }
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md",
+        (isDragging || isSortableDragging) && "opacity-50 shadow-lg"
+      )}
+    >
+      <CardContent className="p-3">
+        <div className="flex items-start gap-2">
+          <div
+            {...attributes}
+            {...listeners}
+            className="mt-1 cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h4>
+            {task.description && (
+              <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                {task.description}
+              </p>
+            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge
+                variant="secondary"
+                className={cn("text-xs capitalize", getPriorityColor(task.priority))}
+              >
+                {task.priority}
+              </Badge>
+              {task.due_date && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  <span>{format(new Date(task.due_date), "MMM d")}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
