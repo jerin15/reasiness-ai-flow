@@ -179,23 +179,33 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
     const taskId = active.id as string;
     
-    // Extract the actual status - over.id could be a column or a task
-    // Find which column this drop target belongs to
+    // Determine the new status - over.id could be a column ID or a task ID
+    let newStatus: string;
+    
+    // First check if it's a column ID
     const targetColumn = columns.find(col => col.id === over.id);
     
-    if (!targetColumn) {
-      console.error("Invalid drop target:", over.id);
-      toast.error("Invalid drop location");
-      return;
+    if (targetColumn) {
+      // Dropped on column area
+      newStatus = targetColumn.status;
+    } else {
+      // Dropped on a task - find which column that task is in
+      const targetTask = tasks.find(t => t.id === over.id);
+      if (targetTask) {
+        newStatus = targetTask.status;
+      } else {
+        console.error("Invalid drop target:", over.id);
+        toast.error("Invalid drop location");
+        return;
+      }
     }
-    
-    const newStatus = targetColumn.status;
 
-    // Find the task
+    // Find the task being moved
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // No validation - admins and all users can move tasks anywhere
+    // Skip if not actually changing status
+    if (task.status === newStatus) return;
 
     // Check if moving to supplier_quotes for estimation role (from any status)
     const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
@@ -216,7 +226,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         updates.completed_at = new Date().toISOString();
       }
 
-      console.log("Updating task:", taskId, "to status:", newStatus);
+      console.log("Updating task:", taskId, "from", task.status, "to status:", newStatus);
       const { error } = await supabase.from("tasks").update(updates).eq("id", taskId);
 
       if (error) {
