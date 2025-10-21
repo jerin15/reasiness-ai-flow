@@ -207,12 +207,15 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
       const { error } = await supabase.from("tasks").update(updates).eq("id", taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating task:", error);
+        toast.error(`Failed to move task: ${error.message}`);
+        throw error;
+      }
 
       toast.success("Task moved successfully");
     } catch (error) {
       console.error("Error updating task:", error);
-      toast.error("Failed to move task");
     }
   };
 
