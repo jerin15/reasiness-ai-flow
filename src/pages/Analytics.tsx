@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, Users, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { ArrowLeft, Download, FileText, Users, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type TaskStats = {
   total: number;
@@ -184,6 +186,69 @@ const Analytics = () => {
     }
   };
 
+  const exportToPDF = async () => {
+    try {
+      let query = supabase
+        .from("tasks")
+        .select("*, profiles!tasks_created_by_fkey(full_name, email)")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+
+      if (selectedUser !== "all") {
+        query = query.or(`created_by.eq.${selectedUser},assigned_to.eq.${selectedUser}`);
+      }
+
+      const { data: tasks, error } = await query;
+
+      if (error) throw error;
+
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(18);
+      doc.text("Task Report", 14, 20);
+      
+      // Add date
+      doc.setFontSize(11);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+      
+      // Add user filter info
+      if (selectedUser !== "all") {
+        const user = users.find(u => u.id === selectedUser);
+        doc.text(`Team Member: ${user?.full_name || user?.email || "Unknown"}`, 14, 37);
+      } else {
+        doc.text("Team Member: All", 14, 37);
+      }
+
+      // Prepare table data
+      const tableData = (tasks || []).map((task) => [
+        task.title,
+        task.status.replace(/_/g, " "),
+        task.priority,
+        task.profiles?.full_name || task.profiles?.email || "Unknown",
+        task.due_date ? new Date(task.due_date).toLocaleDateString() : "N/A",
+        task.completed_at ? new Date(task.completed_at).toLocaleDateString() : "N/A",
+      ]);
+
+      // Add table
+      autoTable(doc, {
+        head: [["Title", "Status", "Priority", "Created By", "Due Date", "Completed"]],
+        body: tableData,
+        startY: 45,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [79, 70, 229] },
+      });
+
+      // Save the PDF
+      doc.save(`tasks-report-${new Date().toISOString().split("T")[0]}.pdf`);
+
+      toast.success("Report exported successfully");
+    } catch (error) {
+      console.error("Error exporting to PDF:", error);
+      toast.error("Failed to export report");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -207,10 +272,16 @@ const Analytics = () => {
                 <p className="text-sm text-muted-foreground">Admin overview and reports</p>
               </div>
             </div>
-            <Button onClick={exportToCSV} size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={exportToCSV} size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button onClick={exportToPDF} size="sm">
+                <FileText className="h-4 w-4 mr-2" />
+                Export PDF
+              </Button>
+            </div>
           </div>
         </div>
       </header>
