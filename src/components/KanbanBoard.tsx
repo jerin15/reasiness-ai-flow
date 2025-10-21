@@ -7,6 +7,7 @@ import { KanbanColumn } from "./KanbanColumn";
 import { TaskCard } from "./TaskCard";
 import { AddTaskDialog } from "./AddTaskDialog";
 import { ReminderDialog } from "./ReminderDialog";
+import { EditTaskDialog } from "./EditTaskDialog";
 import { Button } from "./ui/button";
 import { Plus } from "lucide-react";
 
@@ -42,6 +43,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   const [showAddTask, setShowAddTask] = useState(false);
   const [showReminderDialog, setShowReminderDialog] = useState(false);
   const [reminderTask, setReminderTask] = useState<Task | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Define columns based on role - use viewing user's role if admin is viewing someone else
   const getColumnsForRole = (): Column[] => {
@@ -195,6 +198,23 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     setShowAddTask(false);
   };
 
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setShowEditDialog(true);
+  };
+
+  const handleTaskUpdated = () => {
+    fetchTasks();
+    setShowEditDialog(false);
+    setEditingTask(null);
+  };
+
+  const handleTaskDeleted = () => {
+    fetchTasks();
+    setShowEditDialog(false);
+    setEditingTask(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -231,6 +251,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                 id={column.id}
                 title={column.title}
                 tasks={tasks.filter((task) => task.status === column.status)}
+                onEditTask={handleEditTask}
               />
             ))}
           </SortableContext>
@@ -261,6 +282,15 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           }}
         />
       )}
+
+      <EditTaskDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        task={editingTask}
+        onTaskUpdated={handleTaskUpdated}
+        onTaskDeleted={handleTaskDeleted}
+        isAdmin={userRole === "admin"}
+      />
     </div>
   );
 };

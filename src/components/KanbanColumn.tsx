@@ -17,9 +17,10 @@ type KanbanColumnProps = {
   id: string;
   title: string;
   tasks: Task[];
+  onEditTask?: (task: Task) => void;
 };
 
-export const KanbanColumn = ({ id, title, tasks }: KanbanColumnProps) => {
+export const KanbanColumn = ({ id, title, tasks, onEditTask }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -46,7 +47,7 @@ export const KanbanColumn = ({ id, title, tasks }: KanbanColumnProps) => {
         >
           <div className="space-y-2">
             {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} />
+              <TaskCard key={task.id} task={task} onEdit={onEditTask} />
             ))}
           </div>
         </SortableContext>

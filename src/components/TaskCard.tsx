@@ -2,7 +2,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Calendar, GripVertical } from "lucide-react";
+import { Button } from "./ui/button";
+import { Calendar, GripVertical, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -19,9 +20,10 @@ type Task = {
 type TaskCardProps = {
   task: Task;
   isDragging?: boolean;
+  onEdit?: (task: Task) => void;
 };
 
-export const TaskCard = ({ task, isDragging }: TaskCardProps) => {
+export const TaskCard = ({ task, isDragging, onEdit }: TaskCardProps) => {
   const {
     attributes,
     listeners,
@@ -70,7 +72,22 @@ export const TaskCard = ({ task, isDragging }: TaskCardProps) => {
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-sm line-clamp-2 mb-2">{task.title}</h4>
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h4 className="font-medium text-sm line-clamp-2 flex-1">{task.title}</h4>
+              {onEdit && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-accent"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(task);
+                  }}
+                >
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
             {task.description && (
               <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                 {task.description}
