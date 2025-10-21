@@ -98,7 +98,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
       }
 
-      const { data, error } = await query.order("position");
+      const { data, error } = await query
+        .order("priority", { ascending: false })
+        .order("position", { ascending: true });
 
       if (error) throw error;
       setTasks(data || []);
