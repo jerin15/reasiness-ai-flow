@@ -31,17 +31,19 @@ type KanbanBoardProps = {
   userRole: string;
   viewingUserId?: string;
   isAdmin?: boolean;
+  viewingUserRole?: string;
 };
 
-export const KanbanBoard = ({ userRole, viewingUserId, isAdmin }: KanbanBoardProps) => {
+export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole }: KanbanBoardProps) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
 
-  // Define columns based on role
+  // Define columns based on role - use viewing user's role if admin is viewing someone else
   const getColumnsForRole = (): Column[] => {
-    switch (userRole) {
+    const roleToUse = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
+    switch (roleToUse) {
       case "estimation":
         return [
           { id: "todo", title: "To-Do List", status: "todo" },

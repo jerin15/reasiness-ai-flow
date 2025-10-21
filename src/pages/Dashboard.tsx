@@ -14,6 +14,7 @@ const Dashboard = () => {
   const [userName, setUserName] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedUserRole, setSelectedUserRole] = useState<string>("");
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,6 +47,7 @@ const Dashboard = () => {
         setUserName(profile.full_name || profile.email);
         const role = profile.user_roles?.[0]?.role || "operations";
         setUserRole(role);
+        setSelectedUserRole(role);
 
         // If admin, fetch all team members
         if (role === "admin") {
@@ -98,6 +100,16 @@ const Dashboard = () => {
     return user ? `${user.full_name || user.email}'s Tasks` : "Tasks";
   };
 
+  const handleUserChange = (userId: string) => {
+    setSelectedUserId(userId);
+    if (userId === currentUserId) {
+      setSelectedUserRole(userRole);
+    } else {
+      const user = teamMembers.find((u) => u.id === userId);
+      setSelectedUserRole(user?.user_roles?.[0]?.role || "operations");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card shadow-sm sticky top-0 z-10">
@@ -114,7 +126,7 @@ const Dashboard = () => {
             <div className="flex items-center gap-2">
               {userRole === "admin" && (
                 <>
-                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <Select value={selectedUserId} onValueChange={handleUserChange}>
                     <SelectTrigger className="w-[240px]">
                       <SelectValue>
                         <div className="flex items-center gap-2">
@@ -175,6 +187,7 @@ const Dashboard = () => {
           userRole={userRole} 
           viewingUserId={selectedUserId}
           isAdmin={userRole === "admin"}
+          viewingUserRole={selectedUserRole}
         />
       </main>
     </div>
