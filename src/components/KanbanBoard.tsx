@@ -184,13 +184,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // Validate the status is in the current role's columns
-    const validStatuses = columns.map((col) => col.status);
-    if (!validStatuses.includes(newStatus)) {
-      console.log("Invalid status:", newStatus, "Valid statuses:", validStatuses);
-      toast.error("Invalid status for your role");
-      return;
-    }
+    // No validation - admins and all users can move tasks anywhere
 
     // Check if moving to supplier_quotes for estimation role (from any status)
     const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
