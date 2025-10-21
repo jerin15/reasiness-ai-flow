@@ -91,6 +91,15 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Get current user's role
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+      
+      const currentUserRole = roleData?.role;
+
       let query = supabase
         .from("tasks")
         .select("*")
@@ -106,8 +115,13 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
         }
       } else if (!isAdmin) {
-        // Non-admin users see tasks they created or are assigned to
-        query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
+        // Operations users can see production tasks even if not assigned
+        if (currentUserRole === 'operations') {
+          query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id},and(status.eq.production,assigned_to.is.null)`);
+        } else {
+          // Non-admin users see tasks they created or are assigned to
+          query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
+        }
       }
 
       const { data, error } = await query
@@ -170,10 +184,10 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // Allow moving to "todo" from any status for any role
-    // For other statuses, validate they exist in current role's columns
+    // Validate the status is in the current role's columns
     const validStatuses = columns.map((col) => col.status);
-    if (newStatus !== "todo" && !validStatuses.includes(newStatus)) {
+    if (!validStatuses.includes(newStatus)) {
+      console.log("Invalid status:", newStatus, "Valid statuses:", validStatuses);
       toast.error("Invalid status for your role");
       return;
     }
