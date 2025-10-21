@@ -105,9 +105,10 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin }: KanbanBoardPro
   useEffect(() => {
     fetchTasks();
 
-    // Subscribe to realtime changes
+    // Subscribe to realtime changes with a unique channel per view
+    const channelName = `tasks-changes-${viewingUserId || 'default'}`;
     const channel = supabase
-      .channel("tasks-changes")
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
@@ -115,16 +116,19 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin }: KanbanBoardPro
           schema: "public",
           table: "tasks",
         },
-        () => {
+        (payload) => {
+          console.log('Real-time update received:', payload);
           fetchTasks();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [viewingUserId]);
+  }, [viewingUserId, isAdmin]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
