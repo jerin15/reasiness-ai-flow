@@ -170,9 +170,10 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // Check if status is in valid columns for this role
+    // Allow moving to "todo" from any status for any role
+    // For other statuses, validate they exist in current role's columns
     const validStatuses = columns.map((col) => col.status);
-    if (!validStatuses.includes(newStatus)) {
+    if (newStatus !== "todo" && !validStatuses.includes(newStatus)) {
       toast.error("Invalid status for your role");
       return;
     }
