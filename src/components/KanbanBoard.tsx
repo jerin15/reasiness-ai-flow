@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { KanbanColumn } from "./KanbanColumn";
 import { TaskCard } from "./TaskCard";
 import { AddTaskDialog } from "./AddTaskDialog";
+import { ReminderDialog } from "./ReminderDialog";
 import { Button } from "./ui/button";
 import { Plus } from "lucide-react";
 
@@ -39,6 +40,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [showReminderDialog, setShowReminderDialog] = useState(false);
+  const [reminderTask, setReminderTask] = useState<Task | null>(null);
 
   // Define columns based on role - use viewing user's role if admin is viewing someone else
   const getColumnsForRole = (): Column[] => {
@@ -157,6 +160,14 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       return;
     }
 
+    // Check if moving from todo to supplier_quotes for estimation role
+    const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
+    if (task.status === "todo" && newStatus === "supplier_quotes" && roleToCheck === "estimation") {
+      // Show reminder dialog
+      setReminderTask(task);
+      setShowReminderDialog(true);
+    }
+
     try {
       const updates: any = {
         status: newStatus,
@@ -236,6 +247,20 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         onTaskAdded={handleTaskAdded}
         defaultAssignedTo={isAdmin && viewingUserId ? viewingUserId : undefined}
       />
+      
+      {reminderTask && (
+        <ReminderDialog
+          open={showReminderDialog}
+          onOpenChange={setShowReminderDialog}
+          taskId={reminderTask.id}
+          taskTitle={reminderTask.title}
+          onReminderSet={() => {
+            setShowReminderDialog(false);
+            setReminderTask(null);
+            fetchTasks();
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -1,0 +1,202 @@
+import { useEffect, useState, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { toast } from "sonner";
+import { Bell, Clock } from "lucide-react";
+
+type Reminder = {
+  id: string;
+  task_id: string;
+  reminder_time: string;
+  is_snoozed: boolean;
+  is_dismissed: boolean;
+  tasks: {
+    title: string;
+    status: string;
+  };
+};
+
+export const ReminderNotification = () => {
+  const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
+  const [snoozeMinutes, setSnoozeMinutes] = useState<number>(10);
+  const [showSnoozeDialog, setShowSnoozeDialog] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Create audio element for alarm sound
+    audioRef.current = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBj2V2vLPfS4GKnzJ8N+RQAoUXrPq66hVFApGnt/yvmwiBj6W2/LQfzEHLIDL8eGSQgsUXrPo66hVFApHnt/yvmwiBj+W2/LQfzEHLIDL8eGSQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGn");
+
+    checkReminders();
+    checkIntervalRef.current = setInterval(checkReminders, 10000); // Check every 10 seconds
+
+    return () => {
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
+
+  const checkReminders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const now = new Date().toISOString();
+      
+      const { data: reminders, error } = await supabase
+        .from("task_reminders")
+        .select("*, tasks(title, status)")
+        .eq("user_id", user.id)
+        .eq("is_dismissed", false)
+        .lte("reminder_time", now)
+        .order("reminder_time", { ascending: true })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (reminders && reminders.length > 0) {
+        const reminder = reminders[0] as Reminder;
+        setActiveReminder(reminder);
+        playAlarm();
+      }
+    } catch (error) {
+      console.error("Error checking reminders:", error);
+    }
+  };
+
+  const playAlarm = () => {
+    if (audioRef.current) {
+      audioRef.current.loop = true;
+      audioRef.current.play().catch(e => console.error("Error playing alarm:", e));
+    }
+  };
+
+  const stopAlarm = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.loop = false;
+    }
+  };
+
+  const handleDismiss = async () => {
+    if (!activeReminder) return;
+
+    try {
+      const { error } = await supabase
+        .from("task_reminders")
+        .update({ is_dismissed: true })
+        .eq("id", activeReminder.id);
+
+      if (error) throw error;
+
+      stopAlarm();
+      setActiveReminder(null);
+      toast.success("Reminder dismissed");
+    } catch (error: any) {
+      console.error("Error dismissing reminder:", error);
+      toast.error("Failed to dismiss reminder");
+    }
+  };
+
+  const handleSnooze = async () => {
+    if (!activeReminder || !snoozeMinutes || snoozeMinutes <= 0) {
+      toast.error("Please enter a valid number of minutes");
+      return;
+    }
+
+    try {
+      const newReminderTime = new Date();
+      newReminderTime.setMinutes(newReminderTime.getMinutes() + snoozeMinutes);
+
+      const { error } = await supabase
+        .from("task_reminders")
+        .update({ 
+          reminder_time: newReminderTime.toISOString(),
+          is_snoozed: true 
+        })
+        .eq("id", activeReminder.id);
+
+      if (error) throw error;
+
+      stopAlarm();
+      setActiveReminder(null);
+      setShowSnoozeDialog(false);
+      toast.success(`Reminder snoozed for ${snoozeMinutes} minutes`);
+    } catch (error: any) {
+      console.error("Error snoozing reminder:", error);
+      toast.error("Failed to snooze reminder");
+    }
+  };
+
+  if (!activeReminder) return null;
+
+  return (
+    <>
+      <Dialog open={!!activeReminder && !showSnoozeDialog} onOpenChange={(open) => !open && handleDismiss()}>
+        <DialogContent className="sm:max-w-[425px] border-2 border-priority-urgent">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-priority-urgent">
+              <Bell className="h-5 w-5 animate-bounce" />
+              Task Reminder!
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="font-medium text-lg">{activeReminder.tasks.title}</p>
+            <p className="text-sm text-muted-foreground">
+              Current status: <span className="capitalize">{activeReminder.tasks.status.replace(/_/g, " ")}</span>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Move this task to the next stage: <span className="font-medium">Admin Cost Approval</span>
+            </p>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleDismiss}>
+              Dismiss
+            </Button>
+            <Button onClick={() => setShowSnoozeDialog(true)}>
+              <Clock className="h-4 w-4 mr-2" />
+              Snooze
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSnoozeDialog} onOpenChange={setShowSnoozeDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Snooze Reminder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="snooze-minutes">Snooze for (minutes)</Label>
+              <Input
+                id="snooze-minutes"
+                type="number"
+                min="1"
+                value={snoozeMinutes}
+                onChange={(e) => setSnoozeMinutes(parseInt(e.target.value))}
+                placeholder="Enter minutes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSnoozeDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSnooze}>
+              Set Snooze
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
