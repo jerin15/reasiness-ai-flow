@@ -178,7 +178,18 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     if (!over) return;
 
     const taskId = active.id as string;
-    const newStatus = over.id as string;
+    
+    // Extract the actual status - over.id could be a column or a task
+    // Find which column this drop target belongs to
+    const targetColumn = columns.find(col => col.id === over.id);
+    
+    if (!targetColumn) {
+      console.error("Invalid drop target:", over.id);
+      toast.error("Invalid drop location");
+      return;
+    }
+    
+    const newStatus = targetColumn.status;
 
     // Find the task
     const task = tasks.find((t) => t.id === taskId);
@@ -205,6 +216,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         updates.completed_at = new Date().toISOString();
       }
 
+      console.log("Updating task:", taskId, "to status:", newStatus);
       const { error } = await supabase.from("tasks").update(updates).eq("id", taskId);
 
       if (error) {
