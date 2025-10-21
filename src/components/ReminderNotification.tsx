@@ -23,13 +23,10 @@ export const ReminderNotification = () => {
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
   const [snoozeMinutes, setSnoozeMinutes] = useState<number>(10);
   const [showSnoozeDialog, setShowSnoozeDialog] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const alarmIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Create audio element for alarm sound
-    audioRef.current = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBj2V2vLPfS4GKnzJ8N+RQAoUXrPq66hVFApGnt/yvmwiBj6W2/LQfzEHLIDL8eGSQgsUXrPo66hVFApHnt/yvmwiBj+W2/LQfzEHLIDL8eGSQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGnt/yvmwiBj+W2vLQfzEHLIDL8OGRQQsVX7Pq66lWEwpGn");
-
     checkReminders();
     checkIntervalRef.current = setInterval(checkReminders, 10000); // Check every 10 seconds
 
@@ -37,11 +34,18 @@ export const ReminderNotification = () => {
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
       }
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      stopAlarm();
     };
   }, []);
+
+  // Play alarm when activeReminder changes
+  useEffect(() => {
+    if (activeReminder) {
+      playAlarm();
+    } else {
+      stopAlarm();
+    }
+  }, [activeReminder]);
 
   const checkReminders = async () => {
     try {
@@ -64,7 +68,6 @@ export const ReminderNotification = () => {
       if (reminders && reminders.length > 0) {
         const reminder = reminders[0] as Reminder;
         setActiveReminder(reminder);
-        playAlarm();
       }
     } catch (error) {
       console.error("Error checking reminders:", error);
@@ -72,17 +75,41 @@ export const ReminderNotification = () => {
   };
 
   const playAlarm = () => {
-    if (audioRef.current) {
-      audioRef.current.loop = true;
-      audioRef.current.play().catch(e => console.error("Error playing alarm:", e));
-    }
+    if (alarmIntervalRef.current) return; // Already playing
+
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    const createBeep = () => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 880; // High frequency for attention
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.8, audioContext.currentTime); // Loud volume
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.4);
+    };
+
+    // Create double beep pattern every second
+    const beepPattern = () => {
+      createBeep();
+      setTimeout(createBeep, 200);
+    };
+
+    beepPattern(); // Play immediately
+    alarmIntervalRef.current = setInterval(beepPattern, 1000); // Repeat every second
   };
 
   const stopAlarm = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current.loop = false;
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = null;
     }
   };
 
@@ -97,7 +124,6 @@ export const ReminderNotification = () => {
 
       if (error) throw error;
 
-      stopAlarm();
       setActiveReminder(null);
       toast.success("Reminder dismissed");
     } catch (error: any) {
@@ -126,7 +152,6 @@ export const ReminderNotification = () => {
 
       if (error) throw error;
 
-      stopAlarm();
       setActiveReminder(null);
       setShowSnoozeDialog(false);
       toast.success(`Reminder snoozed for ${snoozeMinutes} minutes`);

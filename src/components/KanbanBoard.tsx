@@ -88,6 +88,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
   const fetchTasks = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       let query = supabase
         .from("tasks")
         .select("*")
@@ -95,7 +98,16 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
       // If admin is viewing a specific user's tasks, filter by that user
       if (isAdmin && viewingUserId) {
-        query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
+        if (viewingUserId === user.id) {
+          // Admin viewing their own tasks - show only personal tasks
+          query = query.eq("created_by", user.id).or(`assigned_to.eq.${user.id},assigned_to.is.null`);
+        } else {
+          // Admin viewing team member tasks
+          query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
+        }
+      } else if (!isAdmin) {
+        // Non-admin users see tasks they created or are assigned to
+        query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
       }
 
       const { data, error } = await query
@@ -165,9 +177,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       return;
     }
 
-    // Check if moving from todo to supplier_quotes for estimation role
+    // Check if moving to supplier_quotes for estimation role (from any status)
     const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
-    if (task.status === "todo" && newStatus === "supplier_quotes" && roleToCheck === "estimation") {
+    if (newStatus === "supplier_quotes" && roleToCheck === "estimation") {
       // Show reminder dialog
       setReminderTask(task);
       setShowReminderDialog(true);
