@@ -48,6 +48,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   const [showAddTask, setShowAddTask] = useState(false);
   const [showReminderDialog, setShowReminderDialog] = useState(false);
   const [reminderTask, setReminderTask] = useState<Task | null>(null);
+  const [reminderTargetStatus, setReminderTargetStatus] = useState<string>("");
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
@@ -239,8 +240,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     // Check if moving to supplier_quotes or client_approval for estimation role (from any status)
     const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
     if ((newStatus === "supplier_quotes" || newStatus === "client_approval") && roleToCheck === "estimation") {
-      // Show reminder dialog
+      // Show reminder dialog and track the target status
       setReminderTask(task);
+      setReminderTargetStatus(newStatus);
       setShowReminderDialog(true);
     }
 
@@ -355,9 +357,10 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           onReminderSet={() => {
             setShowReminderDialog(false);
             setReminderTask(null);
+            setReminderTargetStatus("");
             fetchTasks();
           }}
-          useDays={reminderTask.status === 'client_approval'}
+          useDays={reminderTargetStatus === 'client_approval'}
         />
       )}
 
