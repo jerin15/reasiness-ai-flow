@@ -114,35 +114,26 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         .is("deleted_at", null);
 
       // If admin is viewing a specific user's tasks, filter by that user
-      if (isAdmin) {
-        if (!viewingUserId) {
-          // Admin with no user selected - show nothing
-          console.log("🚫 Admin with no user selected - showing no tasks");
-          query = query.eq("id", "00000000-0000-0000-0000-000000000000"); // Non-existent ID
-        } else if (viewingUserId === user.id) {
-          // Admin viewing their own tasks - show only personal tasks they created for themselves
-          console.log("👤 Admin viewing own tasks");
-          query = query.eq("created_by", user.id).eq("assigned_to", user.id);
+      if (isAdmin && viewingUserId && viewingUserId !== user.id) {
+        // Admin viewing team member tasks - show their tasks AND synced production tasks if viewing operations
+        console.log("👥 Admin viewing team member:", viewingUserId);
+        const { data: viewingUserRoleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", viewingUserId)
+          .maybeSingle();
+        
+        console.log("👀 Viewing user role:", viewingUserRoleData?.role);
+        
+        if (viewingUserRoleData?.role === 'operations') {
+          // Include synced production tasks for operations users
+          console.log("🔧 Adding operations production tasks to query");
+          query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId},and(status.eq.production,assigned_to.is.null)`);
         } else {
-          // Admin viewing team member tasks - show their tasks AND synced production tasks if viewing operations
-          console.log("👥 Admin viewing team member:", viewingUserId);
-          const { data: viewingUserRoleData } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", viewingUserId)
-            .maybeSingle();
-          
-          console.log("👀 Viewing user role:", viewingUserRoleData?.role);
-          
-          if (viewingUserRoleData?.role === 'operations') {
-            // Include synced production tasks for operations users
-            console.log("🔧 Adding operations production tasks to query");
-            query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId},and(status.eq.production,assigned_to.is.null)`);
-          } else {
-            query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
-          }
+          query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
         }
-      } else if (!isAdmin) {
+      } else if (!isAdmin || (isAdmin && (!viewingUserId || viewingUserId === user.id))) {
+        // Regular user OR admin viewing their own tasks - show all their tasks
         // Operations users can see ALL production tasks (synced from estimation)
         if (currentUserRole === 'operations') {
           console.log("🔧 Operations user - including synced production tasks");
@@ -160,11 +151,12 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       if (error) throw error;
       console.log("✅ Tasks loaded:", data?.length, "| Production:", data?.filter(t => t.status === 'production').length);
       
-      // Filter out personal tasks (where created_by = assigned_to) when admin views another user
+      // Filter out personal tasks only when admin views another user's tasks
       let filteredTasks = data || [];
       if (isAdmin && viewingUserId && viewingUserId !== user.id) {
+        // When admin views team member, exclude that team member's personal tasks
         filteredTasks = filteredTasks.filter(task => 
-          !(task.created_by === task.assigned_to && task.assigned_to === viewingUserId)
+          !(task.created_by === task.assigned_to)
         );
       }
       

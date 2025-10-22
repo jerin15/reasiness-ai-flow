@@ -80,9 +80,6 @@ const Auth = () => {
           <div className="flex items-center justify-center mb-4">
             <img src={reaLogo} alt="REA Advertising Logo" className="h-16 w-auto" />
           </div>
-          <CardDescription>
-            Task management for REA Creative Agency
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
