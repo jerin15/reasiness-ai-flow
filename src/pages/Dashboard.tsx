@@ -7,6 +7,7 @@ import { DueRemindersDialog } from "@/components/DueRemindersDialog";
 import { PendingTasksDialog } from "@/components/PendingTasksDialog";
 import { DailyReportDialog } from "@/components/DailyReportDialog";
 import { DailyPendingTasksDialog } from "@/components/DailyPendingTasksDialog";
+import { TeamMemberReportDialog } from "@/components/TeamMemberReportDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "lucide-react";
@@ -27,6 +28,7 @@ const Dashboard = () => {
   const [showPendingOnSignOut, setShowPendingOnSignOut] = useState(false);
   const [showDailyReport, setShowDailyReport] = useState(false);
   const [showDailyPending, setShowDailyPending] = useState(false);
+  const [showTeamReport, setShowTeamReport] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -204,6 +206,14 @@ const Dashboard = () => {
                     <BarChart3 className="h-4 w-4 mr-2" />
                     Analytics
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTeamReport(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Team Reports
+                  </Button>
                 </>
               )}
               <Button
@@ -256,6 +266,10 @@ const Dashboard = () => {
         open={showPendingOnSignOut} 
         onOpenChange={setShowPendingOnSignOut}
         onConfirmSignOut={confirmSignOut}
+      />
+      <TeamMemberReportDialog
+        open={showTeamReport}
+        onOpenChange={setShowTeamReport}
       />
     </div>
   );
