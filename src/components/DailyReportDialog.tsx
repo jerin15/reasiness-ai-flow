@@ -47,21 +47,43 @@ export const DailyReportDialog = ({ open, onOpenChange }: DailyReportDialogProps
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-      const { data, error } = await supabase
+      // Fetch tasks completed today (moved to done)
+      const { data: completedData, error: completedError } = await supabase
         .from("tasks")
         .select("*")
         .eq("assigned_to", user.id)
+        .eq("status", "done")
         .is("deleted_at", null)
-        .gte("created_at", today.toISOString());
+        .gte("completed_at", today.toISOString())
+        .lt("completed_at", tomorrow.toISOString());
 
-      if (error) throw error;
+      if (completedError) throw completedError;
 
-      const reportTasks: TaskReport[] = (data || []).map((task) => ({
+      // Fetch all pending tasks (not done and not deleted)
+      const { data: pendingData, error: pendingError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("assigned_to", user.id)
+        .neq("status", "done")
+        .is("deleted_at", null);
+
+      if (pendingError) throw pendingError;
+
+      // Combine both sets of tasks
+      const allTasks = [...(completedData || []), ...(pendingData || [])];
+
+      const reportTasks: TaskReport[] = allTasks.map((task) => ({
         id: task.id,
         title: task.title,
-        date: format(new Date(task.created_at), "yyyy-MM-dd"),
-        time: format(new Date(task.created_at), "HH:mm"),
+        date: task.completed_at 
+          ? format(new Date(task.completed_at), "yyyy-MM-dd")
+          : format(new Date(task.created_at), "yyyy-MM-dd"),
+        time: task.completed_at
+          ? format(new Date(task.completed_at), "HH:mm")
+          : format(new Date(task.created_at), "HH:mm"),
         client: task.client_name || "",
         description: task.description || "",
         timeOut: "",

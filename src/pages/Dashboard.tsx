@@ -6,6 +6,7 @@ import { MyReportDialog } from "@/components/MyReportDialog";
 import { DueRemindersDialog } from "@/components/DueRemindersDialog";
 import { PendingTasksDialog } from "@/components/PendingTasksDialog";
 import { DailyReportDialog } from "@/components/DailyReportDialog";
+import { DailyPendingTasksDialog } from "@/components/DailyPendingTasksDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "lucide-react";
@@ -25,9 +26,11 @@ const Dashboard = () => {
   const [showDueReminders, setShowDueReminders] = useState(false);
   const [showPendingOnSignOut, setShowPendingOnSignOut] = useState(false);
   const [showDailyReport, setShowDailyReport] = useState(false);
+  const [showDailyPending, setShowDailyPending] = useState(false);
 
   useEffect(() => {
     checkAuth();
+    
     // Show due reminders on sign in
     const hasSeenReminders = sessionStorage.getItem("hasSeenReminders");
     if (!hasSeenReminders) {
@@ -35,6 +38,17 @@ const Dashboard = () => {
         setShowDueReminders(true);
         sessionStorage.setItem("hasSeenReminders", "true");
       }, 1000);
+    }
+
+    // Show daily pending tasks notification
+    const lastPendingCheck = localStorage.getItem("lastPendingCheck");
+    const today = new Date().toDateString();
+    
+    if (lastPendingCheck !== today) {
+      setTimeout(() => {
+        setShowDailyPending(true);
+        localStorage.setItem("lastPendingCheck", today);
+      }, 2000);
     }
   }, []);
 
@@ -232,6 +246,7 @@ const Dashboard = () => {
       <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
       <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />
       <DailyReportDialog open={showDailyReport} onOpenChange={setShowDailyReport} />
+      <DailyPendingTasksDialog open={showDailyPending} onOpenChange={setShowDailyPending} />
       <PendingTasksDialog 
         open={showPendingOnSignOut} 
         onOpenChange={setShowPendingOnSignOut}

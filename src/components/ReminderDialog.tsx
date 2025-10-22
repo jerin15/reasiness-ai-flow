@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -24,8 +24,15 @@ export const ReminderDialog = ({
   onReminderSet,
   useDays = false
 }: ReminderDialogProps) => {
-  const [timeValue, setTimeValue] = useState<number>(useDays ? 1 : 30);
+  const [timeValue, setTimeValue] = useState<number>(1);
   const [loading, setLoading] = useState(false);
+
+  // Reset timeValue when dialog opens or useDays changes
+  useEffect(() => {
+    if (open) {
+      setTimeValue(useDays ? 1 : 30);
+    }
+  }, [open, useDays]);
 
   const handleSetReminder = async () => {
     if (!timeValue || timeValue <= 0) {
