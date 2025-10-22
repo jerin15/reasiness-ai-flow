@@ -45,52 +45,44 @@ export const DailyReportDialog = ({ open, onOpenChange }: DailyReportDialogProps
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      // Fetch tasks completed today (moved to done)
-      const { data: completedData, error: completedError } = await supabase
+      // Fetch ALL tasks assigned to user that are not deleted
+      const { data, error } = await supabase
         .from("tasks")
         .select("*")
         .eq("assigned_to", user.id)
-        .eq("status", "done")
         .is("deleted_at", null)
-        .gte("completed_at", today.toISOString())
-        .lt("completed_at", tomorrow.toISOString());
+        .order("created_at", { ascending: false });
 
-      if (completedError) throw completedError;
+      if (error) throw error;
 
-      // Fetch all pending tasks (not done and not deleted)
-      const { data: pendingData, error: pendingError } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("assigned_to", user.id)
-        .neq("status", "done")
-        .is("deleted_at", null);
+      // Map tasks to report format
+      // A task is "completed" if:
+      // 1. status is "done" OR
+      // 2. my_status is "done_from_my_side"
+      // Otherwise it's "pending"
+      const reportTasks: TaskReport[] = (data || []).map((task) => {
+        const isCompleted = task.status === "done" || task.my_status === "done_from_my_side";
+        const displayStatus = isCompleted 
+          ? (task.status === "done" ? "Completed" : "Done from my side")
+          : task.my_status === "pending" ? "Pending" : task.status;
 
-      if (pendingError) throw pendingError;
-
-      // Combine both sets of tasks
-      const allTasks = [...(completedData || []), ...(pendingData || [])];
-
-      const reportTasks: TaskReport[] = allTasks.map((task) => ({
-        id: task.id,
-        title: task.title,
-        date: task.completed_at 
-          ? format(new Date(task.completed_at), "yyyy-MM-dd")
-          : format(new Date(task.created_at), "yyyy-MM-dd"),
-        time: task.completed_at
-          ? format(new Date(task.completed_at), "HH:mm")
-          : format(new Date(task.created_at), "HH:mm"),
-        client: task.client_name || "",
-        description: task.description || "",
-        timeOut: "",
-        quotedDate: task.due_date ? format(new Date(task.due_date), "yyyy-MM-dd") : "",
-        quoteNo: "",
-        status: task.status,
-      }));
+        return {
+          id: task.id,
+          title: task.title,
+          date: task.completed_at 
+            ? format(new Date(task.completed_at), "yyyy-MM-dd")
+            : format(new Date(task.created_at), "yyyy-MM-dd"),
+          time: task.completed_at
+            ? format(new Date(task.completed_at), "HH:mm")
+            : format(new Date(task.created_at), "HH:mm"),
+          client: task.client_name || "",
+          description: task.description || "",
+          timeOut: "",
+          quotedDate: task.due_date ? format(new Date(task.due_date), "yyyy-MM-dd") : "",
+          quoteNo: "",
+          status: displayStatus,
+        };
+      });
 
       setTasks(reportTasks);
     } catch (error: any) {
