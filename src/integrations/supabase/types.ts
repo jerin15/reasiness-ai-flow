@@ -167,7 +167,9 @@ export type Database = {
       }
       tasks: {
         Row: {
+          assigned_by: string | null
           assigned_to: string | null
+          client_name: string | null
           completed_at: string | null
           created_at: string | null
           created_by: string
@@ -176,6 +178,7 @@ export type Database = {
           due_date: string | null
           id: string
           linked_task_id: string | null
+          my_status: Database["public"]["Enums"]["my_task_status"] | null
           position: number
           previous_status: Database["public"]["Enums"]["task_status"] | null
           priority: Database["public"]["Enums"]["task_priority"]
@@ -184,7 +187,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          assigned_by?: string | null
           assigned_to?: string | null
+          client_name?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by: string
@@ -193,6 +198,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           linked_task_id?: string | null
+          my_status?: Database["public"]["Enums"]["my_task_status"] | null
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
@@ -201,7 +207,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          assigned_by?: string | null
           assigned_to?: string | null
+          client_name?: string | null
           completed_at?: string | null
           created_at?: string | null
           created_by?: string
@@ -210,6 +218,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           linked_task_id?: string | null
+          my_status?: Database["public"]["Enums"]["my_task_status"] | null
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
@@ -286,13 +295,11 @@ export type Database = {
         }
         Returns: boolean
       }
-      mark_old_completed_tasks: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      mark_old_completed_tasks: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "estimation" | "designer" | "operations"
+      my_task_status: "pending" | "done_from_my_side"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status:
         | "todo"
@@ -307,6 +314,7 @@ export type Database = {
         | "approval"
         | "delivery"
         | "done"
+        | "client_approval"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -435,6 +443,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "estimation", "designer", "operations"],
+      my_task_status: ["pending", "done_from_my_side"],
       task_priority: ["low", "medium", "high", "urgent"],
       task_status: [
         "todo",
@@ -449,6 +458,7 @@ export const Constants = {
         "approval",
         "delivery",
         "done",
+        "client_approval",
       ],
     },
   },

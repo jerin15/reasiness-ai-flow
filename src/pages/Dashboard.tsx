@@ -2,9 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { KanbanBoard } from "@/components/KanbanBoard";
+import { MyReportDialog } from "@/components/MyReportDialog";
+import { DueRemindersDialog } from "@/components/DueRemindersDialog";
+import { PendingTasksDialog } from "@/components/PendingTasksDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, MessageSquare, BarChart3, Users } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText } from "lucide-react";
 import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
 
@@ -17,9 +20,20 @@ const Dashboard = () => {
   const [selectedUserRole, setSelectedUserRole] = useState<string>("");
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showMyReport, setShowMyReport] = useState(false);
+  const [showDueReminders, setShowDueReminders] = useState(false);
+  const [showPendingOnSignOut, setShowPendingOnSignOut] = useState(false);
 
   useEffect(() => {
     checkAuth();
+    // Show due reminders on sign in
+    const hasSeenReminders = sessionStorage.getItem("hasSeenReminders");
+    if (!hasSeenReminders) {
+      setTimeout(() => {
+        setShowDueReminders(true);
+        sessionStorage.setItem("hasSeenReminders", "true");
+      }, 1000);
+    }
   }, []);
 
   const checkAuth = async () => {
@@ -76,8 +90,14 @@ const Dashboard = () => {
   };
 
   const handleSignOut = async () => {
+    // Show pending tasks before signing out
+    setShowPendingOnSignOut(true);
+  };
+
+  const confirmSignOut = async () => {
     try {
       await supabase.auth.signOut();
+      sessionStorage.removeItem("hasSeenReminders");
       navigate("/auth");
       toast.success("Signed out successfully");
     } catch (error) {
@@ -168,6 +188,14 @@ const Dashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setShowMyReport(true)}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                My Report
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => navigate("/chat")}
               >
                 <MessageSquare className="h-4 w-4 mr-2" />
@@ -190,6 +218,14 @@ const Dashboard = () => {
           viewingUserRole={selectedUserRole}
         />
       </main>
+
+      <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
+      <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />
+      <PendingTasksDialog 
+        open={showPendingOnSignOut} 
+        onOpenChange={setShowPendingOnSignOut}
+        onConfirmSignOut={confirmSignOut}
+      />
     </div>
   );
 };

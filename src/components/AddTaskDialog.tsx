@@ -20,6 +20,9 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
+  const [assignedBy, setAssignedBy] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [myStatus, setMyStatus] = useState("pending");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,6 +42,9 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         due_date: dueDate || null,
         created_by: user.id,
         status: "todo" as const,
+        assigned_by: assignedBy || null,
+        client_name: clientName || null,
+        my_status: myStatus as "pending" | "done_from_my_side",
       };
 
       // If admin is creating task for another user, assign it
@@ -56,6 +62,9 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       setDescription("");
       setPriority("medium");
       setDueDate("");
+      setAssignedBy("");
+      setClientName("");
+      setMyStatus("pending");
     } catch (error: any) {
       console.error("Error creating task:", error);
       toast.error(error.message || "Failed to create task");
@@ -115,6 +124,38 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                 onChange={(e) => setDueDate(e.target.value)}
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="assignedBy">Assigned By</Label>
+              <Input
+                id="assignedBy"
+                value={assignedBy}
+                onChange={(e) => setAssignedBy(e.target.value)}
+                placeholder="Who assigned this task?"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="clientName">Client Name</Label>
+              <Input
+                id="clientName"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Who is this for?"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="myStatus">My Status</Label>
+            <Select value={myStatus} onValueChange={setMyStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

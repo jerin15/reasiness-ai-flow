@@ -23,6 +23,9 @@ type Task = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  assigned_by: string | null;
+  client_name: string | null;
+  my_status: string;
 };
 
 type Column = {
@@ -56,6 +59,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         return [
           { id: "todo", title: "To-Do List", status: "todo" },
           { id: "supplier_quotes", title: "Supplier Quotes", status: "supplier_quotes" },
+          { id: "client_approval", title: "Client Approval", status: "client_approval" },
           { id: "admin_approval", title: "Admin Cost Approval", status: "admin_approval" },
           { id: "quotation_bill", title: "Quotation Bill", status: "quotation_bill" },
           { id: "production", title: "Production", status: "production" },

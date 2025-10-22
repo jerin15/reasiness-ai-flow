@@ -15,6 +15,9 @@ type Task = {
   priority: string;
   due_date: string | null;
   status: string;
+  assigned_by: string | null;
+  client_name: string | null;
+  my_status: string;
 };
 
 type EditTaskDialogProps = {
@@ -38,6 +41,9 @@ export const EditTaskDialog = ({
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
+  const [assignedBy, setAssignedBy] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [myStatus, setMyStatus] = useState("pending");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -47,6 +53,9 @@ export const EditTaskDialog = ({
       setDescription(task.description || "");
       setPriority(task.priority);
       setDueDate(task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : "");
+      setAssignedBy(task.assigned_by || "");
+      setClientName(task.client_name || "");
+      setMyStatus(task.my_status || "pending");
     }
   }, [task]);
 
@@ -63,6 +72,9 @@ export const EditTaskDialog = ({
           description: description || null,
           priority: priority as "low" | "medium" | "high" | "urgent",
           due_date: dueDate || null,
+          assigned_by: assignedBy || null,
+          client_name: clientName || null,
+          my_status: myStatus as "pending" | "done_from_my_side",
         })
         .eq("id", task.id);
 
@@ -159,6 +171,38 @@ export const EditTaskDialog = ({
                 onChange={(e) => setDueDate(e.target.value)}
               />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-assignedBy">Assigned By</Label>
+              <Input
+                id="edit-assignedBy"
+                value={assignedBy}
+                onChange={(e) => setAssignedBy(e.target.value)}
+                placeholder="Who assigned this task?"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-clientName">Client Name</Label>
+              <Input
+                id="edit-clientName"
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Who is this for?"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-myStatus">My Status</Label>
+            <Select value={myStatus} onValueChange={setMyStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <DialogFooter className="flex justify-between items-center">
             <div>
