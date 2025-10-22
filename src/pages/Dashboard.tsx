@@ -30,6 +30,11 @@ const Dashboard = () => {
 
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  // Show reminders only for non-admin users
+  useEffect(() => {
+    if (!userRole || userRole === "admin") return;
     
     // Show due reminders on sign in
     const hasSeenReminders = sessionStorage.getItem("hasSeenReminders");
@@ -50,7 +55,7 @@ const Dashboard = () => {
         localStorage.setItem("lastPendingCheck", today);
       }, 2000);
     }
-  }, []);
+  }, [userRole]);
 
   const checkAuth = async () => {
     try {
