@@ -98,11 +98,6 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProp
                 {task.description}
               </p>
             )}
-            {task.assigned_by && !isAdminView && (
-              <p className="text-xs text-muted-foreground mb-2">
-                <span className="font-medium">Assigned by:</span> {task.assigned_by}
-              </p>
-            )}
             <div className="flex items-center gap-2 flex-wrap">
               <Badge
                 variant="secondary"
@@ -110,6 +105,14 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProp
               >
                 {task.priority}
               </Badge>
+              {task.assigned_by && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs bg-blue-500 text-white hover:bg-blue-600"
+                >
+                  Assigned by {task.assigned_by}
+                </Badge>
+              )}
               {task.due_date && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Calendar className="h-3 w-3" />
