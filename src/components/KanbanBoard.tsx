@@ -159,7 +159,16 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
       if (error) throw error;
       console.log("✅ Tasks loaded:", data?.length, "| Production:", data?.filter(t => t.status === 'production').length);
-      setTasks(data || []);
+      
+      // Filter out personal tasks (where created_by = assigned_to) when admin views another user
+      let filteredTasks = data || [];
+      if (isAdmin && viewingUserId && viewingUserId !== user.id) {
+        filteredTasks = filteredTasks.filter(task => 
+          !(task.created_by === task.assigned_to && task.assigned_to === viewingUserId)
+        );
+      }
+      
+      setTasks(filteredTasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       toast.error("Failed to load tasks");
@@ -331,13 +340,14 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                 title={column.title}
                 tasks={tasks.filter((task) => task.status === column.status)}
                 onEditTask={handleEditTask}
+                isAdminView={isAdmin && !!viewingUserId}
               />
             ))}
           </SortableContext>
         </div>
 
         <DragOverlay>
-          {activeTask ? <TaskCard task={activeTask} isDragging /> : null}
+          {activeTask ? <TaskCard task={activeTask} isDragging isAdminView={isAdmin && !!viewingUserId} /> : null}
         </DragOverlay>
       </DndContext>
 

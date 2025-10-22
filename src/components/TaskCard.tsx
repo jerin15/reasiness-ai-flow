@@ -25,9 +25,10 @@ type TaskCardProps = {
   task: Task;
   isDragging?: boolean;
   onEdit?: (task: Task) => void;
+  isAdminView?: boolean;
 };
 
-export const TaskCard = ({ task, isDragging, onEdit }: TaskCardProps) => {
+export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProps) => {
   const {
     attributes,
     listeners,
@@ -97,7 +98,7 @@ export const TaskCard = ({ task, isDragging, onEdit }: TaskCardProps) => {
                 {task.description}
               </p>
             )}
-            {task.assigned_by && (
+            {task.assigned_by && !isAdminView && (
               <p className="text-xs text-muted-foreground mb-2">
                 <span className="font-medium">Assigned by:</span> {task.assigned_by}
               </p>

@@ -48,8 +48,11 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       };
 
       // If admin is creating task for another user, assign it
-      if (defaultAssignedTo && defaultAssignedTo !== user.id) {
+      // If creating task for themselves (or no specific user), assign to themselves
+      if (defaultAssignedTo) {
         taskData.assigned_to = defaultAssignedTo;
+      } else {
+        taskData.assigned_to = user.id; // Self-assigned task
       }
 
       const { error } = await supabase.from("tasks").insert(taskData);
