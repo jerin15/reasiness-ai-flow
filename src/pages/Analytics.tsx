@@ -16,6 +16,19 @@ type TaskStats = {
   urgent: number;
   byStatus: Record<string, number>;
   byPriority: Record<string, number>;
+  avgTimeByStatus: Record<string, number>; // Average time in minutes
+};
+
+type TaskWithTiming = {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  completed_at: string | null;
+  profiles?: { full_name: string; email: string };
+  timeInEachStage: Record<string, number>; // Time in minutes
+  totalTime: number; // Total time in minutes
 };
 
 const Analytics = () => {
@@ -28,6 +41,7 @@ const Analytics = () => {
     urgent: 0,
     byStatus: {},
     byPriority: {},
+    avgTimeByStatus: {},
   });
   const [selectedUser, setSelectedUser] = useState<string>("all");
   const [users, setUsers] = useState<any[]>([]);
@@ -89,6 +103,46 @@ const Analytics = () => {
     }
   };
 
+  const calculateTaskTimings = (task: any, history: any[]) => {
+    const timeInEachStage: Record<string, number> = {};
+    
+    // Sort history by created_at
+    const sortedHistory = [...history].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    // Start with task creation time
+    let previousTime = new Date(task.created_at);
+    let previousStatus = sortedHistory[0]?.new_status || task.status;
+
+    sortedHistory.forEach((entry) => {
+      const currentTime = new Date(entry.created_at);
+      const timeSpent = (currentTime.getTime() - previousTime.getTime()) / (1000 * 60); // Convert to minutes
+      
+      if (entry.old_status) {
+        timeInEachStage[entry.old_status] = (timeInEachStage[entry.old_status] || 0) + timeSpent;
+      }
+      
+      previousTime = currentTime;
+      previousStatus = entry.new_status;
+    });
+
+    // Add time for current status if task is not completed
+    if (task.status !== 'done') {
+      const currentTime = new Date();
+      const timeSpent = (currentTime.getTime() - previousTime.getTime()) / (1000 * 60);
+      timeInEachStage[task.status] = (timeInEachStage[task.status] || 0) + timeSpent;
+    } else if (task.completed_at) {
+      const completedTime = new Date(task.completed_at);
+      const timeSpent = (completedTime.getTime() - previousTime.getTime()) / (1000 * 60);
+      timeInEachStage[task.status] = (timeInEachStage[task.status] || 0) + timeSpent;
+    }
+
+    const totalTime = Object.values(timeInEachStage).reduce((sum, time) => sum + time, 0);
+    
+    return { timeInEachStage, totalTime };
+  };
+
   const fetchStats = async () => {
     try {
       let query = supabase.from("tasks").select("*").is("deleted_at", null);
@@ -98,8 +152,33 @@ const Analytics = () => {
       }
 
       const { data: tasks, error } = await query;
-
       if (error) throw error;
+
+      // Fetch task history for all tasks
+      const taskIds = tasks?.map(t => t.id) || [];
+      const { data: allHistory } = await supabase
+        .from("task_history")
+        .select("*")
+        .in("task_id", taskIds);
+
+      // Calculate timings for each task
+      const statusTimes: Record<string, number[]> = {};
+      
+      tasks?.forEach((task) => {
+        const taskHistory = allHistory?.filter(h => h.task_id === task.id) || [];
+        const { timeInEachStage } = calculateTaskTimings(task, taskHistory);
+        
+        Object.entries(timeInEachStage).forEach(([status, time]) => {
+          if (!statusTimes[status]) statusTimes[status] = [];
+          statusTimes[status].push(time);
+        });
+      });
+
+      // Calculate average times
+      const avgTimeByStatus: Record<string, number> = {};
+      Object.entries(statusTimes).forEach(([status, times]) => {
+        avgTimeByStatus[status] = times.reduce((sum, t) => sum + t, 0) / times.length;
+      });
 
       const taskStats: TaskStats = {
         total: tasks?.length || 0,
@@ -108,6 +187,7 @@ const Analytics = () => {
         urgent: tasks?.filter((t) => t.priority === "urgent").length || 0,
         byStatus: {},
         byPriority: {},
+        avgTimeByStatus,
       };
 
       tasks?.forEach((task) => {
@@ -137,35 +217,54 @@ const Analytics = () => {
       }
 
       const { data: tasks, error } = await query;
-
       if (error) throw error;
 
-      // Create CSV content
+      // Fetch task history
+      const taskIds = tasks?.map(t => t.id) || [];
+      const { data: allHistory } = await supabase
+        .from("task_history")
+        .select("*")
+        .in("task_id", taskIds);
+
+      // Create CSV content with timing data
       const headers = [
         "Title",
         "Description",
         "Status",
         "Priority",
         "Created By",
-        "Due Date",
         "Created At",
         "Completed At",
+        "Total Time (hours)",
+        "Time in To Do (hours)",
+        "Time in Estimation (hours)",
+        "Time in Design (hours)",
+        "Time in Production (hours)",
+        "Time in Done (hours)",
       ];
 
       const csvRows = [
         headers.join(","),
-        ...(tasks || []).map((task) =>
-          [
+        ...(tasks || []).map((task) => {
+          const taskHistory = allHistory?.filter(h => h.task_id === task.id) || [];
+          const { timeInEachStage, totalTime } = calculateTaskTimings(task, taskHistory);
+          
+          return [
             `"${task.title}"`,
             `"${task.description || ""}"`,
             task.status,
             task.priority,
             `"${task.profiles?.full_name || task.profiles?.email || ""}"`,
-            task.due_date || "",
             task.created_at,
             task.completed_at || "",
-          ].join(",")
-        ),
+            (totalTime / 60).toFixed(2),
+            ((timeInEachStage.todo || 0) / 60).toFixed(2),
+            ((timeInEachStage.estimation || 0) / 60).toFixed(2),
+            ((timeInEachStage.design || 0) / 60).toFixed(2),
+            ((timeInEachStage.production || 0) / 60).toFixed(2),
+            ((timeInEachStage.done || 0) / 60).toFixed(2),
+          ].join(",");
+        }),
       ];
 
       const csvContent = csvRows.join("\n");
@@ -199,14 +298,20 @@ const Analytics = () => {
       }
 
       const { data: tasks, error } = await query;
-
       if (error) throw error;
+
+      // Fetch task history
+      const taskIds = tasks?.map(t => t.id) || [];
+      const { data: allHistory } = await supabase
+        .from("task_history")
+        .select("*")
+        .in("task_id", taskIds);
 
       const doc = new jsPDF();
       
       // Add title
       doc.setFontSize(18);
-      doc.text("Task Report", 14, 20);
+      doc.text("Task Efficiency Report", 14, 20);
       
       // Add date
       doc.setFontSize(11);
@@ -220,19 +325,24 @@ const Analytics = () => {
         doc.text("Team Member: All", 14, 37);
       }
 
-      // Prepare table data
-      const tableData = (tasks || []).map((task) => [
-        task.title,
-        task.status.replace(/_/g, " "),
-        task.priority,
-        task.profiles?.full_name || task.profiles?.email || "Unknown",
-        task.due_date ? new Date(task.due_date).toLocaleDateString() : "N/A",
-        task.completed_at ? new Date(task.completed_at).toLocaleDateString() : "N/A",
-      ]);
+      // Prepare table data with timing
+      const tableData = (tasks || []).map((task) => {
+        const taskHistory = allHistory?.filter(h => h.task_id === task.id) || [];
+        const { totalTime } = calculateTaskTimings(task, taskHistory);
+        
+        return [
+          task.title,
+          task.status.replace(/_/g, " "),
+          task.priority,
+          task.profiles?.full_name || task.profiles?.email || "Unknown",
+          (totalTime / 60).toFixed(1) + "h",
+          task.completed_at ? new Date(task.completed_at).toLocaleDateString() : "In Progress",
+        ];
+      });
 
       // Add table
       autoTable(doc, {
-        head: [["Title", "Status", "Priority", "Created By", "Due Date", "Completed"]],
+        head: [["Title", "Status", "Priority", "Assigned To", "Total Time", "Completed"]],
         body: tableData,
         startY: 45,
         styles: { fontSize: 8 },
@@ -348,7 +458,7 @@ const Analytics = () => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <Card>
             <CardHeader>
               <CardTitle>Tasks by Status</CardTitle>
@@ -403,6 +513,32 @@ const Analytics = () => {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Average Time per Stage</CardTitle>
+            <CardDescription>How long tasks spend in each workflow stage</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {Object.entries(stats.avgTimeByStatus).map(([status, avgMinutes]) => {
+                const hours = Math.floor(avgMinutes / 60);
+                const minutes = Math.round(avgMinutes % 60);
+                return (
+                  <div key={status} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="text-sm font-medium capitalize">{status.replace(/_/g, " ")}</span>
+                    <div className="text-right">
+                      <div className="text-lg font-bold">
+                        {hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`}
+                      </div>
+                      <div className="text-xs text-muted-foreground">average time</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
