@@ -21,6 +21,8 @@ type Task = {
   position: number;
   assigned_to: string | null;
   created_by: string;
+  created_at: string;
+  updated_at: string;
 };
 
 type Column = {
@@ -107,12 +109,18 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         .is("deleted_at", null);
 
       // If admin is viewing a specific user's tasks, filter by that user
-      if (isAdmin && viewingUserId) {
-        if (viewingUserId === user.id) {
-          // Admin viewing their own tasks - show only personal tasks
-          query = query.eq("created_by", user.id);
+      if (isAdmin) {
+        if (!viewingUserId) {
+          // Admin with no user selected - show nothing
+          console.log("🚫 Admin with no user selected - showing no tasks");
+          query = query.eq("id", "00000000-0000-0000-0000-000000000000"); // Non-existent ID
+        } else if (viewingUserId === user.id) {
+          // Admin viewing their own tasks - show only personal tasks they created for themselves
+          console.log("👤 Admin viewing own tasks");
+          query = query.eq("created_by", user.id).eq("assigned_to", user.id);
         } else {
           // Admin viewing team member tasks - show their tasks AND synced production tasks if viewing operations
+          console.log("👥 Admin viewing team member:", viewingUserId);
           const { data: viewingUserRoleData } = await supabase
             .from("user_roles")
             .select("role")

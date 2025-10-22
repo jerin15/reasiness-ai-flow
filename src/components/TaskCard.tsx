@@ -3,9 +3,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Calendar, GripVertical, Edit2 } from "lucide-react";
+import { Calendar, GripVertical, Edit2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 
 type Task = {
   id: string;
@@ -15,6 +15,8 @@ type Task = {
   priority: string;
   due_date: string | null;
   position: number;
+  created_at: string;
+  updated_at: string;
 };
 
 type TaskCardProps = {
@@ -106,6 +108,10 @@ export const TaskCard = ({ task, isDragging, onEdit }: TaskCardProps) => {
                   <span>{format(new Date(task.due_date), "MMM d")}</span>
                 </div>
               )}
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                <span>{formatDistanceToNow(new Date(task.updated_at), { addSuffix: true })}</span>
+              </div>
             </div>
           </div>
         </div>
