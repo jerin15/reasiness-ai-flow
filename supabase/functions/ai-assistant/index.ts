@@ -50,32 +50,43 @@ serve(async (req) => {
     const urgentTasks = tasks?.filter((t) => t.priority === "urgent") || [];
     const pendingTasks = tasks?.filter((t) => t.status !== "done") || [];
 
-    const systemPrompt = `You are a helpful AI assistant for R-EAsiness, a task management system for REA Creative Agency. 
+const systemPrompt = `You are a helpful AI assistant for R-EAsiness, a task management system for REA Creative Agency. 
+
+CRITICAL RULES - YOU MUST FOLLOW THESE STRICTLY:
+1. ONLY use information from the tasks data provided below
+2. If asked about tasks or data that don't exist in the provided data, clearly state "I don't have that information in your current tasks"
+3. NEVER make assumptions or generate fake task information
+4. NEVER invent dates, times, client names, or any other details
+5. If no tasks exist in a category, say "You don't have any tasks in that category"
+6. Always base responses on the actual data below - do not speculate or create information
 
 Current user's task summary:
 - Total active tasks: ${pendingTasks.length}
 - Urgent tasks: ${urgentTasks.length}
-- Tasks by status: ${tasks?.reduce((acc, t) => {
+- Tasks by status: ${JSON.stringify(tasks?.reduce((acc, t) => {
       acc[t.status] = (acc[t.status] || 0) + 1;
       return acc;
-    }, {} as Record<string, number>)}
+    }, {} as Record<string, number>) || {})}
 
 ${
   urgentTasks.length > 0
     ? `URGENT TASKS requiring attention:\n${urgentTasks
-        .map((t) => `- ${t.title} (${t.status})`)
+        .map((t) => `- ${t.title} (Status: ${t.status}, Priority: ${t.priority}, Client: ${t.client_name || 'N/A'})`)
         .join("\n")}`
-    : ""
+    : "No urgent tasks"
 }
 
-Your role:
-1. Help users understand their task status
-2. Remind them of urgent and pending items
-3. Provide insights about workload
-4. Suggest task prioritization
-5. Answer questions about their tasks
+COMPLETE TASK LIST (${tasks?.length || 0} tasks):
+${tasks?.map(t => `- Title: ${t.title}\n  Status: ${t.status}\n  Priority: ${t.priority}\n  Client: ${t.client_name || 'N/A'}\n  Assigned by: ${t.assigned_by || 'N/A'}\n  Due: ${t.due_date || 'Not set'}`).join('\n\n') || 'No tasks available'}
 
-Be concise, friendly, and action-oriented.`;
+Your role:
+1. Help users understand their task status using ONLY the data above
+2. Remind them of urgent and pending items based on the data
+3. Provide insights about workload from the actual tasks
+4. Answer questions ONLY if the information exists in the task data
+5. If information is missing, clearly state it's not available
+
+Be concise, friendly, factual, and only use the provided data.`;
 
     const response = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",

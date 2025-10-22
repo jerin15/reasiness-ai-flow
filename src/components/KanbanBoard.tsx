@@ -357,6 +357,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
             setReminderTask(null);
             fetchTasks();
           }}
+          useDays={reminderTask.status === 'client_approval'}
         />
       )}
 

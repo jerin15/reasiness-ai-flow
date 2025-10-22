@@ -13,6 +13,7 @@ type ReminderDialogProps = {
   taskId: string;
   taskTitle: string;
   onReminderSet: () => void;
+  useDays?: boolean;
 };
 
 export const ReminderDialog = ({ 
@@ -20,14 +21,15 @@ export const ReminderDialog = ({
   onOpenChange, 
   taskId, 
   taskTitle,
-  onReminderSet 
+  onReminderSet,
+  useDays = false
 }: ReminderDialogProps) => {
-  const [minutes, setMinutes] = useState<number>(30);
+  const [timeValue, setTimeValue] = useState<number>(useDays ? 1 : 30);
   const [loading, setLoading] = useState(false);
 
   const handleSetReminder = async () => {
-    if (!minutes || minutes <= 0) {
-      toast.error("Please enter a valid number of minutes");
+    if (!timeValue || timeValue <= 0) {
+      toast.error(`Please enter a valid number of ${useDays ? 'days' : 'minutes'}`);
       return;
     }
 
@@ -37,7 +39,11 @@ export const ReminderDialog = ({
       if (!user) throw new Error("Not authenticated");
 
       const reminderTime = new Date();
-      reminderTime.setMinutes(reminderTime.getMinutes() + minutes);
+      if (useDays) {
+        reminderTime.setDate(reminderTime.getDate() + timeValue);
+      } else {
+        reminderTime.setMinutes(reminderTime.getMinutes() + timeValue);
+      }
 
       const { error } = await supabase.from("task_reminders").insert({
         task_id: taskId,
@@ -47,10 +53,10 @@ export const ReminderDialog = ({
 
       if (error) throw error;
 
-      toast.success(`Reminder set for ${minutes} minutes from now`);
+      toast.success(`Reminder set for ${timeValue} ${useDays ? 'days' : 'minutes'} from now`);
       onReminderSet();
       onOpenChange(false);
-      setMinutes(30);
+      setTimeValue(useDays ? 1 : 30);
     } catch (error: any) {
       console.error("Error setting reminder:", error);
       toast.error(error.message || "Failed to set reminder");
@@ -73,14 +79,14 @@ export const ReminderDialog = ({
             Set a reminder for task: <span className="font-medium">{taskTitle}</span>
           </p>
           <div className="space-y-2">
-            <Label htmlFor="minutes">Reminder in (minutes)</Label>
+            <Label htmlFor="timeValue">Reminder in ({useDays ? 'days' : 'minutes'})</Label>
             <Input
-              id="minutes"
+              id="timeValue"
               type="number"
               min="1"
-              value={minutes}
-              onChange={(e) => setMinutes(parseInt(e.target.value))}
-              placeholder="Enter minutes"
+              value={timeValue}
+              onChange={(e) => setTimeValue(parseInt(e.target.value))}
+              placeholder={`Enter ${useDays ? 'days' : 'minutes'}`}
             />
           </div>
         </div>

@@ -5,9 +5,10 @@ import { KanbanBoard } from "@/components/KanbanBoard";
 import { MyReportDialog } from "@/components/MyReportDialog";
 import { DueRemindersDialog } from "@/components/DueRemindersDialog";
 import { PendingTasksDialog } from "@/components/PendingTasksDialog";
+import { DailyReportDialog } from "@/components/DailyReportDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, MessageSquare, BarChart3, Users, FileText } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "lucide-react";
 import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
 
@@ -23,6 +24,7 @@ const Dashboard = () => {
   const [showMyReport, setShowMyReport] = useState(false);
   const [showDueReminders, setShowDueReminders] = useState(false);
   const [showPendingOnSignOut, setShowPendingOnSignOut] = useState(false);
+  const [showDailyReport, setShowDailyReport] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -196,6 +198,14 @@ const Dashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setShowDailyReport(true)}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Daily Report
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => navigate("/chat")}
               >
                 <MessageSquare className="h-4 w-4 mr-2" />
@@ -221,6 +231,7 @@ const Dashboard = () => {
 
       <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
       <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />
+      <DailyReportDialog open={showDailyReport} onOpenChange={setShowDailyReport} />
       <PendingTasksDialog 
         open={showPendingOnSignOut} 
         onOpenChange={setShowPendingOnSignOut}
