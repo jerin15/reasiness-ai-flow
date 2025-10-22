@@ -17,6 +17,8 @@ type Task = {
   position: number;
   created_at: string;
   updated_at: string;
+  assigned_by: string | null;
+  client_name: string | null;
 };
 
 type TaskCardProps = {
@@ -93,6 +95,11 @@ export const TaskCard = ({ task, isDragging, onEdit }: TaskCardProps) => {
             {task.description && (
               <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                 {task.description}
+              </p>
+            )}
+            {task.assigned_by && (
+              <p className="text-xs text-muted-foreground mb-2">
+                <span className="font-medium">Assigned by:</span> {task.assigned_by}
               </p>
             )}
             <div className="flex items-center gap-2 flex-wrap">

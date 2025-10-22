@@ -29,8 +29,8 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask }: KanbanColumnProps
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
-    <div className="flex flex-col min-w-[280px] w-80 flex-shrink-0">
-      <div className="bg-card border rounded-lg p-3 mb-2 shadow-sm">
+    <div className="flex flex-col min-w-[240px] flex-1">
+      <div className="bg-card border rounded-lg p-2 mb-2 shadow-sm">
         <h3 className="font-semibold text-sm flex items-center justify-between">
           <span>{title}</span>
           <span className="text-xs bg-muted px-2 py-1 rounded-full">

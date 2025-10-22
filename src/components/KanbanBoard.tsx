@@ -236,9 +236,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     // Skip if not actually changing status
     if (task.status === newStatus) return;
 
-    // Check if moving to supplier_quotes for estimation role (from any status)
+    // Check if moving to supplier_quotes or client_approval for estimation role (from any status)
     const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
-    if (newStatus === "supplier_quotes" && roleToCheck === "estimation") {
+    if ((newStatus === "supplier_quotes" || newStatus === "client_approval") && roleToCheck === "estimation") {
       // Show reminder dialog
       setReminderTask(task);
       setShowReminderDialog(true);
@@ -317,7 +317,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-3 overflow-x-auto pb-4 w-full">
           <SortableContext
             items={columns.map((col) => col.id)}
             strategy={horizontalListSortingStrategy}
