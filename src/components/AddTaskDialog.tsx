@@ -22,6 +22,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [dueDate, setDueDate] = useState("");
   const [assignedBy, setAssignedBy] = useState("");
   const [clientName, setClientName] = useState("");
+  const [supplierName, setSupplierName] = useState("");
   const [myStatus, setMyStatus] = useState("pending");
   const [loading, setLoading] = useState(false);
 
@@ -44,6 +45,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         status: "todo" as const,
         assigned_by: assignedBy || null,
         client_name: clientName || null,
+        supplier_name: supplierName || null,
         my_status: myStatus as "pending" | "done_from_my_side",
       };
 
@@ -67,6 +69,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       setDueDate("");
       setAssignedBy("");
       setClientName("");
+      setSupplierName("");
       setMyStatus("pending");
     } catch (error: any) {
       console.error("Error creating task:", error);
@@ -147,6 +150,15 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                 placeholder="Who is this for?"
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="supplierName">Supplier</Label>
+            <Input
+              id="supplierName"
+              value={supplierName}
+              onChange={(e) => setSupplierName(e.target.value)}
+              placeholder="Supplier name"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="myStatus">My Status</Label>

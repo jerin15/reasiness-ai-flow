@@ -183,6 +183,7 @@ export type Database = {
           previous_status: Database["public"]["Enums"]["task_status"] | null
           priority: Database["public"]["Enums"]["task_priority"]
           status: Database["public"]["Enums"]["task_status"]
+          supplier_name: string | null
           title: string
           updated_at: string | null
         }
@@ -203,6 +204,7 @@ export type Database = {
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
           status?: Database["public"]["Enums"]["task_status"]
+          supplier_name?: string | null
           title: string
           updated_at?: string | null
         }
@@ -223,6 +225,7 @@ export type Database = {
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
           status?: Database["public"]["Enums"]["task_status"]
+          supplier_name?: string | null
           title?: string
           updated_at?: string | null
         }

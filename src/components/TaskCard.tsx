@@ -19,6 +19,7 @@ type Task = {
   updated_at: string;
   assigned_by: string | null;
   client_name: string | null;
+  supplier_name: string | null;
 };
 
 type TaskCardProps = {
@@ -111,6 +112,14 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProp
                   className="text-xs bg-blue-500 text-white hover:bg-blue-600"
                 >
                   Assigned by {task.assigned_by}
+                </Badge>
+              )}
+              {task.supplier_name && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs bg-blue-500 text-white hover:bg-blue-600"
+                >
+                  Supplier: {task.supplier_name}
                 </Badge>
               )}
               {task.due_date && (

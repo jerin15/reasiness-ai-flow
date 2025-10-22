@@ -17,6 +17,7 @@ type Task = {
   status: string;
   assigned_by: string | null;
   client_name: string | null;
+  supplier_name: string | null;
   my_status: string;
 };
 
@@ -43,6 +44,7 @@ export const EditTaskDialog = ({
   const [dueDate, setDueDate] = useState("");
   const [assignedBy, setAssignedBy] = useState("");
   const [clientName, setClientName] = useState("");
+  const [supplierName, setSupplierName] = useState("");
   const [myStatus, setMyStatus] = useState("pending");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -55,6 +57,7 @@ export const EditTaskDialog = ({
       setDueDate(task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : "");
       setAssignedBy(task.assigned_by || "");
       setClientName(task.client_name || "");
+      setSupplierName(task.supplier_name || "");
       setMyStatus(task.my_status || "pending");
     }
   }, [task]);
@@ -74,6 +77,7 @@ export const EditTaskDialog = ({
           due_date: dueDate || null,
           assigned_by: assignedBy || null,
           client_name: clientName || null,
+          supplier_name: supplierName || null,
           my_status: myStatus as "pending" | "done_from_my_side",
         })
         .eq("id", task.id);
@@ -191,6 +195,15 @@ export const EditTaskDialog = ({
                 placeholder="Who is this for?"
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-supplierName">Supplier</Label>
+            <Input
+              id="edit-supplierName"
+              value={supplierName}
+              onChange={(e) => setSupplierName(e.target.value)}
+              placeholder="Supplier name"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-myStatus">My Status</Label>
