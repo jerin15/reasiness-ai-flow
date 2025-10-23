@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Bell, X } from "lucide-react";
 import { Button } from "./ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { ScrollArea } from "./ui/scroll-area";
 
 type StatusChange = {
   id: string;
@@ -156,45 +158,86 @@ export const StatusChangeNotification = () => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  if (notifications.length === 0) return null;
+  const clearAllNotifications = () => {
+    setNotifications([]);
+  };
+
+  const unreadCount = notifications.length;
 
   return (
-    <div className="fixed top-20 right-4 z-50 space-y-2 max-w-md">
-      {notifications.map((notification) => (
-        <div
-          key={notification.id}
-          className="bg-card border-2 border-accent rounded-lg shadow-lg p-4 animate-in slide-in-from-right-5"
-        >
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-1">
-              <Bell className="h-5 w-5 text-accent animate-pulse" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground mb-1">
-                Pipeline Change Alert
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{notification.changedByName}</span>
-                {' '}moved{' '}
-                <span className="font-medium text-foreground">"{notification.taskTitle}"</span>
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                <span className="text-destructive">{notification.oldStatus}</span>
-                {' → '}
-                <span className="text-success">{notification.newStatus}</span>
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 flex-shrink-0"
-              onClick={() => dismissNotification(notification.id)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="relative">
+          <Bell className={`h-4 w-4 ${unreadCount > 0 ? 'animate-pulse text-accent' : ''}`} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-white text-xs flex items-center justify-center font-semibold">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-96 p-0" align="end">
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-accent" />
+            <h3 className="font-semibold">Pipeline Changes</h3>
           </div>
+          {unreadCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearAllNotifications}>
+              Clear All
+            </Button>
+          )}
         </div>
-      ))}
-    </div>
+        <ScrollArea className="h-[400px]">
+          {notifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <Bell className="h-12 w-12 text-muted-foreground/40 mb-3" />
+              <p className="text-sm text-muted-foreground">No recent pipeline changes</p>
+            </div>
+          ) : (
+            <div className="p-2 space-y-2">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className="bg-muted/50 border rounded-lg p-3 hover:bg-muted transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-1">
+                      <Bell className="h-4 w-4 text-accent" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground mb-1">
+                        Pipeline Change
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{notification.changedByName}</span>
+                        {' '}moved{' '}
+                        <span className="font-medium text-foreground">"{notification.taskTitle}"</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        <span className="text-destructive font-medium">{notification.oldStatus}</span>
+                        {' → '}
+                        <span className="text-success font-medium">{notification.newStatus}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">
+                        {new Date(notification.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 flex-shrink-0"
+                      onClick={() => dismissNotification(notification.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
   );
 };

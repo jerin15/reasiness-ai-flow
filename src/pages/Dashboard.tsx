@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "lucide-react";
 import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
+import { StatusChangeNotification } from "@/components/StatusChangeNotification";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -266,6 +267,7 @@ const Dashboard = () => {
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Team Chat
               </Button>
+              <StatusChangeNotification />
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out

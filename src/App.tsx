@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ReminderNotification } from "@/components/ReminderNotification";
-import { StatusChangeNotification } from "@/components/StatusChangeNotification";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 
@@ -19,7 +18,6 @@ const App = () => (
       <Toaster />
       <Sonner />
       <ReminderNotification />
-      <StatusChangeNotification />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Dashboard />} />
