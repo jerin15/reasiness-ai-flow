@@ -56,19 +56,22 @@ const Dashboard = () => {
       }
     }
 
-    // Show NEW due date reminder dialog for ALL users
-    const lastReminderCheck = localStorage.getItem("lastReminderCheck");
-    const today = new Date().toDateString();
-    
-    if (lastReminderCheck !== today) {
-      setTimeout(() => {
-        setShowDueDateReminder(true);
-        localStorage.setItem("lastReminderCheck", today);
-      }, 1500);
+    // Show NEW due date reminder dialog for non-admins only
+    if (userRole !== "admin") {
+      const today = new Date().toDateString();
+      const lastReminderCheck = localStorage.getItem("lastReminderCheck");
+      
+      if (lastReminderCheck !== today) {
+        setTimeout(() => {
+          setShowDueDateReminder(true);
+          localStorage.setItem("lastReminderCheck", today);
+        }, 1500);
+      }
     }
 
     // Show daily pending tasks notification (non-admins only)
     if (userRole !== "admin") {
+      const today = new Date().toDateString();
       const lastPendingCheck = localStorage.getItem("lastPendingCheck");
       
       if (lastPendingCheck !== today) {

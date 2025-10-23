@@ -28,10 +28,27 @@ export const DueDateReminderDialog = ({ open, onOpenChange, userId }: DueDateRem
 
   useEffect(() => {
     if (open && userId) {
-      fetchDueTasks();
-      playNotificationSound();
+      checkUserRoleAndFetch();
     }
   }, [open, userId]);
+
+  const checkUserRoleAndFetch = async () => {
+    try {
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .single();
+
+      // Only fetch and show reminders for non-admin users
+      if (userRole && userRole.role !== "admin") {
+        fetchDueTasks();
+        playNotificationSound();
+      }
+    } catch (error) {
+      console.error("Error checking user role:", error);
+    }
+  };
 
   const playNotificationSound = () => {
     // Create a simple beep sound using Web Audio API

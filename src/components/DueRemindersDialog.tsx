@@ -34,6 +34,19 @@ export const DueRemindersDialog = ({ open, onOpenChange }: DueRemindersDialogPro
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Check if user is admin
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .single();
+
+      // Don't fetch tasks for admins
+      if (userRole && userRole.role === "admin") {
+        setLoading(false);
+        return;
+      }
+
       const today = new Date();
       today.setHours(23, 59, 59, 999);
 
