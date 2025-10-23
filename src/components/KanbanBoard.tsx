@@ -139,9 +139,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         } else {
           // Custom client-side sorting for estimation: type order, then priority, then position
           const typeOrder: Record<string, number> = { 
-            quotations: 1, 
-            invoices: 2, 
-            productions: 3, 
+            quotation: 1, 
+            invoice: 2, 
+            production: 3, 
             general: 4 
           };
           data = (result.data || []).sort((a, b) => {
