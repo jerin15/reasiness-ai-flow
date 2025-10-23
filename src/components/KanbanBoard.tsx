@@ -116,54 +116,18 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         .select("*")
         .is("deleted_at", null);
 
-      // STRICT VISIBILITY RULES:
-      // 1. Tasks assigned to team members ONLY appear in their panel
-      // 2. Admins viewing team members see ALL tasks assigned to that member
-      // 3. Admins viewing their own panel see ONLY tasks they created for themselves (not assigned to others)
-      // 4. Production sync is preserved for estimation/operations workflow
-      
+      // RLS handles visibility, frontend just filters by viewing context
       if (isAdmin && viewingUserId && viewingUserId !== user.id) {
-        // Admin viewing team member tasks - show ALL their tasks
+        // Admin viewing team member
         console.log("👥 Admin viewing team member:", viewingUserId);
-        const { data: viewingUserRoleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", viewingUserId)
-          .maybeSingle();
-        
-        console.log("👀 Viewing user role:", viewingUserRoleData?.role);
-        
-        if (viewingUserRoleData?.role === 'operations') {
-          // Include synced production tasks for operations users (preserve sync)
-          console.log("🔧 Adding operations production tasks to query");
-          query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId},and(status.eq.production,assigned_to.is.null,linked_task_id.not.is.null)`);
-        } else {
-          // For other roles, show tasks created by or assigned to them
-          query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
-        }
+        query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
       } else if (isAdmin && (!viewingUserId || viewingUserId === user.id)) {
-        // Admin viewing their OWN tasks - ONLY show:
-        // 1. Tasks assigned TO them by others
-        // 2. Tasks they created for THEMSELVES (where assigned_to is null or equals their own ID)
-        // 3. Do NOT show tasks they created for others
-        console.log("👤 Admin viewing own tasks - strict filtering");
-        query = query.or(
-          `assigned_to.eq.${user.id},and(created_by.eq.${user.id},or(assigned_to.is.null,assigned_to.eq.${user.id}))`
-        );
+        // Admin viewing own panel - show tasks assigned to them OR created for themselves
+        console.log("👤 Admin viewing own tasks");
+        query = query.or(`assigned_to.eq.${user.id},and(created_by.eq.${user.id},assigned_to.is.null),and(created_by.eq.${user.id},assigned_to.eq.${user.id})`);
       } else {
-        // Regular user (non-admin) - show only THEIR tasks
-        if (currentUserRole === 'operations') {
-          console.log("🔧 Operations user - including synced production tasks");
-          // Operations: assigned to them + created by them + synced production tasks
-          query = query.or(
-            `assigned_to.eq.${user.id},and(created_by.eq.${user.id},or(assigned_to.is.null,assigned_to.eq.${user.id})),and(status.eq.production,assigned_to.is.null,linked_task_id.not.is.null)`
-          );
-        } else {
-          // Other roles: assigned to them OR created by them for themselves
-          query = query.or(
-            `assigned_to.eq.${user.id},and(created_by.eq.${user.id},or(assigned_to.is.null,assigned_to.eq.${user.id}))`
-          );
-        }
+        // Non-admin viewing their own tasks
+        query = query.or(`assigned_to.eq.${user.id},and(created_by.eq.${user.id},assigned_to.is.null),and(created_by.eq.${user.id},assigned_to.eq.${user.id})`);
       }
 
       const { data, error } = await query
