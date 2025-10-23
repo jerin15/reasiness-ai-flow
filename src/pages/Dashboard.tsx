@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { MyReportDialog } from "@/components/MyReportDialog";
 import { DueRemindersDialog } from "@/components/DueRemindersDialog";
+import { DueDateReminderDialog } from "@/components/DueDateReminderDialog";
 import { PendingTasksDialog } from "@/components/PendingTasksDialog";
 import { DailyReportDialog } from "@/components/DailyReportDialog";
 import { DailyPendingTasksDialog } from "@/components/DailyPendingTasksDialog";
@@ -11,6 +12,7 @@ import { TeamMemberReportDialog } from "@/components/TeamMemberReportDialog";
 import { ChatDialog } from "@/components/ChatDialog";
 import { TeamChatListDialog } from "@/components/TeamChatListDialog";
 import { ReportsDownloadDialog } from "@/components/ReportsDownloadDialog";
+import { AdminTaskReportDialog } from "@/components/AdminTaskReportDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "lucide-react";
@@ -28,6 +30,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showMyReport, setShowMyReport] = useState(false);
   const [showDueReminders, setShowDueReminders] = useState(false);
+  const [showDueDateReminder, setShowDueDateReminder] = useState(false);
   const [showPendingOnSignOut, setShowPendingOnSignOut] = useState(false);
   const [showDailyReport, setShowDailyReport] = useState(false);
   const [showDailyPending, setShowDailyPending] = useState(false);
@@ -36,35 +39,50 @@ const Dashboard = () => {
   const [chatRecipientId, setChatRecipientId] = useState("");
   const [chatRecipientName, setChatRecipientName] = useState("");
   const [showReportsDownload, setShowReportsDownload] = useState(false);
+  const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
 
   useEffect(() => {
     checkAuth();
   }, []);
 
-  // Show reminders only for non-admin users
+  // Show reminders for all users
   useEffect(() => {
-    if (!userRole || userRole === "admin") return;
+    if (!userRole || !currentUserId) return;
     
-    // Show due reminders on sign in
-    const hasSeenReminders = sessionStorage.getItem("hasSeenReminders");
-    if (!hasSeenReminders) {
-      setTimeout(() => {
-        setShowDueReminders(true);
-        sessionStorage.setItem("hasSeenReminders", "true");
-      }, 1000);
+    // Show old due reminders on sign in (for non-admins)
+    if (userRole !== "admin") {
+      const hasSeenReminders = sessionStorage.getItem("hasSeenReminders");
+      if (!hasSeenReminders) {
+        setTimeout(() => {
+          setShowDueReminders(true);
+          sessionStorage.setItem("hasSeenReminders", "true");
+        }, 1000);
+      }
     }
 
-    // Show daily pending tasks notification
-    const lastPendingCheck = localStorage.getItem("lastPendingCheck");
+    // Show NEW due date reminder dialog for ALL users
+    const lastReminderCheck = localStorage.getItem("lastReminderCheck");
     const today = new Date().toDateString();
     
-    if (lastPendingCheck !== today) {
+    if (lastReminderCheck !== today) {
       setTimeout(() => {
-        setShowDailyPending(true);
-        localStorage.setItem("lastPendingCheck", today);
-      }, 2000);
+        setShowDueDateReminder(true);
+        localStorage.setItem("lastReminderCheck", today);
+      }, 1500);
     }
-  }, [userRole]);
+
+    // Show daily pending tasks notification (non-admins only)
+    if (userRole !== "admin") {
+      const lastPendingCheck = localStorage.getItem("lastPendingCheck");
+      
+      if (lastPendingCheck !== today) {
+        setTimeout(() => {
+          setShowDailyPending(true);
+          localStorage.setItem("lastPendingCheck", today);
+        }, 2000);
+      }
+    }
+  }, [userRole, currentUserId]);
 
   const checkAuth = async () => {
     try {
@@ -240,14 +258,24 @@ const Dashboard = () => {
                 Daily Report
               </Button>
               {userRole === "admin" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowReportsDownload(true)}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Reports
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowReportsDownload(true)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Reports
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAdminTaskReport(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Member Reports
+                  </Button>
+                </>
               )}
               <Button
                 variant="outline"
@@ -277,6 +305,11 @@ const Dashboard = () => {
 
       <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
       <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />
+      <DueDateReminderDialog 
+        open={showDueDateReminder} 
+        onOpenChange={setShowDueDateReminder}
+        userId={currentUserId}
+      />
       <DailyReportDialog open={showDailyReport} onOpenChange={setShowDailyReport} />
       <DailyPendingTasksDialog open={showDailyPending} onOpenChange={setShowDailyPending} />
       <PendingTasksDialog 
@@ -317,6 +350,14 @@ const Dashboard = () => {
         open={showReportsDownload}
         onOpenChange={setShowReportsDownload}
       />
+
+      {userRole === "admin" && (
+        <AdminTaskReportDialog
+          open={showAdminTaskReport}
+          onOpenChange={setShowAdminTaskReport}
+          teamMembers={teamMembers}
+        />
+      )}
     </div>
   );
 };

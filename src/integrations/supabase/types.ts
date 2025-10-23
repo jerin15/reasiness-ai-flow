@@ -130,6 +130,47 @@ export type Database = {
           },
         ]
       }
+      task_audit_log: {
+        Row: {
+          action: string
+          changed_by: string
+          created_at: string
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          role: string
+          task_id: string
+        }
+        Insert: {
+          action: string
+          changed_by: string
+          created_at?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          role: string
+          task_id: string
+        }
+        Update: {
+          action?: string
+          changed_by?: string
+          created_at?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          role?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_audit_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_history: {
         Row: {
           action: string
@@ -233,12 +274,14 @@ export type Database = {
           position: number
           previous_status: Database["public"]["Enums"]["task_status"] | null
           priority: Database["public"]["Enums"]["task_priority"]
+          reminder_sent: boolean | null
           status: Database["public"]["Enums"]["task_status"]
           status_changed_at: string | null
           supplier_name: string | null
           title: string
           type: Database["public"]["Enums"]["task_type"] | null
           updated_at: string | null
+          visible_to: string | null
         }
         Insert: {
           assigned_by?: string | null
@@ -256,12 +299,14 @@ export type Database = {
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
+          reminder_sent?: boolean | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null
           title: string
           type?: Database["public"]["Enums"]["task_type"] | null
           updated_at?: string | null
+          visible_to?: string | null
         }
         Update: {
           assigned_by?: string | null
@@ -279,12 +324,14 @@ export type Database = {
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
+          reminder_sent?: boolean | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null
           title?: string
           type?: Database["public"]["Enums"]["task_type"] | null
           updated_at?: string | null
+          visible_to?: string | null
         }
         Relationships: [
           {
@@ -344,6 +391,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_due_date_reminders: { Args: never; Returns: undefined }
       cleanup_old_completed_tasks: { Args: never; Returns: undefined }
       get_user_role: {
         Args: { _user_id: string }
