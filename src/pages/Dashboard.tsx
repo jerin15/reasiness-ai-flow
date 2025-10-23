@@ -10,6 +10,7 @@ import { DailyPendingTasksDialog } from "@/components/DailyPendingTasksDialog";
 import { TeamMemberReportDialog } from "@/components/TeamMemberReportDialog";
 import { ChatDialog } from "@/components/ChatDialog";
 import { TeamChatListDialog } from "@/components/TeamChatListDialog";
+import { ReportsDownloadDialog } from "@/components/ReportsDownloadDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "lucide-react";
@@ -34,6 +35,7 @@ const Dashboard = () => {
   const [showChat, setShowChat] = useState(false);
   const [chatRecipientId, setChatRecipientId] = useState("");
   const [chatRecipientName, setChatRecipientName] = useState("");
+  const [showReportsDownload, setShowReportsDownload] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -237,6 +239,16 @@ const Dashboard = () => {
                 <Download className="h-4 w-4 mr-2" />
                 Daily Report
               </Button>
+              {userRole === "admin" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowReportsDownload(true)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Reports
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -300,6 +312,11 @@ const Dashboard = () => {
           recipientName={chatRecipientName}
         />
       )}
+      
+      <ReportsDownloadDialog
+        open={showReportsDownload}
+        onOpenChange={setShowReportsDownload}
+      />
     </div>
   );
 };
