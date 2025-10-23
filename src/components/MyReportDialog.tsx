@@ -35,17 +35,25 @@ export const MyReportDialog = ({ open, onOpenChange }: MyReportDialogProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: tasks } = await supabase
+      // Fetch pending tasks (not done status, pending my_status)
+      const { data: pendingData } = await supabase
         .from("tasks")
         .select("id, title, status, priority, my_status, due_date")
         .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
         .is("deleted_at", null)
+        .eq("my_status", "pending")
         .neq("status", "done");
 
-      if (tasks) {
-        setPendingTasks(tasks.filter(t => t.my_status === "pending"));
-        setDoneTasks(tasks.filter(t => t.my_status === "done_from_my_side"));
-      }
+      // Fetch done from my side tasks (including tasks with status = done)
+      const { data: doneData } = await supabase
+        .from("tasks")
+        .select("id, title, status, priority, my_status, due_date")
+        .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+        .is("deleted_at", null)
+        .eq("my_status", "done_from_my_side");
+
+      setPendingTasks(pendingData || []);
+      setDoneTasks(doneData || []);
     } catch (error) {
       console.error("Error fetching tasks:", error);
     } finally {
