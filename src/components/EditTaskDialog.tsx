@@ -82,7 +82,7 @@ export const EditTaskDialog = ({
           client_name: clientName || null,
           supplier_name: supplierName || null,
           my_status: myStatus as "pending" | "done_from_my_side",
-          type: taskType as "quotation" | "invoice" | "general",
+          type: taskType as "quotation" | "invoice" | "general" | "production",
         })
         .eq("id", task.id);
 
@@ -232,6 +232,7 @@ export const EditTaskDialog = ({
                   <SelectItem value="quotation">QUOTATION</SelectItem>
                   <SelectItem value="invoice">INVOICE</SelectItem>
                   <SelectItem value="general">GENERAL</SelectItem>
+                  <SelectItem value="production">PRODUCTION</SelectItem>
                 </SelectContent>
               </Select>
             </div>
