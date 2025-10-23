@@ -88,6 +88,54 @@ ${tasks?.map(task => `
 `).join('\n') || 'No tasks'}
 `;
 
+    // Generate enhanced PDF-style report in HTML format
+    const htmlReport = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 40px; }
+    h1 { color: #333; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; }
+    h2 { color: #555; margin-top: 30px; }
+    .metadata { background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    .task { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+    .task-title { font-weight: bold; color: #2196F3; }
+    .summary { background: #fff3cd; padding: 10px; margin: 10px 0; border-left: 4px solid #ffc107; }
+  </style>
+</head>
+<body>
+  <h1>COMPLETED TASKS REPORT</h1>
+  <div class="metadata">
+    <strong>Generated:</strong> ${new Date().toLocaleString()}<br>
+    <strong>Period:</strong> Last 7 days<br>
+    <strong>Total Completed Tasks:</strong> ${tasks?.length || 0}
+  </div>
+  
+  <h2>SUMMARY BY TYPE</h2>
+  <div class="summary">${generateSummary(tasks || [], 'type').split('\n').map(line => `<div>${line}</div>`).join('')}</div>
+  
+  <h2>SUMMARY BY PRIORITY</h2>
+  <div class="summary">${generateSummary(tasks || [], 'priority').split('\n').map(line => `<div>${line}</div>`).join('')}</div>
+  
+  <h2>SUMMARY BY USER</h2>
+  <div class="summary">${generateUserSummary(tasks || []).split('\n').map(line => `<div>${line}</div>`).join('')}</div>
+  
+  <h2>DETAILED TASKS</h2>
+  ${tasks?.map(task => `
+    <div class="task">
+      <div class="task-title">${task.title}</div>
+      <div><strong>Type:</strong> ${task.type || 'general'} | <strong>Priority:</strong> ${task.priority}</div>
+      <div><strong>Client:</strong> ${task.client_name || 'N/A'} | <strong>Supplier:</strong> ${task.supplier_name || 'N/A'}</div>
+      <div><strong>Completed:</strong> ${task.completed_at ? new Date(task.completed_at).toLocaleString() : 'N/A'}</div>
+      <div><strong>Assigned to:</strong> ${task.assignee?.full_name || task.assignee?.email || 'Unassigned'}</div>
+      <div><strong>Description:</strong> ${task.description || 'N/A'}</div>
+    </div>
+  `).join('') || '<p>No tasks</p>'}
+</body>
+</html>
+`;
+
     // Store reports in storage
     const timestamp = Date.now();
     
@@ -117,6 +165,19 @@ ${tasks?.map(task => `
       throw txtError;
     }
 
+    // Upload HTML report (can be opened as PDF alternative)
+    const { error: htmlError } = await supabase.storage
+      .from('task-reports')
+      .upload(`reports/completed-tasks-${reportDate}-${timestamp}.html`, htmlReport, {
+        contentType: 'text/html',
+        upsert: true
+      });
+
+    if (htmlError) {
+      console.error('HTML report upload error:', htmlError);
+      throw htmlError;
+    }
+
     console.log('Reports generated and stored successfully');
 
     return new Response(
@@ -125,7 +186,8 @@ ${tasks?.map(task => `
         message: 'Reports generated successfully',
         taskCount: tasks?.length || 0,
         csvFile: `completed-tasks-${reportDate}-${timestamp}.csv`,
-        txtFile: `completed-tasks-${reportDate}-${timestamp}.txt`
+        txtFile: `completed-tasks-${reportDate}-${timestamp}.txt`,
+        htmlFile: `completed-tasks-${reportDate}-${timestamp}.html`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

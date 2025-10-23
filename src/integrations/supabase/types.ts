@@ -344,6 +344,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_completed_tasks: { Args: never; Returns: undefined }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
