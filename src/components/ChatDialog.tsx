@@ -51,37 +51,65 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
     if (open && currentUserId && recipientId) {
       fetchMessages();
       
-      // Subscribe to new messages
-      const channel = supabase
-        .channel(`messages:${currentUserId}:${recipientId}`)
+      // Subscribe to new messages - use two separate channels for better real-time reliability
+      const channelReceived = supabase
+        .channel(`messages-received-${currentUserId}-${recipientId}`)
         .on(
           'postgres_changes',
           {
             event: 'INSERT',
             schema: 'public',
             table: 'messages',
-            filter: `or(and(sender_id.eq.${recipientId},recipient_id.eq.${currentUserId}),and(sender_id.eq.${currentUserId},recipient_id.eq.${recipientId}))`,
+            filter: `sender_id=eq.${recipientId}`,
           },
           (payload) => {
             const newMsg = payload.new as Message;
-            setMessages((prev) => [...prev, newMsg]);
-            
-            // Play sound if message is from recipient
-            if (newMsg.sender_id === recipientId && audioRef.current) {
-              audioRef.current.play().catch(e => console.log('Audio play failed:', e));
-            }
-            
-            // Show notification
-            if (newMsg.sender_id === recipientId) {
+            if (newMsg.recipient_id === currentUserId) {
+              setMessages((prev) => {
+                // Avoid duplicates
+                if (prev.some(m => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+              });
+              
+              // Play sound
+              if (audioRef.current) {
+                audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+              }
+              
+              // Show notification
               if (Notification.permission === 'granted') {
                 new Notification(`New message from ${recipientName}`, {
                   body: newMsg.message,
                   icon: '/favicon.ico'
                 });
               }
+              
+              scrollToBottom();
             }
-            
-            scrollToBottom();
+          }
+        )
+        .subscribe();
+
+      const channelSent = supabase
+        .channel(`messages-sent-${currentUserId}-${recipientId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `sender_id=eq.${currentUserId}`,
+          },
+          (payload) => {
+            const newMsg = payload.new as Message;
+            if (newMsg.recipient_id === recipientId) {
+              setMessages((prev) => {
+                // Avoid duplicates
+                if (prev.some(m => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+              });
+              scrollToBottom();
+            }
           }
         )
         .subscribe();
@@ -92,7 +120,8 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
       }
 
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(channelReceived);
+        supabase.removeChannel(channelSent);
       };
     }
   }, [open, currentUserId, recipientId, recipientName]);

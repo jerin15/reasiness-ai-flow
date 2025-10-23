@@ -37,7 +37,7 @@ export const TeamChatListDialog = ({
 
       // Subscribe to new messages for real-time unread count updates
       const channel = supabase
-        .channel('new-messages-list')
+        .channel('new-messages-unread-counts')
         .on(
           'postgres_changes',
           {
@@ -47,10 +47,26 @@ export const TeamChatListDialog = ({
             filter: `recipient_id=eq.${currentUserId}`,
           },
           () => {
+            console.log('New message received, updating unread counts');
             fetchUnreadCounts();
           }
         )
-        .subscribe();
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'messages',
+            filter: `recipient_id=eq.${currentUserId}`,
+          },
+          () => {
+            console.log('Message updated, refreshing unread counts');
+            fetchUnreadCounts();
+          }
+        )
+        .subscribe((status) => {
+          console.log('Team chat list subscription status:', status);
+        });
 
       return () => {
         supabase.removeChannel(channel);

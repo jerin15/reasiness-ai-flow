@@ -13,6 +13,7 @@ type Task = {
   position: number;
   created_at: string;
   updated_at: string;
+  status_changed_at: string;
   assigned_by: string | null;
   client_name: string | null;
   my_status: string;

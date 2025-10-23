@@ -17,6 +17,7 @@ type Task = {
   position: number;
   created_at: string;
   updated_at: string;
+  status_changed_at: string;
   assigned_by: string | null;
   client_name: string | null;
   supplier_name: string | null;
@@ -150,7 +151,7 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProp
               )}
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                <span>{formatDistanceToNow(new Date(task.updated_at), { addSuffix: true })}</span>
+                <span>{formatDistanceToNow(new Date(task.status_changed_at), { addSuffix: true })}</span>
               </div>
             </div>
           </div>
