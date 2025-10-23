@@ -126,9 +126,38 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         query = query.or(`assigned_to.eq.${user.id},and(created_by.eq.${user.id},or(assigned_to.is.null,assigned_to.eq.${user.id}))`);
       }
 
-      const { data, error } = await query
-        .order("priority", { ascending: false })
-        .order("position", { ascending: true });
+      // For estimation role, order by type first (quotations, invoices, productions, generals)
+      const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : currentUserRole;
+      
+      let data, error;
+      if (roleToCheck === 'estimation') {
+        const result = await query;
+        if (result.error) {
+          error = result.error;
+          data = null;
+        } else {
+          // Custom client-side sorting for estimation: type order, then priority, then position
+          const typeOrder = { quotations: 1, invoices: 2, productions: 3, general: 4 };
+          data = (result.data || []).sort((a, b) => {
+            const typeA = typeOrder[a.type as keyof typeof typeOrder] || 999;
+            const typeB = typeOrder[b.type as keyof typeof typeOrder] || 999;
+            if (typeA !== typeB) return typeA - typeB;
+            
+            const priorityOrder = { high: 3, medium: 2, low: 1 };
+            const priorityA = priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
+            const priorityB = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
+            if (priorityA !== priorityB) return priorityB - priorityA;
+            
+            return a.position - b.position;
+          });
+        }
+      } else {
+        const result = await query
+          .order("priority", { ascending: false })
+          .order("position", { ascending: true });
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
       console.log("✅ Tasks loaded:", data?.length, "| Production:", data?.filter(t => t.status === 'production').length);
