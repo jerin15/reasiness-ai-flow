@@ -8,6 +8,7 @@ import { TaskCard } from "./TaskCard";
 import { AddTaskDialog } from "./AddTaskDialog";
 import { ReminderDialog } from "./ReminderDialog";
 import { EditTaskDialog } from "./EditTaskDialog";
+import { StatusChangeNotification } from "./StatusChangeNotification";
 import { Button } from "./ui/button";
 import { Plus } from "lucide-react";
 
@@ -137,15 +138,21 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           data = null;
         } else {
           // Custom client-side sorting for estimation: type order, then priority, then position
-          const typeOrder = { quotations: 1, invoices: 2, productions: 3, general: 4 };
+          const typeOrder: Record<string, number> = { 
+            quotations: 1, 
+            invoices: 2, 
+            productions: 3, 
+            general: 4 
+          };
           data = (result.data || []).sort((a, b) => {
-            const typeA = typeOrder[a.type as keyof typeof typeOrder] || 999;
-            const typeB = typeOrder[b.type as keyof typeof typeOrder] || 999;
+            // Normalize type to lowercase for comparison
+            const typeA = typeOrder[a.type?.toLowerCase()] || 999;
+            const typeB = typeOrder[b.type?.toLowerCase()] || 999;
             if (typeA !== typeB) return typeA - typeB;
             
-            const priorityOrder = { high: 3, medium: 2, low: 1 };
-            const priorityA = priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
-            const priorityB = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
+            const priorityOrder: Record<string, number> = { high: 3, medium: 2, low: 1 };
+            const priorityA = priorityOrder[a.priority?.toLowerCase()] || 0;
+            const priorityB = priorityOrder[b.priority?.toLowerCase()] || 0;
             if (priorityA !== priorityB) return priorityB - priorityA;
             
             return a.position - b.position;
@@ -307,6 +314,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
   return (
     <div className="h-full flex flex-col">
+      <StatusChangeNotification />
+      
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">
           {isAdmin && viewingUserId ? "Team Member Tasks" : "My Tasks"}
