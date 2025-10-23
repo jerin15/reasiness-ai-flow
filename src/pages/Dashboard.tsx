@@ -8,6 +8,8 @@ import { PendingTasksDialog } from "@/components/PendingTasksDialog";
 import { DailyReportDialog } from "@/components/DailyReportDialog";
 import { DailyPendingTasksDialog } from "@/components/DailyPendingTasksDialog";
 import { TeamMemberReportDialog } from "@/components/TeamMemberReportDialog";
+import { ChatDialog } from "@/components/ChatDialog";
+import { TeamChatListDialog } from "@/components/TeamChatListDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "lucide-react";
@@ -29,6 +31,9 @@ const Dashboard = () => {
   const [showDailyReport, setShowDailyReport] = useState(false);
   const [showDailyPending, setShowDailyPending] = useState(false);
   const [showTeamReport, setShowTeamReport] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatRecipientId, setChatRecipientId] = useState("");
+  const [chatRecipientName, setChatRecipientName] = useState("");
 
   useEffect(() => {
     checkAuth();
@@ -240,6 +245,14 @@ const Dashboard = () => {
                 <MessageSquare className="h-4 w-4 mr-2" />
                 AI Assistant
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowChat(true)}
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Team Chat
+              </Button>
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
@@ -271,6 +284,30 @@ const Dashboard = () => {
         open={showTeamReport}
         onOpenChange={setShowTeamReport}
       />
+      
+      <TeamChatListDialog
+        open={showChat}
+        onOpenChange={setShowChat}
+        onSelectMember={(memberId, memberName) => {
+          setChatRecipientId(memberId);
+          setChatRecipientName(memberName);
+        }}
+        currentUserId={currentUserId}
+      />
+      
+      {chatRecipientId && (
+        <ChatDialog
+          open={!!chatRecipientId}
+          onOpenChange={(open) => {
+            if (!open) {
+              setChatRecipientId("");
+              setChatRecipientName("");
+            }
+          }}
+          recipientId={chatRecipientId}
+          recipientName={chatRecipientName}
+        />
+      )}
     </div>
   );
 };

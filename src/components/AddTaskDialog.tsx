@@ -24,6 +24,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [clientName, setClientName] = useState("");
   const [supplierName, setSupplierName] = useState("");
   const [myStatus, setMyStatus] = useState("pending");
+  const [taskType, setTaskType] = useState("general");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,6 +48,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         client_name: clientName || null,
         supplier_name: supplierName || null,
         my_status: myStatus as "pending" | "done_from_my_side",
+        type: taskType as "quotation" | "invoice" | "general",
       };
 
       // If admin is creating task for another user, assign it
@@ -71,6 +73,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       setClientName("");
       setSupplierName("");
       setMyStatus("pending");
+      setTaskType("general");
     } catch (error: any) {
       console.error("Error creating task:", error);
       toast.error(error.message || "Failed to create task");
@@ -160,17 +163,32 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
               placeholder="Supplier name"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="myStatus">My Status</Label>
-            <Select value={myStatus} onValueChange={setMyStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="myStatus">My Status</Label>
+              <Select value={myStatus} onValueChange={setMyStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taskType">Type</Label>
+              <Select value={taskType} onValueChange={setTaskType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quotation">QUOTATION</SelectItem>
+                  <SelectItem value="invoice">INVOICE</SelectItem>
+                  <SelectItem value="general">GENERAL</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

@@ -19,6 +19,7 @@ type Task = {
   client_name: string | null;
   supplier_name: string | null;
   my_status: string;
+  type: string;
 };
 
 type EditTaskDialogProps = {
@@ -46,6 +47,7 @@ export const EditTaskDialog = ({
   const [clientName, setClientName] = useState("");
   const [supplierName, setSupplierName] = useState("");
   const [myStatus, setMyStatus] = useState("pending");
+  const [taskType, setTaskType] = useState("general");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -59,6 +61,7 @@ export const EditTaskDialog = ({
       setClientName(task.client_name || "");
       setSupplierName(task.supplier_name || "");
       setMyStatus(task.my_status || "pending");
+      setTaskType(task.type || "general");
     }
   }, [task]);
 
@@ -79,6 +82,7 @@ export const EditTaskDialog = ({
           client_name: clientName || null,
           supplier_name: supplierName || null,
           my_status: myStatus as "pending" | "done_from_my_side",
+          type: taskType as "quotation" | "invoice" | "general",
         })
         .eq("id", task.id);
 
@@ -205,17 +209,32 @@ export const EditTaskDialog = ({
               placeholder="Supplier name"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-myStatus">My Status</Label>
-            <Select value={myStatus} onValueChange={setMyStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-myStatus">My Status</Label>
+              <Select value={myStatus} onValueChange={setMyStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-taskType">Type</Label>
+              <Select value={taskType} onValueChange={setTaskType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="quotation">QUOTATION</SelectItem>
+                  <SelectItem value="invoice">INVOICE</SelectItem>
+                  <SelectItem value="general">GENERAL</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter className="flex justify-between items-center">
             <div>

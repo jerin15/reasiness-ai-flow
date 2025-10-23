@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      messages: {
+        Row: {
+          attachment_name: string | null
+          attachment_url: string | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          recipient_id: string
+          sender_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          recipient_id: string
+          sender_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          recipient_id?: string
+          sender_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null
@@ -185,6 +236,7 @@ export type Database = {
           status: Database["public"]["Enums"]["task_status"]
           supplier_name: string | null
           title: string
+          type: Database["public"]["Enums"]["task_type"] | null
           updated_at: string | null
         }
         Insert: {
@@ -206,6 +258,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"]
           supplier_name?: string | null
           title: string
+          type?: Database["public"]["Enums"]["task_type"] | null
           updated_at?: string | null
         }
         Update: {
@@ -227,6 +280,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"]
           supplier_name?: string | null
           title?: string
+          type?: Database["public"]["Enums"]["task_type"] | null
           updated_at?: string | null
         }
         Relationships: [
@@ -318,6 +372,7 @@ export type Database = {
         | "delivery"
         | "done"
         | "client_approval"
+      task_type: "quotation" | "invoice" | "general"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -463,6 +518,7 @@ export const Constants = {
         "done",
         "client_approval",
       ],
+      task_type: ["quotation", "invoice", "general"],
     },
   },
 } as const

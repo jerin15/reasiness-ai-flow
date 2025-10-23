@@ -27,6 +27,7 @@ type Task = {
   client_name: string | null;
   my_status: string;
   supplier_name: string | null;
+  type: string;
 };
 
 type Column = {

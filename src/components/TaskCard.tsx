@@ -20,6 +20,7 @@ type Task = {
   assigned_by: string | null;
   client_name: string | null;
   supplier_name: string | null;
+  type: string;
 };
 
 type TaskCardProps = {
@@ -54,6 +55,19 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProp
         return "bg-priority-medium text-white";
       case "low":
         return "bg-priority-low text-white";
+      default:
+        return "bg-muted";
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "quotation":
+        return "bg-purple-500 text-white hover:bg-purple-600";
+      case "invoice":
+        return "bg-green-500 text-white hover:bg-green-600";
+      case "general":
+        return "bg-gray-500 text-white hover:bg-gray-600";
       default:
         return "bg-muted";
     }
@@ -105,6 +119,12 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProp
                 className={cn("text-xs capitalize", getPriorityColor(task.priority))}
               >
                 {task.priority}
+              </Badge>
+              <Badge
+                variant="secondary"
+                className={cn("text-xs uppercase", getTypeColor(task.type))}
+              >
+                {task.type}
               </Badge>
               {task.assigned_by && (
                 <Badge
