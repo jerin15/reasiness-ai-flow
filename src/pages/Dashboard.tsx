@@ -6,12 +6,10 @@ import { MyReportDialog } from "@/components/MyReportDialog";
 import { DueRemindersDialog } from "@/components/DueRemindersDialog";
 import { DueDateReminderDialog } from "@/components/DueDateReminderDialog";
 import { PendingTasksDialog } from "@/components/PendingTasksDialog";
-import { DailyReportDialog } from "@/components/DailyReportDialog";
 import { DailyPendingTasksDialog } from "@/components/DailyPendingTasksDialog";
 import { TeamMemberReportDialog } from "@/components/TeamMemberReportDialog";
 import { ChatDialog } from "@/components/ChatDialog";
 import { TeamChatListDialog } from "@/components/TeamChatListDialog";
-import { ReportsDownloadDialog } from "@/components/ReportsDownloadDialog";
 import { AdminTaskReportDialog } from "@/components/AdminTaskReportDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,13 +30,11 @@ const Dashboard = () => {
   const [showDueReminders, setShowDueReminders] = useState(false);
   const [showDueDateReminder, setShowDueDateReminder] = useState(false);
   const [showPendingOnSignOut, setShowPendingOnSignOut] = useState(false);
-  const [showDailyReport, setShowDailyReport] = useState(false);
   const [showDailyPending, setShowDailyPending] = useState(false);
   const [showTeamReport, setShowTeamReport] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatRecipientId, setChatRecipientId] = useState("");
   const [chatRecipientName, setChatRecipientName] = useState("");
-  const [showReportsDownload, setShowReportsDownload] = useState(false);
   const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
 
   useEffect(() => {
@@ -249,33 +245,15 @@ const Dashboard = () => {
                 <FileText className="h-4 w-4 mr-2" />
                 My Report
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDailyReport(true)}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Daily Report
-              </Button>
               {userRole === "admin" && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowReportsDownload(true)}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Reports
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAdminTaskReport(true)}
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Member Reports
-                  </Button>
-                </>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdminTaskReport(true)}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Member Reports
+                </Button>
               )}
               <Button
                 variant="outline"
@@ -310,7 +288,6 @@ const Dashboard = () => {
         onOpenChange={setShowDueDateReminder}
         userId={currentUserId}
       />
-      <DailyReportDialog open={showDailyReport} onOpenChange={setShowDailyReport} />
       <DailyPendingTasksDialog open={showDailyPending} onOpenChange={setShowDailyPending} />
       <PendingTasksDialog 
         open={showPendingOnSignOut} 
@@ -345,11 +322,6 @@ const Dashboard = () => {
           recipientName={chatRecipientName}
         />
       )}
-      
-      <ReportsDownloadDialog
-        open={showReportsDownload}
-        onOpenChange={setShowReportsDownload}
-      />
 
       {userRole === "admin" && (
         <AdminTaskReportDialog
