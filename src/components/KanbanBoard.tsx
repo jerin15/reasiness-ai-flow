@@ -116,11 +116,14 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         .select("*")
         .is("deleted_at", null);
 
-      // When admin views a team member's panel, filter by that user's tasks
-      // Otherwise RLS handles visibility completely
       if (isAdmin && viewingUserId && viewingUserId !== user.id) {
+        // Admin viewing team member's panel - show that user's tasks
         console.log("👥 Admin viewing team member:", viewingUserId);
         query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
+      } else if (isAdmin && (!viewingUserId || viewingUserId === user.id)) {
+        // Admin viewing their OWN panel - only their assigned tasks or personal tasks
+        console.log("👤 Admin viewing own pipeline");
+        query = query.or(`assigned_to.eq.${user.id},and(created_by.eq.${user.id},or(assigned_to.is.null,assigned_to.eq.${user.id}))`);
       }
 
       const { data, error } = await query
