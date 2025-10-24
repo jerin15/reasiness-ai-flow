@@ -347,33 +347,35 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         </Button>
       </div>
 
-      <DndContext
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-3 overflow-x-auto pb-4 w-full">
-          <SortableContext
-            items={columns.map((col) => col.id)}
-            strategy={horizontalListSortingStrategy}
-          >
-            {columns.map((column) => (
-              <KanbanColumn
-                key={column.id}
-                id={column.id}
-                title={column.title}
-                tasks={filteredTasks.filter((task) => task.status === column.status)}
-                onEditTask={handleEditTask}
-                isAdminView={isAdmin && !!viewingUserId}
-              />
-            ))}
-          </SortableContext>
-        </div>
+      <div className="flex justify-center w-full">
+        <DndContext
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4 px-2 max-w-[1600px] w-full">
+            <SortableContext
+              items={columns.map((col) => col.id)}
+              strategy={horizontalListSortingStrategy}
+            >
+              {columns.map((column) => (
+                <KanbanColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  tasks={filteredTasks.filter((task) => task.status === column.status)}
+                  onEditTask={handleEditTask}
+                  isAdminView={isAdmin && !!viewingUserId}
+                />
+              ))}
+            </SortableContext>
+          </div>
 
-        <DragOverlay>
-          {activeTask ? <TaskCard task={activeTask} isDragging isAdminView={isAdmin && !!viewingUserId} /> : null}
-        </DragOverlay>
-      </DndContext>
+          <DragOverlay>
+            {activeTask ? <TaskCard task={activeTask} isDragging isAdminView={isAdmin && !!viewingUserId} /> : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
 
       <AddTaskDialog
         open={showAddTask}

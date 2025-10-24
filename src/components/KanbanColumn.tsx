@@ -33,8 +33,8 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView }: Kanb
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
-    <div className="flex flex-col min-w-[240px] flex-1">
-      <div className="bg-card border rounded-lg p-2 mb-2 shadow-sm">
+    <div className="flex flex-col min-w-[280px] max-w-[320px] flex-1">
+      <div className="bg-card border rounded-lg p-3 mb-2 shadow-sm">
         <h3 className="font-semibold text-sm flex items-center justify-between">
           <span>{title}</span>
           <span className="text-xs bg-muted px-2 py-1 rounded-full">
@@ -46,8 +46,8 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView }: Kanb
       <div
         ref={setNodeRef}
         className={cn(
-          "flex-1 bg-muted/30 rounded-lg p-2 min-h-[500px] max-h-[calc(100vh-250px)] overflow-y-auto transition-colors",
-          isOver && "bg-primary-light"
+          "flex-1 bg-muted/30 rounded-lg p-3 min-h-[500px] max-h-[calc(100vh-250px)] overflow-y-auto transition-all duration-200",
+          isOver && "bg-primary/10 ring-2 ring-primary scale-[1.02]"
         )}
       >
         <SortableContext
