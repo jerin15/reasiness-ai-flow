@@ -10,6 +10,7 @@ import { ReminderDialog } from "./ReminderDialog";
 import { EditTaskDialog } from "./EditTaskDialog";
 import { StatusChangeNotification } from "./StatusChangeNotification";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import { Plus } from "lucide-react";
 
 type Task = {
@@ -55,6 +56,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   const [reminderTargetStatus, setReminderTargetStatus] = useState<string>("");
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Define columns based on role - use viewing user's role if admin is viewing someone else
   const getColumnsForRole = (): Column[] => {
@@ -312,14 +314,33 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     );
   }
 
+  // Filter tasks based on search query
+  const filteredTasks = tasks.filter((task) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      task.client_name?.toLowerCase().includes(query) ||
+      task.supplier_name?.toLowerCase().includes(query) ||
+      task.title?.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className="h-full flex flex-col">
       <StatusChangeNotification />
       
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-4">
         <h2 className="text-2xl font-bold">
           {isAdmin && viewingUserId ? "Team Member Tasks" : "My Tasks"}
         </h2>
+        <div className="flex-1 max-w-md">
+          <Input
+            placeholder="Search by client, supplier, or task name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full"
+          />
+        </div>
         <Button onClick={() => setShowAddTask(true)} size="sm">
           <Plus className="h-4 w-4 mr-2" />
           Add Task
@@ -341,7 +362,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                 key={column.id}
                 id={column.id}
                 title={column.title}
-                tasks={tasks.filter((task) => task.status === column.status)}
+                tasks={filteredTasks.filter((task) => task.status === column.status)}
                 onEditTask={handleEditTask}
                 isAdminView={isAdmin && !!viewingUserId}
               />

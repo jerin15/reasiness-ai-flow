@@ -46,7 +46,7 @@ export const StatusChangeNotification = () => {
 
     // Subscribe to task audit log for status changes
     const channel = supabase
-      .channel('status-changes')
+      .channel(`status-changes-${currentUser.id}`)
       .on(
         'postgres_changes',
         {
@@ -56,6 +56,7 @@ export const StatusChangeNotification = () => {
           filter: `action=eq.status_changed`
         },
         async (payload) => {
+          console.log('📢 Status change detected:', payload);
           const auditLog = payload.new;
           
           // Skip if the change was made by the current user

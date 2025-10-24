@@ -51,64 +51,52 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
     if (open && currentUserId && recipientId) {
       fetchMessages();
       
-      // Subscribe to new messages - use two separate channels for better real-time reliability
-      const channelReceived = supabase
-        .channel(`messages-received-${currentUserId}-${recipientId}`)
+      // Subscribe to all messages in this conversation with a single channel
+      const channel = supabase
+        .channel(`chat-${currentUserId}-${recipientId}`)
         .on(
           'postgres_changes',
           {
-            event: 'INSERT',
+            event: '*',
             schema: 'public',
             table: 'messages',
-            filter: `sender_id=eq.${recipientId}`,
           },
           (payload) => {
+            console.log('💬 Message update:', payload);
             const newMsg = payload.new as Message;
-            if (newMsg.recipient_id === currentUserId) {
-              setMessages((prev) => {
-                // Avoid duplicates
-                if (prev.some(m => m.id === newMsg.id)) return prev;
-                return [...prev, newMsg];
-              });
-              
-              // Play sound
-              if (audioRef.current) {
-                audioRef.current.play().catch(e => console.log('Audio play failed:', e));
-              }
-              
-              // Show notification
-              if (Notification.permission === 'granted') {
-                new Notification(`New message from ${recipientName}`, {
-                  body: newMsg.message,
-                  icon: '/favicon.ico'
+            
+            // Only process if this message is part of our conversation
+            if (
+              (newMsg.sender_id === currentUserId && newMsg.recipient_id === recipientId) ||
+              (newMsg.sender_id === recipientId && newMsg.recipient_id === currentUserId)
+            ) {
+              if (payload.eventType === 'INSERT') {
+                setMessages((prev) => {
+                  // Avoid duplicates
+                  if (prev.some(m => m.id === newMsg.id)) return prev;
+                  return [...prev, newMsg].sort((a, b) => 
+                    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                  );
                 });
+                
+                // Only play sound and notify for received messages
+                if (newMsg.sender_id === recipientId) {
+                  // Play sound
+                  if (audioRef.current) {
+                    audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+                  }
+                  
+                  // Show notification
+                  if (Notification.permission === 'granted') {
+                    new Notification(`New message from ${recipientName}`, {
+                      body: newMsg.message,
+                      icon: '/favicon.ico'
+                    });
+                  }
+                }
+                
+                scrollToBottom();
               }
-              
-              scrollToBottom();
-            }
-          }
-        )
-        .subscribe();
-
-      const channelSent = supabase
-        .channel(`messages-sent-${currentUserId}-${recipientId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `sender_id=eq.${currentUserId}`,
-          },
-          (payload) => {
-            const newMsg = payload.new as Message;
-            if (newMsg.recipient_id === recipientId) {
-              setMessages((prev) => {
-                // Avoid duplicates
-                if (prev.some(m => m.id === newMsg.id)) return prev;
-                return [...prev, newMsg];
-              });
-              scrollToBottom();
             }
           }
         )
@@ -120,8 +108,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
       }
 
       return () => {
-        supabase.removeChannel(channelReceived);
-        supabase.removeChannel(channelSent);
+        supabase.removeChannel(channel);
       };
     }
   }, [open, currentUserId, recipientId, recipientName]);
