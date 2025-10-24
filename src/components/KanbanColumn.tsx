@@ -33,7 +33,10 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView }: Kanb
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
-    <div className="flex flex-col min-w-[280px] max-w-[320px] flex-1">
+    <div 
+      ref={setNodeRef}
+      className="flex flex-col min-w-[280px] max-w-[320px] flex-1"
+    >
       <div className="bg-card border rounded-lg p-3 mb-2 shadow-sm">
         <h3 className="font-semibold text-sm flex items-center justify-between">
           <span>{title}</span>
@@ -44,7 +47,6 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView }: Kanb
       </div>
 
       <div
-        ref={setNodeRef}
         className={cn(
           "flex-1 bg-muted/30 rounded-lg p-3 min-h-[500px] max-h-[calc(100vh-250px)] overflow-y-auto transition-all duration-200",
           isOver && "bg-primary/10 ring-2 ring-primary scale-[1.02]"
@@ -54,10 +56,12 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView }: Kanb
           items={tasks.map((task) => task.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="space-y-2">
+          <div className="space-y-2 min-h-full">
             {tasks.map((task) => (
               <TaskCard key={task.id} task={task} onEdit={onEditTask} isAdminView={isAdminView} />
             ))}
+            {/* Empty drop zone at bottom for better drop targeting */}
+            <div className="h-12" />
           </div>
         </SortableContext>
       </div>
