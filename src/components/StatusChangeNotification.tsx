@@ -115,11 +115,6 @@ export const StatusChangeNotification = () => {
               icon: <Bell className="h-5 w-5 text-accent" />,
             }
           );
-
-          // Auto-remove after 10 seconds
-          setTimeout(() => {
-            setNotifications(prev => prev.filter(n => n.id !== notification.id));
-          }, 10000);
         }
       )
       .subscribe();
