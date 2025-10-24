@@ -35,11 +35,73 @@ export const StatusChangeNotification = () => {
         .eq("user_id", user.id)
         .maybeSingle();
       
-      setIsAdmin(roleData?.role === 'admin');
+      const userIsAdmin = roleData?.role === 'admin';
+      setIsAdmin(userIsAdmin);
+
+      // Load historical notifications
+      await loadHistoricalNotifications(user.id, userIsAdmin);
     };
 
     initUser();
   }, []);
+
+  const loadHistoricalNotifications = async (userId: string, userIsAdmin: boolean) => {
+    try {
+      // Get last 50 status change audit logs
+      const { data: auditLogs } = await supabase
+        .from('task_audit_log')
+        .select('id, task_id, action, old_values, new_values, changed_by, created_at')
+        .eq('action', 'status_changed')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (!auditLogs) return;
+
+      const historicalNotifications: StatusChange[] = [];
+
+      for (const auditLog of auditLogs) {
+        // Get task details
+        const { data: taskData } = await supabase
+          .from('tasks')
+          .select('title, created_by, assigned_to')
+          .eq('id', auditLog.task_id)
+          .single();
+
+        if (!taskData) continue;
+
+        // Show notification if user is admin, task creator, or assigned
+        const shouldNotify = userIsAdmin || 
+                            taskData.created_by === userId || 
+                            taskData.assigned_to === userId;
+
+        if (!shouldNotify) continue;
+
+        // Get the person who made the change
+        const { data: changedByProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', auditLog.changed_by)
+          .single();
+
+        const oldStatus = (auditLog.old_values as any)?.status || 'unknown';
+        const newStatus = (auditLog.new_values as any)?.status || 'unknown';
+
+        historicalNotifications.push({
+          id: auditLog.id,
+          taskTitle: taskData.title,
+          oldStatus: formatStatus(oldStatus),
+          newStatus: formatStatus(newStatus),
+          changedBy: auditLog.changed_by,
+          changedByName: changedByProfile?.full_name || 'Someone',
+          timestamp: auditLog.created_at,
+        });
+      }
+
+      setNotifications(historicalNotifications);
+    } catch (error) {
+      console.error('Error loading historical notifications:', error);
+    }
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -88,8 +150,8 @@ export const StatusChangeNotification = () => {
             .eq('id', auditLog.changed_by)
             .single();
 
-          const oldStatus = auditLog.old_values?.status || 'unknown';
-          const newStatus = auditLog.new_values?.status || 'unknown';
+          const oldStatus = (auditLog.old_values as any)?.status || 'unknown';
+          const newStatus = (auditLog.new_values as any)?.status || 'unknown';
 
           const notification: StatusChange = {
             id: auditLog.id,
@@ -104,8 +166,11 @@ export const StatusChangeNotification = () => {
           // Play notification sound
           playNotificationSound();
 
-          // Add to notifications list
-          setNotifications(prev => [notification, ...prev]);
+          // Add to notifications list (avoid duplicates)
+          setNotifications(prev => {
+            if (prev.some(n => n.id === notification.id)) return prev;
+            return [notification, ...prev];
+          });
 
           // Show toast
           toast.info(
