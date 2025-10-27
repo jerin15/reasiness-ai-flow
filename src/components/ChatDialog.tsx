@@ -5,8 +5,10 @@ import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Send, Paperclip, X } from "lucide-react";
+import { Send, Paperclip, X, Smile } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 type Message = {
   id: string;
@@ -32,6 +34,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -51,9 +54,13 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
     if (open && currentUserId && recipientId) {
       fetchMessages();
       
-      // Subscribe to all messages in this conversation with a single channel
+      // Subscribe to all messages in this conversation - listen to ALL events for instant sync
       const channel = supabase
-        .channel(`chat-${currentUserId}-${recipientId}`)
+        .channel(`chat-${currentUserId}-${recipientId}`, {
+          config: {
+            broadcast: { self: true }
+          }
+        })
         .on(
           'postgres_changes',
           {
@@ -62,15 +69,16 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
             table: 'messages',
           },
           (payload) => {
-            console.log('💬 Message update:', payload);
-            const newMsg = payload.new as Message;
+            console.log('💬 Real-time message event:', payload.eventType, payload);
             
-            // Only process if this message is part of our conversation
-            if (
-              (newMsg.sender_id === currentUserId && newMsg.recipient_id === recipientId) ||
-              (newMsg.sender_id === recipientId && newMsg.recipient_id === currentUserId)
-            ) {
-              if (payload.eventType === 'INSERT') {
+            if (payload.eventType === 'INSERT') {
+              const newMsg = payload.new as Message;
+              
+              // Only process if this message is part of our conversation
+              if (
+                (newMsg.sender_id === currentUserId && newMsg.recipient_id === recipientId) ||
+                (newMsg.sender_id === recipientId && newMsg.recipient_id === currentUserId)
+              ) {
                 setMessages((prev) => {
                   // Avoid duplicates
                   if (prev.some(m => m.id === newMsg.id)) return prev;
@@ -97,10 +105,18 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
                 
                 scrollToBottom();
               }
+            } else if (payload.eventType === 'UPDATE') {
+              // Handle message updates (like read status)
+              const updatedMsg = payload.new as Message;
+              setMessages((prev) => prev.map(msg => 
+                msg.id === updatedMsg.id ? updatedMsg : msg
+              ));
             }
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('📡 Chat subscription status:', status);
+        });
 
       // Request notification permission
       if (Notification.permission === 'default') {
@@ -136,22 +152,44 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
       if (error) throw error;
       setMessages(data || []);
       
-      // Mark messages as read immediately
-      const { error: updateError } = await supabase
+      // Mark ALL unread messages as read immediately and atomically
+      await markMessagesAsRead();
+    } catch (error: any) {
+      console.error('Error fetching messages:', error);
+      toast.error('Failed to load messages');
+    }
+  };
+
+  const markMessagesAsRead = async () => {
+    try {
+      const { data: unreadMessages, error: fetchError } = await supabase
         .from('messages')
-        .update({ is_read: true, updated_at: new Date().toISOString() })
+        .select('id')
         .eq('recipient_id', currentUserId)
         .eq('sender_id', recipientId)
         .eq('is_read', false);
 
-      if (updateError) {
-        console.error('Error marking messages as read:', updateError);
-      } else {
-        console.log('✅ Messages marked as read');
+      if (fetchError) throw fetchError;
+
+      if (unreadMessages && unreadMessages.length > 0) {
+        const messageIds = unreadMessages.map(m => m.id);
+        
+        const { error: updateError } = await supabase
+          .from('messages')
+          .update({ 
+            is_read: true, 
+            updated_at: new Date().toISOString() 
+          })
+          .in('id', messageIds);
+
+        if (updateError) {
+          console.error('Error marking messages as read:', updateError);
+        } else {
+          console.log(`✅ ${messageIds.length} messages marked as read instantly`);
+        }
       }
-    } catch (error: any) {
-      console.error('Error fetching messages:', error);
-      toast.error('Failed to load messages');
+    } catch (error) {
+      console.error('Error in markMessagesAsRead:', error);
     }
   };
 
@@ -177,6 +215,11 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
 
     if (error) throw error;
     return data.path;
+  };
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessage((prev) => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -206,6 +249,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
 
       setNewMessage('');
       setSelectedFile(null);
+      setShowEmojiPicker(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error: any) {
       console.error('Error sending message:', error);
@@ -301,7 +345,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
+              placeholder="Type a message... 😊"
               disabled={uploading}
             />
           </div>
@@ -312,6 +356,25 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
             className="hidden"
             accept="image/*,.pdf,.doc,.docx,.txt"
           />
+          <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={uploading}
+              >
+                <Smile className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0" align="end">
+              <EmojiPicker
+                onEmojiClick={handleEmojiClick}
+                width="100%"
+                height="400px"
+              />
+            </PopoverContent>
+          </Popover>
           <Button
             type="button"
             variant="outline"

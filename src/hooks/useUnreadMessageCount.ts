@@ -25,9 +25,13 @@ export const useUnreadMessageCount = (userId: string) => {
     // Initial fetch
     fetchUnreadCount();
 
-    // Subscribe to real-time changes
+    // Subscribe to real-time changes with immediate updates
     const channel = supabase
-      .channel(`unread-count-${userId}`)
+      .channel(`unread-count-${userId}`, {
+        config: {
+          broadcast: { self: true }
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -36,12 +40,15 @@ export const useUnreadMessageCount = (userId: string) => {
           table: 'messages',
           filter: `recipient_id=eq.${userId}`
         },
-        () => {
-          console.log('📬 Unread count changed, refreshing...');
+        (payload) => {
+          console.log('📬 Real-time unread count event:', payload.eventType);
+          // Immediate update without delay
           fetchUnreadCount();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Unread count subscription:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);

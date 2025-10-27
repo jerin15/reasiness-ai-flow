@@ -37,9 +37,13 @@ export const ChatNotification = () => {
     // Track shown notifications to avoid duplicates
     const shownNotifications = new Set<string>();
 
-    // Subscribe to ALL new messages where current user is the recipient
+    // Subscribe to ALL new messages where current user is the recipient - INSTANT notifications
     const channel = supabase
-      .channel('global-chat-notifications')
+      .channel('global-chat-notifications', {
+        config: {
+          broadcast: { self: false } // Don't notify about own messages
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -49,7 +53,7 @@ export const ChatNotification = () => {
           filter: `recipient_id=eq.${currentUserId}`
         },
         async (payload) => {
-          console.log('🔔 New message received:', payload);
+          console.log('🔔 Instant message notification received:', payload);
           const newMsg = payload.new as Message;
 
           // Prevent duplicate notifications
@@ -59,7 +63,7 @@ export const ChatNotification = () => {
           }
           shownNotifications.add(newMsg.id);
 
-          // Small delay to check if message was immediately read (user has chat open)
+          // Reduced delay for instant feel - just enough to prevent race condition
           setTimeout(async () => {
             const { data: messageCheck } = await supabase
               .from('messages')
@@ -82,13 +86,13 @@ export const ChatNotification = () => {
 
             const senderName = profile?.full_name || profile?.email || 'Someone';
 
-            // Play alarm sound
+            // Play alarm sound INSTANTLY
             if (audioRef.current) {
               audioRef.current.volume = 0.8;
               audioRef.current.play().catch(e => console.log('Audio play failed:', e));
             }
 
-            // Show toast notification
+            // Show toast notification INSTANTLY
             toast.success(`💬 New message from ${senderName}`, {
               description: newMsg.message.length > 50 
                 ? newMsg.message.substring(0, 50) + '...' 
@@ -97,17 +101,20 @@ export const ChatNotification = () => {
               action: {
                 label: 'Open',
                 onClick: () => {
-                  // Mark as read
+                  // Mark as read with updated_at
                   supabase
                     .from('messages')
-                    .update({ is_read: true })
+                    .update({ 
+                      is_read: true,
+                      updated_at: new Date().toISOString()
+                    })
                     .eq('id', newMsg.id)
-                    .then(() => console.log('Message marked as read'));
+                    .then(() => console.log('Message marked as read from notification'));
                 }
               }
             });
 
-            // Show browser notification
+            // Show browser notification INSTANTLY
             if (Notification.permission === 'granted') {
               new Notification(`💬 ${senderName} sent you a message`, {
                 body: newMsg.message,
@@ -118,10 +125,12 @@ export const ChatNotification = () => {
             } else if (Notification.permission === 'default') {
               Notification.requestPermission();
             }
-          }, 500); // 500ms delay to allow chat dialog to mark as read
+          }, 200); // Reduced to 200ms for instant feel
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Global chat notifications subscription:', status);
+      });
 
     // Request notification permission on mount
     if (Notification.permission === 'default') {
