@@ -8,6 +8,7 @@ import { DueDateReminderDialog } from "@/components/DueDateReminderDialog";
 import { PendingTasksDialog } from "@/components/PendingTasksDialog";
 import { DailyPendingTasksDialog } from "@/components/DailyPendingTasksDialog";
 import { TeamMemberReportDialog } from "@/components/TeamMemberReportDialog";
+import { EstimationTeamReportDialog } from "@/components/EstimationTeamReportDialog";
 import { ChatDialog } from "@/components/ChatDialog";
 import { TeamChatListDialog } from "@/components/TeamChatListDialog";
 import { AdminTaskReportDialog } from "@/components/AdminTaskReportDialog";
@@ -35,6 +36,7 @@ const Dashboard = () => {
   const [showPendingOnSignOut, setShowPendingOnSignOut] = useState(false);
   const [showDailyPending, setShowDailyPending] = useState(false);
   const [showTeamReport, setShowTeamReport] = useState(false);
+  const [showEstimationReport, setShowEstimationReport] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatRecipientId, setChatRecipientId] = useState("");
   const [chatRecipientName, setChatRecipientName] = useState("");
@@ -253,14 +255,24 @@ const Dashboard = () => {
                 My Report
               </Button>
               {userRole === "admin" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAdminTaskReport(true)}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Member Reports
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAdminTaskReport(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Member Reports
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowEstimationReport(true)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Estimation Report
+                  </Button>
+                </>
               )}
               <Button
                 variant="outline"
@@ -314,6 +326,11 @@ const Dashboard = () => {
       <TeamMemberReportDialog
         open={showTeamReport}
         onOpenChange={setShowTeamReport}
+      />
+      
+      <EstimationTeamReportDialog
+        open={showEstimationReport}
+        onOpenChange={setShowEstimationReport}
       />
       
       <TeamChatListDialog
