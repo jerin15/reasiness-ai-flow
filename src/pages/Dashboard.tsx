@@ -17,6 +17,8 @@ import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "luc
 import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
 import { StatusChangeNotification } from "@/components/StatusChangeNotification";
+import { Badge } from "@/components/ui/badge";
+import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -37,6 +39,7 @@ const Dashboard = () => {
   const [chatRecipientId, setChatRecipientId] = useState("");
   const [chatRecipientName, setChatRecipientName] = useState("");
   const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
+  const unreadCount = useUnreadMessageCount(currentUserId);
 
   useEffect(() => {
     checkAuth();
@@ -263,9 +266,18 @@ const Dashboard = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowChat(true)}
+                className="relative"
               >
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Team Chat
+                {unreadCount > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-2 -right-2 h-5 min-w-5 flex items-center justify-center p-0 text-xs"
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Badge>
+                )}
               </Button>
               <StatusChangeNotification />
               <Button variant="outline" size="sm" onClick={handleSignOut}>

@@ -153,11 +153,11 @@ export const TeamChatListDialog = ({
                         {member.user_roles?.[0]?.role || 'operations'}
                       </p>
                     </div>
-                    {unreadCounts[member.id] > 0 && (
-                      <Badge variant="destructive" className="ml-auto">
-                        {unreadCounts[member.id]}
-                      </Badge>
-                    )}
+                     {unreadCounts[member.id] > 0 && (
+                       <Badge variant="destructive" className="ml-auto">
+                         {unreadCounts[member.id] > 9 ? '9+' : unreadCounts[member.id]}
+                       </Badge>
+                     )}
                   </div>
                 </Button>
               ))}

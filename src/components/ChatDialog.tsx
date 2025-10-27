@@ -136,13 +136,19 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
       if (error) throw error;
       setMessages(data || []);
       
-      // Mark messages as read
-      await supabase
+      // Mark messages as read immediately
+      const { error: updateError } = await supabase
         .from('messages')
-        .update({ is_read: true })
+        .update({ is_read: true, updated_at: new Date().toISOString() })
         .eq('recipient_id', currentUserId)
         .eq('sender_id', recipientId)
         .eq('is_read', false);
+
+      if (updateError) {
+        console.error('Error marking messages as read:', updateError);
+      } else {
+        console.log('✅ Messages marked as read');
+      }
     } catch (error: any) {
       console.error('Error fetching messages:', error);
       toast.error('Failed to load messages');

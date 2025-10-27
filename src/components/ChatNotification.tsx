@@ -34,6 +34,9 @@ export const ChatNotification = () => {
   useEffect(() => {
     if (!currentUserId) return;
 
+    // Track shown notifications to avoid duplicates
+    const shownNotifications = new Set<string>();
+
     // Subscribe to ALL new messages where current user is the recipient
     const channel = supabase
       .channel('global-chat-notifications')
@@ -49,40 +52,73 @@ export const ChatNotification = () => {
           console.log('🔔 New message received:', payload);
           const newMsg = payload.new as Message;
 
-          // Fetch sender's name
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, email')
-            .eq('id', newMsg.sender_id)
-            .single();
-
-          const senderName = profile?.full_name || profile?.email || 'Someone';
-
-          // Play alarm sound
-          if (audioRef.current) {
-            audioRef.current.volume = 0.8;
-            audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+          // Prevent duplicate notifications
+          if (shownNotifications.has(newMsg.id)) {
+            console.log('Duplicate notification prevented for message:', newMsg.id);
+            return;
           }
+          shownNotifications.add(newMsg.id);
 
-          // Show toast notification
-          toast.success(`New message from ${senderName}`, {
-            description: newMsg.message.length > 50 
-              ? newMsg.message.substring(0, 50) + '...' 
-              : newMsg.message,
-            duration: 5000,
-          });
+          // Small delay to check if message was immediately read (user has chat open)
+          setTimeout(async () => {
+            const { data: messageCheck } = await supabase
+              .from('messages')
+              .select('is_read')
+              .eq('id', newMsg.id)
+              .single();
 
-          // Show browser notification
-          if (Notification.permission === 'granted') {
-            new Notification(`💬 ${senderName} sent you a message`, {
-              body: newMsg.message,
-              icon: '/favicon.ico',
-              tag: newMsg.id,
-              requireInteraction: false
+            // Don't notify if message was already read (chat was open)
+            if (messageCheck?.is_read) {
+              console.log('Message already read, skipping notification');
+              return;
+            }
+
+            // Fetch sender's name
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('id', newMsg.sender_id)
+              .single();
+
+            const senderName = profile?.full_name || profile?.email || 'Someone';
+
+            // Play alarm sound
+            if (audioRef.current) {
+              audioRef.current.volume = 0.8;
+              audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+            }
+
+            // Show toast notification
+            toast.success(`💬 New message from ${senderName}`, {
+              description: newMsg.message.length > 50 
+                ? newMsg.message.substring(0, 50) + '...' 
+                : newMsg.message,
+              duration: 5000,
+              action: {
+                label: 'Open',
+                onClick: () => {
+                  // Mark as read
+                  supabase
+                    .from('messages')
+                    .update({ is_read: true })
+                    .eq('id', newMsg.id)
+                    .then(() => console.log('Message marked as read'));
+                }
+              }
             });
-          } else if (Notification.permission === 'default') {
-            Notification.requestPermission();
-          }
+
+            // Show browser notification
+            if (Notification.permission === 'granted') {
+              new Notification(`💬 ${senderName} sent you a message`, {
+                body: newMsg.message,
+                icon: '/favicon.ico',
+                tag: newMsg.id,
+                requireInteraction: false
+              });
+            } else if (Notification.permission === 'default') {
+              Notification.requestPermission();
+            }
+          }, 500); // 500ms delay to allow chat dialog to mark as read
         }
       )
       .subscribe();
