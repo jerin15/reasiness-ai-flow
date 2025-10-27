@@ -37,7 +37,7 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView }: Kanb
       ref={setNodeRef}
       className="flex flex-col min-w-[280px] max-w-[320px] flex-1"
     >
-      <div className="bg-card border rounded-lg p-3 mb-2 shadow-sm">
+      <div className="bg-card border rounded-lg p-3 mb-2 shadow-sm sticky top-0 z-10">
         <h3 className="font-semibold text-sm flex items-center justify-between">
           <span>{title}</span>
           <span className="text-xs bg-muted px-2 py-1 rounded-full">
