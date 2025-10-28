@@ -283,14 +283,7 @@ const Dashboard = () => {
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Chat
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowDueReminders(true)}
-                >
-                  <Clock className="h-4 w-4 mr-2" />
-                  Reminders
-                </Button>
+                <StatusChangeNotification />
                 <Button variant="destructive" size="sm" onClick={handleSignOut}>
                   Sign Out
                 </Button>
@@ -302,8 +295,7 @@ const Dashboard = () => {
         <AdminDashboard />
 
         <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
-        <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />
-        <TeamChatListDialog 
+        <TeamChatListDialog
           open={showChatList} 
           onOpenChange={setShowChatList}
           onSelectMember={(recipientId, recipientName) => {
