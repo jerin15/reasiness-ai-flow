@@ -52,11 +52,9 @@ export const AdminDashboard = () => {
   useEffect(() => {
     fetchTasksAndStats();
     
-    // Real-time subscription for task changes with broadcast for instant sync
+    // Real-time subscription for all task changes
     const channel = supabase
-      .channel('admin-tasks-changes', {
-        config: { broadcast: { self: true } }
-      })
+      .channel('admin-dashboard-realtime')
       .on(
         'postgres_changes',
         {
@@ -64,11 +62,15 @@ export const AdminDashboard = () => {
           schema: 'public',
           table: 'tasks'
         },
-        () => {
+        (payload) => {
+          console.log('Admin dashboard received task change:', payload);
+          // Immediate refetch on any task change
           fetchTasksAndStats();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Admin dashboard subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);

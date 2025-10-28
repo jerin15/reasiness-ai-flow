@@ -67,7 +67,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           { id: "todo", title: "To-Do List", status: "todo" },
           { id: "supplier_quotes", title: "Supplier Quotes", status: "supplier_quotes" },
           { id: "client_approval", title: "Client Approval", status: "client_approval" },
-          { id: "admin_approval", title: "Admin Cost Approval", status: "admin_approval" },
+          { id: "admin_cost_approval", title: "Admin Cost Approval", status: "admin_cost_approval" },
           { id: "quotation_bill", title: "Quotation Bill", status: "quotation_bill" },
           { id: "production", title: "Production", status: "production" },
           { id: "final_invoice", title: "Final Invoice", status: "final_invoice" },
@@ -279,8 +279,13 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       }
 
       toast.success("Task moved successfully");
+      
+      // Immediate refetch to ensure UI is in sync
+      await fetchTasks();
     } catch (error) {
       console.error("Error updating task:", error);
+      // Refetch even on error to ensure consistency
+      fetchTasks();
     }
   };
 

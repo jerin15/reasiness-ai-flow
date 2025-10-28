@@ -103,11 +103,9 @@ export const AdminKanbanBoard = () => {
   useEffect(() => {
     fetchTasks();
     
-    // Real-time subscription with broadcast for instant sync
+    // Real-time subscription for all task changes
     const channel = supabase
-      .channel('admin-kanban-changes', {
-        config: { broadcast: { self: true } }
-      })
+      .channel('admin-kanban-realtime')
       .on(
         'postgres_changes',
         {
@@ -115,11 +113,15 @@ export const AdminKanbanBoard = () => {
           schema: 'public',
           table: 'tasks'
         },
-        () => {
+        (payload) => {
+          console.log('Admin received task change:', payload);
+          // Immediate refetch on any task change
           fetchTasks();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Admin subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -198,9 +200,14 @@ export const AdminKanbanBoard = () => {
         if (error) throw error;
         toast.success("Task moved successfully");
       }
+      
+      // Immediate refetch to ensure UI is in sync
+      await fetchTasks();
     } catch (error) {
       console.error('Error updating task:', error);
       toast.error('Failed to move task');
+      // Refetch even on error to ensure consistency
+      fetchTasks();
     }
   };
 
