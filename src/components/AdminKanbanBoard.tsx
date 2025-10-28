@@ -35,7 +35,7 @@ type Column = {
 };
 
 const ADMIN_COLUMNS: Column[] = [
-  { id: "admin_cost_approval", title: "Admin Cost Approval", status: "admin_cost_approval" },
+  { id: "admin_cost_approval", title: "Admin Cost Approval", status: "admin_approval" },
   { id: "approved", title: "Approved", status: "approved" },
   { id: "production", title: "Production (Operations)", status: "production" },
 ];
@@ -54,15 +54,25 @@ export const AdminKanbanBoard = () => {
 
       console.log('🔍 Admin fetching tasks for user:', user.id);
 
-      // Fetch tasks for admin approval pipeline
+      // Verify user is admin
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      console.log('👤 Admin role check:', roleData);
+
+      // Fetch ALL tasks for admin approval pipeline (admins should see everything)
       const { data: approvalTasks, error: approvalError } = await supabase
         .from('tasks')
         .select('*')
-        .eq('status', 'admin_cost_approval')
+        .eq('status', 'admin_approval')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      console.log('📋 Admin Cost Approval tasks:', approvalTasks?.length, approvalTasks);
+      console.log('📋 Admin Cost Approval tasks found:', approvalTasks?.length, 'Status filter: admin_approval');
+      console.log('📋 Full approval tasks data:', JSON.stringify(approvalTasks, null, 2));
       if (approvalError) {
         console.error('❌ Error fetching approval tasks:', approvalError);
         throw approvalError;

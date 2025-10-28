@@ -67,7 +67,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           { id: "todo", title: "To-Do List", status: "todo" },
           { id: "supplier_quotes", title: "Supplier Quotes", status: "supplier_quotes" },
           { id: "client_approval", title: "Client Approval", status: "client_approval" },
-          { id: "admin_cost_approval", title: "Admin Cost Approval", status: "admin_cost_approval" },
+          { id: "admin_approval", title: "Admin Cost Approval", status: "admin_approval" },
           { id: "quotation_bill", title: "Quotation Bill", status: "quotation_bill" },
           { id: "production", title: "Production", status: "production" },
           { id: "final_invoice", title: "Final Invoice", status: "final_invoice" },
@@ -269,15 +269,18 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         updates.completed_at = new Date().toISOString();
       }
 
-      console.log("Updating task:", taskId, "from", task.status, "to status:", newStatus);
+      console.log("📤 Estimation updating task:", taskId, "from", task.status, "to status:", newStatus);
+      console.log("📤 Update payload:", JSON.stringify(updates, null, 2));
+      
       const { error } = await supabase.from("tasks").update(updates).eq("id", taskId);
 
       if (error) {
-        console.error("Error updating task:", error);
+        console.error("❌ Error updating task:", error);
         toast.error(`Failed to move task: ${error.message}`);
         throw error;
       }
 
+      console.log("✅ Task updated successfully to status:", newStatus);
       toast.success("Task moved successfully");
       
       // Immediate refetch to ensure UI is in sync

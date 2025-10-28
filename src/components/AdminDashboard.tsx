@@ -107,7 +107,7 @@ export const AdminDashboard = () => {
       const { count: pendingCount } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'admin_cost_approval' as any)
+        .eq('status', 'admin_approval' as any)
         .is('deleted_at', null);
 
       // Get operations users to count only their production tasks
