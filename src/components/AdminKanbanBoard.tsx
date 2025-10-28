@@ -52,6 +52,8 @@ export const AdminKanbanBoard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('🔍 Admin fetching tasks for user:', user.id);
+
       // Fetch tasks for admin approval pipeline
       const { data: approvalTasks, error: approvalError } = await supabase
         .from('tasks')
@@ -60,7 +62,11 @@ export const AdminKanbanBoard = () => {
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      if (approvalError) throw approvalError;
+      console.log('📋 Admin Cost Approval tasks:', approvalTasks?.length, approvalTasks);
+      if (approvalError) {
+        console.error('❌ Error fetching approval tasks:', approvalError);
+        throw approvalError;
+      }
 
       // Fetch approved tasks
       const { data: approvedTasks, error: approvedError } = await supabase
@@ -70,7 +76,11 @@ export const AdminKanbanBoard = () => {
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      if (approvedError) throw approvedError;
+      console.log('✅ Approved tasks:', approvedTasks?.length, approvedTasks);
+      if (approvedError) {
+        console.error('❌ Error fetching approved tasks:', approvedError);
+        throw approvedError;
+      }
 
       // Fetch production tasks created by operations team only (to avoid duplicates)
       const { data: operationsUsers } = await supabase
@@ -88,9 +98,14 @@ export const AdminKanbanBoard = () => {
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      if (productionError) throw productionError;
+      console.log('🏭 Production tasks:', productionTasks?.length, productionTasks);
+      if (productionError) {
+        console.error('❌ Error fetching production tasks:', productionError);
+        throw productionError;
+      }
 
       const allTasks = [...(approvalTasks || []), ...(approvedTasks || []), ...(productionTasks || [])];
+      console.log('📦 Total tasks in admin panel:', allTasks.length);
       setTasks(allTasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
