@@ -12,6 +12,8 @@ import { StatusChangeNotification } from "./StatusChangeNotification";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Plus } from "lucide-react";
+import { updateTaskOffline } from "@/lib/offlineTaskOperations";
+import { getLocalTasks, saveTasksLocally } from "@/lib/offlineStorage";
 
 type Task = {
   id: string;
@@ -114,6 +116,15 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       const currentUserRole = roleData?.role;
       console.log("📊 User role:", currentUserRole, "| isAdmin:", isAdmin, "| viewing:", viewingUserId);
 
+      if (!navigator.onLine) {
+        // Load from local storage when offline
+        console.log('📴 Offline - loading tasks from local storage');
+        const localTasks = await getLocalTasks();
+        setTasks(localTasks);
+        setLoading(false);
+        return;
+      }
+
       let query = supabase
         .from("tasks")
         .select("*")
@@ -172,9 +183,19 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       console.log("✅ Tasks loaded:", data?.length, "| Production:", data?.filter(t => t.status === 'production').length);
       
       setTasks(data || []);
+      
+      // Save to local storage for offline access
+      await saveTasksLocally(data || []);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       toast.error("Failed to load tasks");
+      
+      // Try loading from local storage on error
+      const localTasks = await getLocalTasks();
+      if (localTasks.length > 0) {
+        setTasks(localTasks);
+        toast.info("Loaded cached tasks (offline mode)");
+      }
     } finally {
       setLoading(false);
     }
@@ -272,7 +293,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       console.log("📤 Estimation updating task:", taskId, "from", task.status, "to status:", newStatus);
       console.log("📤 Update payload:", JSON.stringify(updates, null, 2));
       
-      const { error } = await supabase.from("tasks").update(updates).eq("id", taskId);
+      // Use offline-capable update
+      const { error } = await updateTaskOffline(taskId, updates);
 
       if (error) {
         console.error("❌ Error updating task:", error);
@@ -281,7 +303,12 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       }
 
       console.log("✅ Task updated successfully to status:", newStatus);
-      toast.success("Task moved successfully");
+      
+      if (!navigator.onLine) {
+        toast.success("Task moved (offline - will sync when online)");
+      } else {
+        toast.success("Task moved successfully");
+      }
       
       // Immediate refetch to ensure UI is in sync
       await fetchTasks();

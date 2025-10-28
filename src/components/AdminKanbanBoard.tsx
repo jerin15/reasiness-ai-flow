@@ -7,6 +7,8 @@ import { KanbanColumn } from "./KanbanColumn";
 import { TaskCard } from "./TaskCard";
 import { EditTaskDialog } from "./EditTaskDialog";
 import { StatusChangeNotification } from "./StatusChangeNotification";
+import { updateTaskOffline } from "@/lib/offlineTaskOperations";
+import { getLocalTasks, saveTasksLocally } from "@/lib/offlineStorage";
 
 type Task = {
   id: string;
@@ -199,33 +201,41 @@ export const AdminKanbanBoard = () => {
       // If moving to approved, automatically transition to quotation_bill for estimation
       if (newStatus === 'approved') {
         console.log('✅ Admin approving task - moving to quotation_bill for estimation');
-        const { error } = await supabase
-          .from('tasks')
-          .update({
-            status: 'quotation_bill' as any,
-            previous_status: 'admin_approval' as any, // Set correct previous status for notifications
-            updated_at: new Date().toISOString(),
-            status_changed_at: new Date().toISOString()
-          })
-          .eq('id', taskId);
+        const updates = {
+          status: 'quotation_bill' as any,
+          previous_status: 'admin_approval' as any,
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString()
+        };
+        
+        const { error } = await updateTaskOffline(taskId, updates);
 
         if (error) throw error;
         console.log('✅ Task approved and moved to Quotation Bill in estimation panel');
-        toast.success("Task approved! Moved to Quotation Bill in estimation's panel");
+        
+        if (!navigator.onLine) {
+          toast.success("Task approved (offline - will sync when online)");
+        } else {
+          toast.success("Task approved! Moved to Quotation Bill in estimation's panel");
+        }
       } else {
         // Regular status update
-        const { error } = await supabase
-          .from('tasks')
-          .update({
-            status: newStatus as any,
-            previous_status: task.status as any,
-            updated_at: new Date().toISOString(),
-            status_changed_at: new Date().toISOString()
-          })
-          .eq('id', taskId);
+        const updates = {
+          status: newStatus as any,
+          previous_status: task.status as any,
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString()
+        };
+        
+        const { error } = await updateTaskOffline(taskId, updates);
 
         if (error) throw error;
-        toast.success("Task moved successfully");
+        
+        if (!navigator.onLine) {
+          toast.success("Task moved (offline - will sync when online)");
+        } else {
+          toast.success("Task moved successfully");
+        }
       }
       
       // Immediate refetch to ensure UI is in sync
