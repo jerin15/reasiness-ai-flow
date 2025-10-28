@@ -36,16 +36,17 @@ interface Stats {
   totalTasks: number;
   pendingApproval: number;
   approved: number;
-  rejected: number;
+  productionTasks: number;
 }
 
 export const AdminDashboard = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [approvalTasks, setApprovalTasks] = useState<Task[]>([]);
+  const [productionTasks, setProductionTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalTasks: 0,
     pendingApproval: 0,
     approved: 0,
-    rejected: 0,
+    productionTasks: 0,
   });
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -53,9 +54,11 @@ export const AdminDashboard = () => {
   useEffect(() => {
     fetchTasksAndStats();
     
-    // Real-time subscription for task changes
+    // Real-time subscription for task changes with broadcast for instant sync
     const channel = supabase
-      .channel('admin-tasks-changes')
+      .channel('admin-tasks-changes', {
+        config: { broadcast: { self: true } }
+      })
       .on(
         'postgres_changes',
         {
@@ -77,7 +80,7 @@ export const AdminDashboard = () => {
   const fetchTasksAndStats = async () => {
     try {
       // Fetch tasks awaiting admin approval
-      const { data: approvalTasks, error: approvalError } = await supabase
+      const { data: approval, error: approvalError } = await supabase
         .from('tasks')
         .select(`
           *,
@@ -89,8 +92,22 @@ export const AdminDashboard = () => {
         .order('created_at', { ascending: false });
 
       if (approvalError) throw approvalError;
+      setApprovalTasks(approval as any || []);
 
-      setTasks(approvalTasks as any || []);
+      // Fetch production tasks
+      const { data: production, error: productionError } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          assignee:profiles!tasks_assigned_to_fkey(full_name, email),
+          creator:profiles!tasks_created_by_fkey(full_name, email)
+        `)
+        .eq('status', 'production')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (productionError) throw productionError;
+      setProductionTasks(production as any || []);
 
       // Calculate stats
       const { count: totalCount } = await supabase
@@ -110,17 +127,17 @@ export const AdminDashboard = () => {
         .eq('status', 'approved' as any)
         .is('deleted_at', null);
 
-      const { count: rejectedCount } = await supabase
+      const { count: productionCount } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'rejected' as any)
+        .eq('status', 'production')
         .is('deleted_at', null);
 
       setStats({
         totalTasks: totalCount || 0,
         pendingApproval: pendingCount || 0,
         approved: approvedCount || 0,
-        rejected: rejectedCount || 0,
+        productionTasks: productionCount || 0,
       });
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -240,11 +257,11 @@ export const AdminDashboard = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rejected</CardTitle>
-            <XCircle className="h-4 w-4 text-red-500" />
+            <CardTitle className="text-sm font-medium">Production</CardTitle>
+            <Clock className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.rejected}</div>
+            <div className="text-2xl font-bold">{stats.productionTasks}</div>
           </CardContent>
         </Card>
       </div>
@@ -258,7 +275,7 @@ export const AdminDashboard = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {tasks.length === 0 ? (
+          {approvalTasks.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No tasks awaiting approval
             </div>
@@ -278,7 +295,7 @@ export const AdminDashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.map((task) => (
+                {approvalTasks.map((task) => (
                   <TableRow key={task.id}>
                     <TableCell>
                       <div>
@@ -326,6 +343,71 @@ export const AdminDashboard = () => {
                           Reject
                         </Button>
                       </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Production Tasks Monitor */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Production Tasks</CardTitle>
+          <CardDescription>
+            Monitor tasks currently in production (Estimation & Operations sync)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {productionTasks.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No tasks in production
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Task</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Assigned To</TableHead>
+                  <TableHead>Created By</TableHead>
+                  <TableHead>Due Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {productionTasks.map((task) => (
+                  <TableRow key={task.id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{task.title}</div>
+                        <div className="text-sm text-muted-foreground line-clamp-1">
+                          {task.description}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{getTypeLabel(task.type)}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={getPriorityColor(task.priority)}>
+                        {task.priority}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{task.client_name || '-'}</TableCell>
+                    <TableCell>{task.supplier_name || '-'}</TableCell>
+                    <TableCell>
+                      {task.assignee?.full_name || 'Unassigned'}
+                    </TableCell>
+                    <TableCell>
+                      {task.creator?.full_name || 'Unknown'}
+                    </TableCell>
+                    <TableCell>
+                      {task.due_date ? format(new Date(task.due_date), 'MMM d, yyyy') : '-'}
                     </TableCell>
                   </TableRow>
                 ))}
