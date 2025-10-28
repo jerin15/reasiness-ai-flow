@@ -59,6 +59,8 @@ export const StatusChangeNotification = () => {
 
   const loadHistoricalNotifications = async (userId: string, userIsAdmin: boolean) => {
     try {
+      console.log('🔍 Loading historical notifications for admin:', userIsAdmin);
+      
       // Get last 50 audit logs (status changes and assignments)
       const { data: auditLogs } = await supabase
         .from('task_audit_log')
@@ -67,6 +69,7 @@ export const StatusChangeNotification = () => {
         .order('created_at', { ascending: false })
         .limit(50);
 
+      console.log('📋 Found audit logs:', auditLogs?.length);
       if (!auditLogs) return;
 
       const historicalNotifications: TaskNotification[] = [];
@@ -87,6 +90,7 @@ export const StatusChangeNotification = () => {
                             taskData.assigned_to === userId ||
                             (auditLog.old_values as any)?.assigned_to === userId;
 
+        console.log('📌 Task:', taskData.title, 'Should notify:', shouldNotify, 'Is admin:', userIsAdmin);
         if (!shouldNotify) continue;
 
         // Get the person who made the change
@@ -149,6 +153,7 @@ export const StatusChangeNotification = () => {
         }
       }
 
+      console.log('✅ Loaded', historicalNotifications.length, 'notifications for admin:', userIsAdmin);
       setNotifications(historicalNotifications);
     } catch (error) {
       console.error('Error loading historical notifications:', error);

@@ -205,9 +205,9 @@ const Dashboard = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Select value={selectedUserId} onValueChange={handleUserChange}>
-                  <SelectTrigger className="w-[240px]">
+                  <SelectTrigger className="w-[200px]">
                     <SelectValue>
                       <div className="flex items-center gap-2">
                         <Users className="h-4 w-4" />
@@ -235,58 +235,58 @@ const Dashboard = () => {
                       ))}
                   </SelectContent>
                 </Select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate("/analytics")}
-                >
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Analytics
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowMyReport(true)}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  My Reports
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowTeamReport(true)}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Team Reports
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowEstimationReport(true)}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Estimation Report
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowReportsDownload(true)}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download Reports
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowChatList(true)}
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Chat
-                </Button>
-                <StatusChangeNotification />
-                <Button variant="destructive" size="sm" onClick={handleSignOut}>
-                  Sign Out
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/analytics")}
+                  >
+                    <BarChart3 className="h-4 w-4 mr-1" />
+                    Analytics
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMyReport(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    My Reports
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTeamReport(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    Team
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowEstimationReport(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    Estimation
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowReportsDownload(true)}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowChatList(true)}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                  </Button>
+                  <StatusChangeNotification />
+                  <Button variant="destructive" size="sm" onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

@@ -23,12 +23,32 @@ export const ReminderNotification = () => {
   const [activeReminder, setActiveReminder] = useState<Reminder | null>(null);
   const [snoozeMinutes, setSnoozeMinutes] = useState<number>(10);
   const [showSnoozeDialog, setShowSnoozeDialog] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const alarmIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    checkReminders();
-    checkIntervalRef.current = setInterval(checkReminders, 10000); // Check every 10 seconds
+    const checkUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      const userIsAdmin = roleData?.role === 'admin';
+      setIsAdmin(userIsAdmin);
+      
+      // Only check reminders if not admin
+      if (!userIsAdmin) {
+        checkReminders();
+        checkIntervalRef.current = setInterval(checkReminders, 10000);
+      }
+    };
+
+    checkUserRole();
 
     return () => {
       if (checkIntervalRef.current) {
@@ -161,7 +181,8 @@ export const ReminderNotification = () => {
     }
   };
 
-  if (!activeReminder) return null;
+  // Don't show reminder dialog for admins
+  if (!activeReminder || isAdmin) return null;
 
   return (
     <>
