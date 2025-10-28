@@ -424,6 +424,9 @@ export type Database = {
         | "delivery"
         | "done"
         | "client_approval"
+        | "admin_cost_approval"
+        | "approved"
+        | "rejected"
       task_type: "quotation" | "invoice" | "general" | "production"
     }
     CompositeTypes: {
@@ -569,6 +572,9 @@ export const Constants = {
         "delivery",
         "done",
         "client_approval",
+        "admin_cost_approval",
+        "approved",
+        "rejected",
       ],
       task_type: ["quotation", "invoice", "general", "production"],
     },

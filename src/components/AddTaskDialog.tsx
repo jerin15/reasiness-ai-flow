@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -7,6 +7,13 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+type TeamMember = {
+  id: string;
+  full_name: string;
+  email: string;
+  user_roles?: { role: string }[];
+};
 
 type AddTaskDialogProps = {
   open: boolean;
@@ -26,6 +33,51 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [myStatus, setMyStatus] = useState("pending");
   const [taskType, setTaskType] = useState("general");
   const [loading, setLoading] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [selectedMember, setSelectedMember] = useState<string>(defaultAssignedTo || "");
+  const [currentUserRole, setCurrentUserRole] = useState<string>("");
+
+  useEffect(() => {
+    if (open) {
+      fetchTeamMembers();
+      checkUserRole();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (defaultAssignedTo) {
+      setSelectedMember(defaultAssignedTo);
+    }
+  }, [defaultAssignedTo]);
+
+  const checkUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (roleData) {
+      setCurrentUserRole(roleData.role);
+    }
+  };
+
+  const fetchTeamMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, user_roles(role)')
+        .order('full_name');
+
+      if (error) throw error;
+      setTeamMembers(data || []);
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,9 +103,10 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         type: taskType as "quotation" | "invoice" | "general" | "production",
       };
 
-      // If admin is creating task for another user, assign it
-      // If creating task for themselves (or no specific user), assign to themselves
-      if (defaultAssignedTo) {
+      // Admin can assign to selected member, others create self-assigned tasks
+      if (currentUserRole === 'admin' && selectedMember) {
+        taskData.assigned_to = selectedMember;
+      } else if (defaultAssignedTo) {
         taskData.assigned_to = defaultAssignedTo;
       } else {
         taskData.assigned_to = user.id; // Self-assigned task
@@ -74,6 +127,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       setSupplierName("");
       setMyStatus("pending");
       setTaskType("general");
+      setSelectedMember(defaultAssignedTo || "");
     } catch (error: any) {
       console.error("Error creating task:", error);
       toast.error(error.message || "Failed to create task");
@@ -163,6 +217,23 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
               placeholder="Supplier name"
             />
           </div>
+          {currentUserRole === 'admin' && (
+            <div className="space-y-2">
+              <Label htmlFor="assignedTo">Assign To *</Label>
+              <Select value={selectedMember} onValueChange={setSelectedMember} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.full_name || member.email} ({member.user_roles?.[0]?.role || 'No role'})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="myStatus">My Status</Label>

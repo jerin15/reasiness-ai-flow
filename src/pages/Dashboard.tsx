@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { KanbanBoard } from "@/components/KanbanBoard";
+import { AdminDashboard } from "@/components/AdminDashboard";
 import { MyReportDialog } from "@/components/MyReportDialog";
 import { DueRemindersDialog } from "@/components/DueRemindersDialog";
 import { DueDateReminderDialog } from "@/components/DueDateReminderDialog";
@@ -11,10 +12,11 @@ import { TeamMemberReportDialog } from "@/components/TeamMemberReportDialog";
 import { EstimationTeamReportDialog } from "@/components/EstimationTeamReportDialog";
 import { ChatDialog } from "@/components/ChatDialog";
 import { TeamChatListDialog } from "@/components/TeamChatListDialog";
+import { ReportsDownloadDialog } from "@/components/ReportsDownloadDialog";
 import { AdminTaskReportDialog } from "@/components/AdminTaskReportDialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, Clock } from "lucide-react";
 import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
 import { StatusChangeNotification } from "@/components/StatusChangeNotification";
@@ -38,6 +40,9 @@ const Dashboard = () => {
   const [showTeamReport, setShowTeamReport] = useState(false);
   const [showEstimationReport, setShowEstimationReport] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showChatList, setShowChatList] = useState(false);
+  const [showReportsDownload, setShowReportsDownload] = useState(false);
+  const [showPendingTasks, setShowPendingTasks] = useState(false);
   const [chatRecipientId, setChatRecipientId] = useState("");
   const [chatRecipientName, setChatRecipientName] = useState("");
   const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
@@ -144,11 +149,13 @@ const Dashboard = () => {
 
   const handleSignOut = async () => {
     // Show pending tasks before signing out
-    setShowPendingOnSignOut(true);
+    setShowPendingTasks(true);
   };
 
   const confirmSignOut = async () => {
     try {
+      setShowPendingTasks(false);
+      setShowPendingOnSignOut(false);
       await supabase.auth.signOut();
       sessionStorage.removeItem("hasSeenReminders");
       navigate("/auth");
@@ -158,14 +165,6 @@ const Dashboard = () => {
       toast.error("Failed to sign out");
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
 
   const getSelectedUserName = () => {
     if (selectedUserId === currentUserId) return "My Tasks";
@@ -182,6 +181,166 @@ const Dashboard = () => {
       setSelectedUserRole(user?.user_roles?.[0]?.role || "operations");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show admin dashboard for admin users viewing their own tasks
+  if (userRole === 'admin' && selectedUserId === currentUserId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b bg-card shadow-sm sticky top-0 z-10">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <img src={reaLogo} alt="REA Advertising" className="h-10 w-auto" />
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Welcome, {userName} (Admin)
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={selectedUserId} onValueChange={handleUserChange}>
+                  <SelectTrigger className="w-[240px]">
+                    <SelectValue>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>{getSelectedUserName()}</span>
+                      </div>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={currentUserId}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">My Tasks</span>
+                      </div>
+                    </SelectItem>
+                    {teamMembers
+                      .filter((user) => user.id !== currentUserId)
+                      .map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          <div className="flex flex-col items-start">
+                            <span>{user.full_name || user.email}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {user.user_roles?.[0]?.role}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/analytics")}
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Analytics
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowMyReport(true)}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  My Reports
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTeamReport(true)}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Team Reports
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEstimationReport(true)}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Estimation Report
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowReportsDownload(true)}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download Reports
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowChatList(true)}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Chat
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDueReminders(true)}
+                >
+                  <Clock className="h-4 w-4 mr-2" />
+                  Reminders
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleSignOut}>
+                  Sign Out
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+        
+        <AdminDashboard />
+
+        <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
+        <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />
+        <TeamChatListDialog 
+          open={showChatList} 
+          onOpenChange={setShowChatList}
+          onSelectMember={(recipientId, recipientName) => {
+            setChatRecipientId(recipientId);
+            setChatRecipientName(recipientName);
+            setShowChatList(false);
+          }}
+          currentUserId={currentUserId}
+        />
+        {chatRecipientId && (
+          <ChatDialog
+            open={!!chatRecipientId}
+            onOpenChange={(open) => !open && setChatRecipientId(null)}
+            recipientId={chatRecipientId}
+            recipientName={chatRecipientName}
+          />
+        )}
+        <ReportsDownloadDialog 
+          open={showReportsDownload} 
+          onOpenChange={setShowReportsDownload} 
+        />
+        <TeamMemberReportDialog
+          open={showTeamReport}
+          onOpenChange={setShowTeamReport}
+        />
+        <EstimationTeamReportDialog
+          open={showEstimationReport}
+          onOpenChange={setShowEstimationReport}
+        />
+        <PendingTasksDialog
+          open={showPendingTasks}
+          onOpenChange={setShowPendingTasks}
+          onConfirmSignOut={confirmSignOut}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
