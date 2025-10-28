@@ -198,18 +198,20 @@ export const AdminKanbanBoard = () => {
     try {
       // If moving to approved, automatically transition to quotation_bill for estimation
       if (newStatus === 'approved') {
+        console.log('✅ Admin approving task - moving to quotation_bill for estimation');
         const { error } = await supabase
           .from('tasks')
           .update({
             status: 'quotation_bill' as any,
-            previous_status: task.status as any,
+            previous_status: 'admin_approval' as any, // Set correct previous status for notifications
             updated_at: new Date().toISOString(),
             status_changed_at: new Date().toISOString()
           })
           .eq('id', taskId);
 
         if (error) throw error;
-        toast.success("Task approved and moved to Quotation Bill");
+        console.log('✅ Task approved and moved to Quotation Bill in estimation panel');
+        toast.success("Task approved! Moved to Quotation Bill in estimation's panel");
       } else {
         // Regular status update
         const { error } = await supabase
