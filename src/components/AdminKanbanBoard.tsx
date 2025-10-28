@@ -1,0 +1,276 @@
+import { useState, useEffect } from "react";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { KanbanColumn } from "./KanbanColumn";
+import { TaskCard } from "./TaskCard";
+import { EditTaskDialog } from "./EditTaskDialog";
+import { StatusChangeNotification } from "./StatusChangeNotification";
+
+type Task = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  position: number;
+  assigned_to: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  status_changed_at: string;
+  assigned_by: string | null;
+  client_name: string | null;
+  my_status: string;
+  supplier_name: string | null;
+  type: string;
+};
+
+type Column = {
+  id: string;
+  title: string;
+  status: string;
+};
+
+const ADMIN_COLUMNS: Column[] = [
+  { id: "admin_cost_approval", title: "Admin Cost Approval", status: "admin_cost_approval" },
+  { id: "approved", title: "Approved", status: "approved" },
+  { id: "production", title: "Production (Estimation)", status: "production" },
+];
+
+export const AdminKanbanBoard = () => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+  const fetchTasks = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch tasks for admin approval pipeline
+      const { data: approvalTasks, error: approvalError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'admin_cost_approval')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (approvalError) throw approvalError;
+
+      // Fetch approved tasks
+      const { data: approvedTasks, error: approvedError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'approved')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (approvedError) throw approvedError;
+
+      // Fetch production tasks created by estimation team only (to avoid duplicates)
+      const { data: estimationUsers } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'estimation');
+
+      const estimationUserIds = estimationUsers?.map(u => u.user_id) || [];
+
+      const { data: productionTasks, error: productionError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'production')
+        .in('created_by', estimationUserIds)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      if (productionError) throw productionError;
+
+      const allTasks = [...(approvalTasks || []), ...(approvedTasks || []), ...(productionTasks || [])];
+      setTasks(allTasks);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      toast.error('Failed to load tasks');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+    
+    // Real-time subscription with broadcast for instant sync
+    const channel = supabase
+      .channel('admin-kanban-changes', {
+        config: { broadcast: { self: true } }
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tasks'
+        },
+        () => {
+          fetchTasks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t.id === event.active.id);
+    setActiveTask(task || null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over) return;
+
+    const taskId = active.id as string;
+    
+    // Determine the new status
+    let newStatus: string;
+    
+    const targetColumn = ADMIN_COLUMNS.find(col => col.id === over.id);
+    
+    if (targetColumn) {
+      newStatus = targetColumn.status;
+    } else {
+      const targetTask = tasks.find(t => t.id === over.id);
+      if (targetTask) {
+        newStatus = targetTask.status;
+      } else {
+        console.error("Invalid drop target:", over.id);
+        toast.error("Invalid drop location");
+        return;
+      }
+    }
+
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    if (task.status === newStatus) return;
+
+    // Don't allow moving production tasks - they're read-only monitoring
+    if (task.status === 'production') {
+      toast.error("Production tasks cannot be moved from admin panel");
+      return;
+    }
+
+    try {
+      // If moving to approved, automatically transition to quotation_bill for estimation
+      if (newStatus === 'approved') {
+        const { error } = await supabase
+          .from('tasks')
+          .update({
+            status: 'quotation_bill' as any,
+            previous_status: task.status as any,
+            updated_at: new Date().toISOString(),
+            status_changed_at: new Date().toISOString()
+          })
+          .eq('id', taskId);
+
+        if (error) throw error;
+        toast.success("Task approved and moved to Quotation Bill");
+      } else {
+        // Regular status update
+        const { error } = await supabase
+          .from('tasks')
+          .update({
+            status: newStatus as any,
+            previous_status: task.status as any,
+            updated_at: new Date().toISOString(),
+            status_changed_at: new Date().toISOString()
+          })
+          .eq('id', taskId);
+
+        if (error) throw error;
+        toast.success("Task moved successfully");
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast.error('Failed to move task');
+    }
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setShowEditDialog(true);
+  };
+
+  const handleTaskUpdated = () => {
+    fetchTasks();
+    setShowEditDialog(false);
+    setEditingTask(null);
+  };
+
+  const handleTaskDeleted = () => {
+    fetchTasks();
+    setShowEditDialog(false);
+    setEditingTask(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      <StatusChangeNotification />
+      
+      <div className="flex justify-center w-full">
+        <DndContext
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4 px-2 max-w-[1600px] w-full">
+            <SortableContext
+              items={ADMIN_COLUMNS.map((col) => col.id)}
+              strategy={horizontalListSortingStrategy}
+            >
+              {ADMIN_COLUMNS.map((column) => (
+                <KanbanColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  tasks={tasks.filter((task) => task.status === column.status)}
+                  onEditTask={handleEditTask}
+                  isAdminView={true}
+                />
+              ))}
+            </SortableContext>
+          </div>
+
+          <DragOverlay>
+            {activeTask ? <TaskCard task={activeTask} isDragging isAdminView={true} /> : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
+
+      <EditTaskDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        task={editingTask}
+        onTaskUpdated={handleTaskUpdated}
+        onTaskDeleted={handleTaskDeleted}
+        isAdmin={true}
+      />
+    </div>
+  );
+};

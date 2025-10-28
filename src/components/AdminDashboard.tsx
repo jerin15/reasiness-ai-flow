@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Clock, Plus } from "lucide-react";
+import { ListTodo, Plus } from "lucide-react";
 import { AddTaskDialog } from "./AddTaskDialog";
+import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { format } from "date-fns";
 
 interface Task {
@@ -33,19 +34,16 @@ interface Task {
 }
 
 interface Stats {
-  totalTasks: number;
+  tasksCreatedByMe: number;
   pendingApproval: number;
-  approved: number;
   productionTasks: number;
 }
 
 export const AdminDashboard = () => {
-  const [approvalTasks, setApprovalTasks] = useState<Task[]>([]);
-  const [productionTasks, setProductionTasks] = useState<Task[]>([]);
+  const [myCreatedTasks, setMyCreatedTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<Stats>({
-    totalTasks: 0,
+    tasksCreatedByMe: 0,
     pendingApproval: 0,
-    approved: 0,
     productionTasks: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -79,40 +77,29 @@ export const AdminDashboard = () => {
 
   const fetchTasksAndStats = async () => {
     try {
-      // Fetch tasks awaiting admin approval
-      const { data: approval, error: approvalError } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch tasks created by this admin
+      const { data: myTasks, error: myTasksError } = await supabase
         .from('tasks')
         .select(`
           *,
           assignee:profiles!tasks_assigned_to_fkey(full_name, email),
           creator:profiles!tasks_created_by_fkey(full_name, email)
         `)
-        .eq('status', 'admin_cost_approval' as any)
+        .eq('created_by', user.id)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      if (approvalError) throw approvalError;
-      setApprovalTasks(approval as any || []);
-
-      // Fetch production tasks
-      const { data: production, error: productionError } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          assignee:profiles!tasks_assigned_to_fkey(full_name, email),
-          creator:profiles!tasks_created_by_fkey(full_name, email)
-        `)
-        .eq('status', 'production')
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false });
-
-      if (productionError) throw productionError;
-      setProductionTasks(production as any || []);
+      if (myTasksError) throw myTasksError;
+      setMyCreatedTasks(myTasks as any || []);
 
       // Calculate stats
-      const { count: totalCount } = await supabase
+      const { count: myTasksCount } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
+        .eq('created_by', user.id)
         .is('deleted_at', null);
 
       const { count: pendingCount } = await supabase
@@ -121,22 +108,24 @@ export const AdminDashboard = () => {
         .eq('status', 'admin_cost_approval' as any)
         .is('deleted_at', null);
 
-      const { count: approvedCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved' as any)
-        .is('deleted_at', null);
+      // Get estimation users to count only their production tasks
+      const { data: estimationUsers } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'estimation');
+
+      const estimationUserIds = estimationUsers?.map(u => u.user_id) || [];
 
       const { count: productionCount } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'production')
+        .in('created_by', estimationUserIds)
         .is('deleted_at', null);
 
       setStats({
-        totalTasks: totalCount || 0,
+        tasksCreatedByMe: myTasksCount || 0,
         pendingApproval: pendingCount || 0,
-        approved: approvedCount || 0,
         productionTasks: productionCount || 0,
       });
     } catch (error) {
@@ -147,45 +136,6 @@ export const AdminDashboard = () => {
     }
   };
 
-  const handleApprove = async (taskId: string) => {
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ 
-          status: 'approved' as any,
-          status_changed_at: new Date().toISOString()
-        })
-        .eq('id', taskId);
-
-      if (error) throw error;
-
-      toast.success('Task approved successfully');
-      fetchTasksAndStats();
-    } catch (error) {
-      console.error('Error approving task:', error);
-      toast.error('Failed to approve task');
-    }
-  };
-
-  const handleReject = async (taskId: string) => {
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ 
-          status: 'rejected' as any,
-          status_changed_at: new Date().toISOString()
-        })
-        .eq('id', taskId);
-
-      if (error) throw error;
-
-      toast.error('Task rejected');
-      fetchTasksAndStats();
-    } catch (error) {
-      console.error('Error rejecting task:', error);
-      toast.error('Failed to reject task');
-    }
-  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -228,19 +178,20 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
+            <CardTitle className="text-sm font-medium">Tasks Created by Me</CardTitle>
+            <ListTodo className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalTasks}</div>
+            <div className="text-2xl font-bold">{stats.tasksCreatedByMe}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
+            <ListTodo className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingApproval}</div>
@@ -248,17 +199,8 @@ export const AdminDashboard = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.approved}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Production</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
+            <CardTitle className="text-sm font-medium">Production (Estimation)</CardTitle>
+            <ListTodo className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.productionTasks}</div>
@@ -266,104 +208,25 @@ export const AdminDashboard = () => {
         </Card>
       </div>
 
-      {/* Tasks Awaiting Approval */}
+      {/* Admin Approval Pipeline */}
       <Card>
         <CardHeader>
-          <CardTitle>Tasks Awaiting Cost Approval</CardTitle>
-          <CardDescription>
-            Review and approve tasks submitted by the estimation team
-          </CardDescription>
+          <CardTitle>Admin Approval Pipeline</CardTitle>
         </CardHeader>
         <CardContent>
-          {approvalTasks.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No tasks awaiting approval
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Assigned To</TableHead>
-                  <TableHead>Created By</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {approvalTasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{task.title}</div>
-                        <div className="text-sm text-muted-foreground line-clamp-1">
-                          {task.description}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getTypeLabel(task.type)}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getPriorityColor(task.priority)}>
-                        {task.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{task.client_name || '-'}</TableCell>
-                    <TableCell>{task.supplier_name || '-'}</TableCell>
-                    <TableCell>
-                      {task.assignee?.full_name || 'Unassigned'}
-                    </TableCell>
-                    <TableCell>
-                      {task.creator?.full_name || 'Unknown'}
-                    </TableCell>
-                    <TableCell>
-                      {task.due_date ? format(new Date(task.due_date), 'MMM d, yyyy') : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleApprove(task.id)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleReject(task.id)}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <AdminKanbanBoard />
         </CardContent>
       </Card>
 
-      {/* Production Tasks Monitor */}
+      {/* Tasks Created by Admin */}
       <Card>
         <CardHeader>
-          <CardTitle>Production Tasks</CardTitle>
-          <CardDescription>
-            Monitor tasks currently in production (Estimation & Operations sync)
-          </CardDescription>
+          <CardTitle>Tasks I Created for Team Members</CardTitle>
         </CardHeader>
         <CardContent>
-          {productionTasks.length === 0 ? (
+          {myCreatedTasks.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No tasks in production
+              No tasks created yet
             </div>
           ) : (
             <Table>
@@ -372,15 +235,14 @@ export const AdminDashboard = () => {
                   <TableHead>Task</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Priority</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Client</TableHead>
-                  <TableHead>Supplier</TableHead>
                   <TableHead>Assigned To</TableHead>
-                  <TableHead>Created By</TableHead>
                   <TableHead>Due Date</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {productionTasks.map((task) => (
+                {myCreatedTasks.map((task) => (
                   <TableRow key={task.id}>
                     <TableCell>
                       <div>
@@ -398,13 +260,12 @@ export const AdminDashboard = () => {
                         {task.priority}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{task.status}</Badge>
+                    </TableCell>
                     <TableCell>{task.client_name || '-'}</TableCell>
-                    <TableCell>{task.supplier_name || '-'}</TableCell>
                     <TableCell>
                       {task.assignee?.full_name || 'Unassigned'}
-                    </TableCell>
-                    <TableCell>
-                      {task.creator?.full_name || 'Unknown'}
                     </TableCell>
                     <TableCell>
                       {task.due_date ? format(new Date(task.due_date), 'MMM d, yyyy') : '-'}
