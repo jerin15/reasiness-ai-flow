@@ -37,7 +37,7 @@ type Column = {
 const ADMIN_COLUMNS: Column[] = [
   { id: "admin_cost_approval", title: "Admin Cost Approval", status: "admin_cost_approval" },
   { id: "approved", title: "Approved", status: "approved" },
-  { id: "production", title: "Production (Estimation)", status: "production" },
+  { id: "production", title: "Production (Operations)", status: "production" },
 ];
 
 export const AdminKanbanBoard = () => {
@@ -72,19 +72,19 @@ export const AdminKanbanBoard = () => {
 
       if (approvedError) throw approvedError;
 
-      // Fetch production tasks created by estimation team only (to avoid duplicates)
-      const { data: estimationUsers } = await supabase
+      // Fetch production tasks created by operations team only (to avoid duplicates)
+      const { data: operationsUsers } = await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'estimation');
+        .eq('role', 'operations');
 
-      const estimationUserIds = estimationUsers?.map(u => u.user_id) || [];
+      const operationsUserIds = operationsUsers?.map(u => u.user_id) || [];
 
       const { data: productionTasks, error: productionError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'production')
-        .in('created_by', estimationUserIds)
+        .in('created_by', operationsUserIds)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
