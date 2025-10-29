@@ -150,7 +150,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           error = result.error;
           data = null;
         } else {
-          // Custom client-side sorting for estimation: type order, then priority, then position
+          // Custom client-side sorting for estimation: type order, then priority (urgent first), then position
           const typeOrder: Record<string, number> = { 
             quotation: 1, 
             invoice: 2, 
@@ -163,7 +163,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
             const typeB = typeOrder[b.type?.toLowerCase()] || 999;
             if (typeA !== typeB) return typeA - typeB;
             
-            const priorityOrder: Record<string, number> = { high: 3, medium: 2, low: 1 };
+            // Sort by urgency: urgent > high > medium > low
+            const priorityOrder: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
             const priorityA = priorityOrder[a.priority?.toLowerCase()] || 0;
             const priorityB = priorityOrder[b.priority?.toLowerCase()] || 0;
             if (priorityA !== priorityB) return priorityB - priorityA;

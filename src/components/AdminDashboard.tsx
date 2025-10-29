@@ -95,7 +95,15 @@ export const AdminDashboard = () => {
         .order('created_at', { ascending: false });
 
       if (myTasksError) throw myTasksError;
-      setMyCreatedTasks(myTasks as any || []);
+      
+      // Sort tasks: done tasks at the end, others at the top
+      const sortedTasks = (myTasks || []).sort((a, b) => {
+        if (a.status === 'done' && b.status !== 'done') return 1;
+        if (a.status !== 'done' && b.status === 'done') return -1;
+        return 0; // Keep original order for tasks with same done/not-done status
+      });
+      
+      setMyCreatedTasks(sortedTasks as any);
 
       // Calculate stats
       const { count: myTasksCount } = await supabase

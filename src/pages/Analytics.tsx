@@ -493,7 +493,15 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {Object.entries(stats.byPriority).map(([priority, count]) => (
+                {Object.entries(stats.byPriority)
+                  .sort(([priorityA], [priorityB]) => {
+                    // Sort by urgency: urgent > high > medium > low
+                    const priorityOrder: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
+                    const orderA = priorityOrder[priorityA.toLowerCase()] || 0;
+                    const orderB = priorityOrder[priorityB.toLowerCase()] || 0;
+                    return orderB - orderA;
+                  })
+                  .map(([priority, count]) => (
                   <div key={priority} className="flex items-center justify-between">
                     <span className="text-sm capitalize">{priority}</span>
                     <div className="flex items-center gap-2">
