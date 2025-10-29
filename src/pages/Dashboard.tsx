@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, Clock } from "lucide-react";
 import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
+import { PersonalAnalytics } from "@/components/PersonalAnalytics";
 import { StatusChangeNotification } from "@/components/StatusChangeNotification";
 import { Badge } from "@/components/ui/badge";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
@@ -46,6 +47,7 @@ const Dashboard = () => {
   const [chatRecipientId, setChatRecipientId] = useState("");
   const [chatRecipientName, setChatRecipientName] = useState("");
   const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
+  const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false);
   const unreadCount = useUnreadMessageCount(currentUserId);
 
   useEffect(() => {
@@ -148,16 +150,11 @@ const Dashboard = () => {
   };
 
   const handleSignOut = async () => {
-    // Show pending tasks before signing out
-    setShowPendingTasks(true);
-  };
-
-  const confirmSignOut = async () => {
     try {
-      setShowPendingTasks(false);
-      setShowPendingOnSignOut(false);
       await supabase.auth.signOut();
       sessionStorage.removeItem("hasSeenReminders");
+      localStorage.removeItem("lastReminderCheck");
+      localStorage.removeItem("lastPendingCheck");
       navigate("/auth");
       toast.success("Signed out successfully");
     } catch (error) {
@@ -328,7 +325,7 @@ const Dashboard = () => {
         <PendingTasksDialog
           open={showPendingTasks}
           onOpenChange={setShowPendingTasks}
-          onConfirmSignOut={confirmSignOut}
+          onConfirmSignOut={handleSignOut}
         />
       </div>
     );
@@ -397,6 +394,16 @@ const Dashboard = () => {
                   </Button>
                 </>
               )}
+              {userRole !== "admin" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPersonalAnalytics(!showPersonalAnalytics)}
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  {showPersonalAnalytics ? "Hide" : "Show"} Analytics
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -453,6 +460,11 @@ const Dashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
+        {showPersonalAnalytics && userRole !== "admin" && (
+          <div className="mb-6">
+            <PersonalAnalytics userId={currentUserId} userRole={userRole} />
+          </div>
+        )}
         <KanbanBoard 
           userRole={userRole} 
           viewingUserId={selectedUserId}
@@ -472,7 +484,7 @@ const Dashboard = () => {
       <PendingTasksDialog 
         open={showPendingOnSignOut} 
         onOpenChange={setShowPendingOnSignOut}
-        onConfirmSignOut={confirmSignOut}
+        onConfirmSignOut={handleSignOut}
       />
       <TeamMemberReportDialog
         open={showTeamReport}

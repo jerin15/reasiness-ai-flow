@@ -100,7 +100,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         client_name: clientName || null,
         supplier_name: supplierName || null,
         my_status: myStatus as "pending" | "done_from_my_side",
-        type: taskType as "quotation" | "invoice" | "general" | "production",
+        type: taskType as "quotation" | "invoice" | "design" | "general" | "production",
       };
 
       // Admin can assign to selected member, others create self-assigned tasks
@@ -256,6 +256,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                 <SelectContent>
                   <SelectItem value="quotation">QUOTATION</SelectItem>
                   <SelectItem value="invoice">INVOICE</SelectItem>
+                  <SelectItem value="design">DESIGN</SelectItem>
                   <SelectItem value="general">GENERAL</SelectItem>
                   <SelectItem value="production">PRODUCTION</SelectItem>
                 </SelectContent>
