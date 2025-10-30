@@ -268,13 +268,6 @@ const Dashboard = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowReportsDownload(true)}
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
                     onClick={() => setShowChatList(true)}
                   >
                     <MessageSquare className="h-4 w-4" />

@@ -98,7 +98,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
                   if (Notification.permission === 'granted') {
                     new Notification(`New message from ${recipientName}`, {
                       body: newMsg.message,
-                      icon: '/favicon.ico'
+                      icon: '/rea-logo-icon.png'
                     });
                   }
                 }
@@ -186,6 +186,10 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
           console.error('Error marking messages as read:', updateError);
         } else {
           console.log(`✅ ${messageIds.length} messages marked as read instantly`);
+          // Force update local state immediately
+          setMessages(prev => prev.map(msg => 
+            messageIds.includes(msg.id) ? { ...msg, is_read: true } : msg
+          ));
         }
       }
     } catch (error) {

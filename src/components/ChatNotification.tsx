@@ -118,14 +118,14 @@ export const ChatNotification = () => {
             if (Notification.permission === 'granted') {
               new Notification(`💬 ${senderName} sent you a message`, {
                 body: newMsg.message,
-                icon: '/favicon.ico',
+                icon: '/rea-logo-icon.png',
                 tag: newMsg.id,
                 requireInteraction: false
               });
             } else if (Notification.permission === 'default') {
               Notification.requestPermission();
             }
-          }, 200); // Reduced to 200ms for instant feel
+          }, 50); // Minimal delay to prevent race condition
         }
       )
       .subscribe((status) => {
