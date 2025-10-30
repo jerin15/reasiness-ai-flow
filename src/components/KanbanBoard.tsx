@@ -239,37 +239,32 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     const { active, over } = event;
     setActiveTask(null);
 
-    if (!over) return;
+    if (!over || !active) return;
 
     const taskId = active.id as string;
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
     
-    // Determine the new status - over.id could be a column ID or a task ID
-    let newStatus: string;
+    // Determine the new status - more robust handling
+    let newStatus: string | null = null;
     
-    // First check if it's a column ID
-    const targetColumn = columns.find(col => col.id === over.id);
+    // Try to find the target column first
+    const targetColumn = columns.find((col) => col.id === over.id);
     
     if (targetColumn) {
-      // Dropped on column area
       newStatus = targetColumn.status;
     } else {
-      // Dropped on a task - find which column that task is in
-      const targetTask = tasks.find(t => t.id === over.id);
+      // If not dropped on a column, check if dropped on another task
+      const targetTask = tasks.find((t) => t.id === over.id);
       if (targetTask) {
         newStatus = targetTask.status;
-      } else {
-        console.error("Invalid drop target:", over.id);
-        toast.error("Invalid drop location");
-        return;
       }
     }
 
-    // Find the task being moved
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-
-    // Skip if not actually changing status
-    if (task.status === newStatus) return;
+    // If we couldn't determine a valid status, abort
+    if (!newStatus || task.status === newStatus) {
+      return;
+    }
 
     // Check if moving to supplier_quotes or client_approval for estimation role (from any status)
     const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;

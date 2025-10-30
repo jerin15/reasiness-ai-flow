@@ -48,6 +48,7 @@ export const EditTaskDialog = ({
   const [supplierName, setSupplierName] = useState("");
   const [myStatus, setMyStatus] = useState("pending");
   const [taskType, setTaskType] = useState("general");
+  const [status, setStatus] = useState("todo");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -62,6 +63,7 @@ export const EditTaskDialog = ({
       setSupplierName(task.supplier_name || "");
       setMyStatus(task.my_status || "pending");
       setTaskType(task.type || "general");
+      setStatus(task.status || "todo");
     }
   }, [task]);
 
@@ -71,6 +73,9 @@ export const EditTaskDialog = ({
 
     setLoading(true);
     try {
+      // Check if status changed
+      const statusChanged = status !== task.status;
+      
       const { error } = await supabase
         .from("tasks")
         .update({
@@ -83,12 +88,21 @@ export const EditTaskDialog = ({
           supplier_name: supplierName || null,
           my_status: myStatus as "pending" | "done_from_my_side",
           type: taskType as "quotation" | "invoice" | "design" | "general" | "production",
+          status: status as any,
+          ...(statusChanged && {
+            previous_status: task.status as any,
+            status_changed_at: new Date().toISOString(),
+          }),
         })
         .eq("id", task.id);
 
       if (error) throw error;
 
-      toast.success("Task updated successfully");
+      if (statusChanged) {
+        toast.success("Task updated and moved to new pipeline");
+      } else {
+        toast.success("Task updated successfully");
+      }
       onTaskUpdated();
       onOpenChange(false);
     } catch (error: any) {
@@ -237,6 +251,32 @@ export const EditTaskDialog = ({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-status">Move to Pipeline</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todo">To-Do List</SelectItem>
+                <SelectItem value="estimation">Estimation</SelectItem>
+                <SelectItem value="design">Design</SelectItem>
+                <SelectItem value="supplier_quotes">Supplier Quotes</SelectItem>
+                <SelectItem value="client_approval">Client Approval</SelectItem>
+                <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="quotation_bill">Quotation Bill</SelectItem>
+                <SelectItem value="production">Production</SelectItem>
+                <SelectItem value="final_invoice">Final Invoice</SelectItem>
+                <SelectItem value="mockup_pending">Mockup Pending</SelectItem>
+                <SelectItem value="production_pending">Production Pending</SelectItem>
+                <SelectItem value="with_client">With Client</SelectItem>
+                <SelectItem value="approval">Approval</SelectItem>
+                <SelectItem value="delivery">Delivery</SelectItem>
+                <SelectItem value="done">Done</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <DialogFooter className="flex justify-between items-center">
             <div>

@@ -164,31 +164,37 @@ export const AdminKanbanBoard = () => {
     const { active, over } = event;
     setActiveTask(null);
 
-    if (!over) return;
+    if (!over || !active) return;
 
     const taskId = active.id as string;
     
-    // Determine the new status
-    let newStatus: string;
+    // Determine the new status - more robust handling
+    let newStatus: string | null = null;
     
+    // Try to find the target column first
     const targetColumn = ADMIN_COLUMNS.find(col => col.id === over.id);
     
     if (targetColumn) {
       newStatus = targetColumn.status;
     } else {
+      // If not dropped on a column, check if dropped on another task
       const targetTask = tasks.find(t => t.id === over.id);
       if (targetTask) {
         newStatus = targetTask.status;
-      } else {
-        console.error("Invalid drop target:", over.id);
-        toast.error("Invalid drop location");
-        return;
       }
+    }
+
+    // If we couldn't determine a valid status, abort
+    if (!newStatus) {
+      console.warn("Could not determine target status");
+      toast.error("Invalid drop location");
+      return;
     }
 
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
+    // If status unchanged, abort
     if (task.status === newStatus) return;
 
     // Don't allow moving production tasks - they're read-only monitoring
