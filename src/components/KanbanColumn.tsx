@@ -28,10 +28,19 @@ type KanbanColumnProps = {
   onEditTask?: (task: Task) => void;
   isAdminView?: boolean;
   onTaskUpdated?: () => void;
+  userRole?: string;
+  userRolesMap?: Record<string, string>;
 };
 
-export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated }: KanbanColumnProps) => {
+export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated, userRole, userRolesMap }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
+
+  const getTaskRole = (task: Task) => {
+    if (userRolesMap) {
+      return userRolesMap[(task as any).assigned_to || (task as any).created_by] || "operations";
+    }
+    return userRole || "operations";
+  };
 
   return (
     <div 
@@ -65,6 +74,7 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTask
                 onEdit={onEditTask} 
                 isAdminView={isAdminView}
                 onTaskUpdated={onTaskUpdated}
+                userRole={getTaskRole(task)}
               />
             ))}
             {/* Empty drop zone at bottom for better drop targeting */}

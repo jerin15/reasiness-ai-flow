@@ -34,9 +34,10 @@ type TaskCardProps = {
   onEdit?: (task: Task) => void;
   isAdminView?: boolean;
   onTaskUpdated?: () => void;
+  userRole?: string;
 };
 
-export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated }: TaskCardProps) => {
+export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated, userRole }: TaskCardProps) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
 
@@ -82,24 +83,58 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated 
     }
   };
 
-  const pipelines = [
-    { value: "todo", label: "To-Do List" },
-    { value: "estimation", label: "Estimation" },
-    { value: "design", label: "Design" },
-    { value: "supplier_quotes", label: "Supplier Quotes" },
-    { value: "client_approval", label: "Client Approval" },
-    { value: "admin_approval", label: "Admin Cost Approval" },
-    { value: "approved", label: "Approved" },
-    { value: "quotation_bill", label: "Quotation Bill" },
-    { value: "production", label: "Production" },
-    { value: "final_invoice", label: "Final Invoice" },
-    { value: "mockup_pending", label: "Mockup Pending" },
-    { value: "production_pending", label: "Production Pending" },
-    { value: "with_client", label: "With Client" },
-    { value: "approval", label: "Approval" },
-    { value: "delivery", label: "Delivery" },
-    { value: "done", label: "Done" },
-  ];
+  const getRolePipelines = (role: string) => {
+    switch (role) {
+      case "estimation":
+        return [
+          { value: "todo", label: "To-Do List" },
+          { value: "estimation", label: "Estimation" },
+          { value: "design", label: "Design" },
+          { value: "supplier_quotes", label: "Supplier Quotes" },
+          { value: "client_approval", label: "Client Approval" },
+          { value: "admin_approval", label: "Admin Cost Approval" },
+          { value: "approved", label: "Approved" },
+          { value: "quotation_bill", label: "Quotation Bill" },
+        ];
+      case "designer":
+        return [
+          { value: "design", label: "Design" },
+          { value: "mockup_pending", label: "Mockup Pending" },
+          { value: "client_approval", label: "Client Approval" },
+        ];
+      case "operations":
+        return [
+          { value: "production", label: "Production" },
+          { value: "final_invoice", label: "Final Invoice" },
+          { value: "production_pending", label: "Production Pending" },
+          { value: "with_client", label: "With Client" },
+          { value: "approval", label: "Approval" },
+          { value: "delivery", label: "Delivery" },
+          { value: "done", label: "Done" },
+        ];
+      default:
+        return [
+          { value: "todo", label: "To-Do List" },
+          { value: "estimation", label: "Estimation" },
+          { value: "design", label: "Design" },
+          { value: "supplier_quotes", label: "Supplier Quotes" },
+          { value: "client_approval", label: "Client Approval" },
+          { value: "admin_approval", label: "Admin Cost Approval" },
+          { value: "approved", label: "Approved" },
+          { value: "quotation_bill", label: "Quotation Bill" },
+          { value: "production", label: "Production" },
+          { value: "final_invoice", label: "Final Invoice" },
+          { value: "mockup_pending", label: "Mockup Pending" },
+          { value: "production_pending", label: "Production Pending" },
+          { value: "with_client", label: "With Client" },
+          { value: "approval", label: "Approval" },
+          { value: "delivery", label: "Delivery" },
+          { value: "done", label: "Done" },
+        ];
+    }
+  };
+
+  const pipelines = getRolePipelines(userRole || "operations");
 
   const handleMoveTask = async (newStatus: string) => {
     if (newStatus === task.status || isMoving) return;

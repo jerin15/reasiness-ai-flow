@@ -48,6 +48,7 @@ export const AdminKanbanBoard = () => {
   const [loading, setLoading] = useState(true);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [userRoles, setUserRoles] = useState<Record<string, string>>({});
 
   const fetchTasks = async () => {
     try {
@@ -64,6 +65,17 @@ export const AdminKanbanBoard = () => {
         .single();
       
       console.log('👤 Admin role check:', roleData);
+
+      // Fetch all user roles for mapping
+      const { data: allRoles } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+      
+      const rolesMap: Record<string, string> = {};
+      allRoles?.forEach((r) => {
+        rolesMap[r.user_id] = r.role;
+      });
+      setUserRoles(rolesMap);
 
       // Fetch ALL tasks for admin approval pipeline (admins should see everything)
       const { data: approvalTasks, error: approvalError } = await supabase
@@ -294,22 +306,33 @@ export const AdminKanbanBoard = () => {
               items={ADMIN_COLUMNS.map((col) => col.id)}
               strategy={horizontalListSortingStrategy}
             >
-              {ADMIN_COLUMNS.map((column) => (
-                <KanbanColumn
-                  key={column.id}
-                  id={column.id}
-                  title={column.title}
-                  tasks={tasks.filter((task) => task.status === column.status)}
-                  onEditTask={handleEditTask}
-                  isAdminView={true}
-                  onTaskUpdated={fetchTasks}
-                />
-              ))}
+              {ADMIN_COLUMNS.map((column) => {
+                const columnTasks = tasks.filter((task) => task.status === column.status);
+                return (
+                  <KanbanColumn
+                    key={column.id}
+                    id={column.id}
+                    title={column.title}
+                    tasks={columnTasks}
+                    onEditTask={handleEditTask}
+                    isAdminView={true}
+                    onTaskUpdated={fetchTasks}
+                    userRolesMap={userRoles}
+                  />
+                );
+              })}
             </SortableContext>
           </div>
 
           <DragOverlay>
-            {activeTask ? <TaskCard task={activeTask} isDragging isAdminView={true} /> : null}
+            {activeTask ? (
+              <TaskCard 
+                task={activeTask} 
+                isDragging 
+                isAdminView={true}
+                userRole={userRoles[activeTask.assigned_to || activeTask.created_by] || "admin"}
+              />
+            ) : null}
           </DragOverlay>
         </DndContext>
       </div>

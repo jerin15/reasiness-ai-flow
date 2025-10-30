@@ -398,13 +398,14 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                   onEditTask={handleEditTask}
                   isAdminView={isAdmin && !!viewingUserId}
                   onTaskUpdated={fetchTasks}
+                  userRole={(isAdmin && viewingUserRole) ? viewingUserRole : userRole}
                 />
               ))}
             </SortableContext>
           </div>
 
           <DragOverlay>
-            {activeTask ? <TaskCard task={activeTask} isDragging isAdminView={isAdmin && !!viewingUserId} /> : null}
+            {activeTask ? <TaskCard task={activeTask} isDragging isAdminView={isAdmin && !!viewingUserId} userRole={(isAdmin && viewingUserRole) ? viewingUserRole : userRole} /> : null}
           </DragOverlay>
         </DndContext>
       </div>
