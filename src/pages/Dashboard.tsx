@@ -238,7 +238,7 @@ const Dashboard = () => {
                     size="sm"
                     onClick={() => navigate("/analytics")}
                   >
-                    <BarChart3 className="h-4 w-4 mr-1" />
+                    <BarChart3 className="h-3 w-3 mr-1" />
                     Analytics
                   </Button>
                   <Button
@@ -246,7 +246,7 @@ const Dashboard = () => {
                     size="sm"
                     onClick={() => setShowMyReport(true)}
                   >
-                    <FileText className="h-4 w-4 mr-1" />
+                    <FileText className="h-3 w-3 mr-1" />
                     My Reports
                   </Button>
                   <Button
@@ -254,7 +254,7 @@ const Dashboard = () => {
                     size="sm"
                     onClick={() => setShowTeamReport(true)}
                   >
-                    <FileText className="h-4 w-4 mr-1" />
+                    <FileText className="h-3 w-3 mr-1" />
                     Team
                   </Button>
                   <Button
@@ -262,7 +262,7 @@ const Dashboard = () => {
                     size="sm"
                     onClick={() => setShowEstimationReport(true)}
                   >
-                    <FileText className="h-4 w-4 mr-1" />
+                    <FileText className="h-3 w-3 mr-1" />
                     Estimation
                   </Button>
                   <Button
@@ -270,11 +270,11 @@ const Dashboard = () => {
                     size="sm"
                     onClick={() => setShowChatList(true)}
                   >
-                    <MessageSquare className="h-4 w-4" />
+                    <MessageSquare className="h-3 w-3" />
                   </Button>
                   <StatusChangeNotification />
                   <Button variant="destructive" size="sm" onClick={handleSignOut}>
-                    <LogOut className="h-4 w-4" />
+                    <LogOut className="h-3 w-3" />
                   </Button>
                 </div>
               </div>
@@ -344,7 +344,7 @@ const Dashboard = () => {
                     <SelectTrigger className="w-[240px]">
                       <SelectValue>
                         <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4" />
+                          <Users className="h-3 w-3" />
                           <span>{getSelectedUserName()}</span>
                         </div>
                       </SelectValue>
@@ -374,7 +374,7 @@ const Dashboard = () => {
                     size="sm"
                     onClick={() => navigate("/analytics")}
                   >
-                    <BarChart3 className="h-4 w-4 mr-2" />
+                    <BarChart3 className="h-3 w-3 mr-2" />
                     Analytics
                   </Button>
                   <Button
@@ -382,7 +382,7 @@ const Dashboard = () => {
                     size="sm"
                     onClick={() => setShowTeamReport(true)}
                   >
-                    <FileText className="h-4 w-4 mr-2" />
+                    <FileText className="h-3 w-3 mr-2" />
                     Team Reports
                   </Button>
                 </>
@@ -393,7 +393,7 @@ const Dashboard = () => {
                   size="sm"
                   onClick={() => setShowPersonalAnalytics(!showPersonalAnalytics)}
                 >
-                  <BarChart3 className="h-4 w-4 mr-2" />
+                  <BarChart3 className="h-3 w-3 mr-2" />
                   {showPersonalAnalytics ? "Hide" : "Show"} Analytics
                 </Button>
               )}
@@ -402,7 +402,7 @@ const Dashboard = () => {
                 size="sm"
                 onClick={() => setShowMyReport(true)}
               >
-                <FileText className="h-4 w-4 mr-2" />
+                <FileText className="h-3 w-3 mr-2" />
                 My Report
               </Button>
               {userRole === "admin" && (
@@ -412,7 +412,7 @@ const Dashboard = () => {
                     size="sm"
                     onClick={() => setShowAdminTaskReport(true)}
                   >
-                    <FileText className="h-4 w-4 mr-2" />
+                    <FileText className="h-3 w-3 mr-2" />
                     Member Reports
                   </Button>
                   <Button
@@ -420,7 +420,7 @@ const Dashboard = () => {
                     size="sm"
                     onClick={() => setShowEstimationReport(true)}
                   >
-                    <Download className="h-4 w-4 mr-2" />
+                    <Download className="h-3 w-3 mr-2" />
                     Estimation Report
                   </Button>
                 </>
@@ -431,7 +431,7 @@ const Dashboard = () => {
                 onClick={() => setShowChat(true)}
                 className="relative"
               >
-                <MessageSquare className="h-4 w-4 mr-2" />
+                <MessageSquare className="h-3 w-3 mr-2" />
                 Team Chat
                 {unreadCount > 0 && (
                   <Badge 
@@ -444,7 +444,7 @@ const Dashboard = () => {
               </Button>
               <StatusChangeNotification />
               <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="h-3 w-3 mr-2" />
                 Sign Out
               </Button>
             </div>
