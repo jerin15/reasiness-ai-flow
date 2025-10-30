@@ -3,9 +3,13 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Calendar, GripVertical, Edit2, Clock } from "lucide-react";
+import { Calendar, GripVertical, Edit2, Clock, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useState } from "react";
 
 type Task = {
   id: string;
@@ -29,9 +33,13 @@ type TaskCardProps = {
   isDragging?: boolean;
   onEdit?: (task: Task) => void;
   isAdminView?: boolean;
+  onTaskUpdated?: () => void;
 };
 
-export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProps) => {
+export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated }: TaskCardProps) => {
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
+
   const {
     attributes,
     listeners,
@@ -74,6 +82,52 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProp
     }
   };
 
+  const pipelines = [
+    { value: "todo", label: "To-Do List" },
+    { value: "estimation", label: "Estimation" },
+    { value: "design", label: "Design" },
+    { value: "supplier_quotes", label: "Supplier Quotes" },
+    { value: "client_approval", label: "Client Approval" },
+    { value: "admin_approval", label: "Admin Cost Approval" },
+    { value: "approved", label: "Approved" },
+    { value: "quotation_bill", label: "Quotation Bill" },
+    { value: "production", label: "Production" },
+    { value: "final_invoice", label: "Final Invoice" },
+    { value: "mockup_pending", label: "Mockup Pending" },
+    { value: "production_pending", label: "Production Pending" },
+    { value: "with_client", label: "With Client" },
+    { value: "approval", label: "Approval" },
+    { value: "delivery", label: "Delivery" },
+    { value: "done", label: "Done" },
+  ];
+
+  const handleMoveTask = async (newStatus: string) => {
+    if (newStatus === task.status || isMoving) return;
+
+    setIsMoving(true);
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({
+          status: newStatus as any,
+          previous_status: task.status as any,
+          status_changed_at: new Date().toISOString(),
+        })
+        .eq("id", task.id);
+
+      if (error) throw error;
+
+      toast.success("Task moved successfully");
+      setPopoverOpen(false);
+      onTaskUpdated?.();
+    } catch (error: any) {
+      console.error("Error moving task:", error);
+      toast.error(error.message || "Failed to move task");
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
   return (
     <Card
       ref={setNodeRef}
@@ -95,19 +149,50 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView }: TaskCardProp
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
               <h4 className="font-medium text-sm line-clamp-2 flex-1">{task.title}</h4>
-              {onEdit && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 hover:bg-accent"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(task);
-                  }}
-                >
-                  <Edit2 className="h-3 w-3" />
-                </Button>
-              )}
+              <div className="flex gap-1">
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 hover:bg-accent"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="end">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium mb-2 px-2">Move to Pipeline</p>
+                      {pipelines.map((pipeline) => (
+                        <Button
+                          key={pipeline.value}
+                          variant={task.status === pipeline.value ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start text-xs"
+                          onClick={() => handleMoveTask(pipeline.value)}
+                          disabled={isMoving || task.status === pipeline.value}
+                        >
+                          {pipeline.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {onEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-accent"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(task);
+                    }}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
             {task.description && (
               <p className="text-xs text-muted-foreground line-clamp-2 mb-2">

@@ -397,6 +397,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                   tasks={filteredTasks.filter((task) => task.status === column.status)}
                   onEditTask={handleEditTask}
                   isAdminView={isAdmin && !!viewingUserId}
+                  onTaskUpdated={fetchTasks}
                 />
               ))}
             </SortableContext>

@@ -27,9 +27,10 @@ type KanbanColumnProps = {
   tasks: Task[];
   onEditTask?: (task: Task) => void;
   isAdminView?: boolean;
+  onTaskUpdated?: () => void;
 };
 
-export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView }: KanbanColumnProps) => {
+export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -58,7 +59,13 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView }: Kanb
         >
           <div className="space-y-2 min-h-full">
             {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} onEdit={onEditTask} isAdminView={isAdminView} />
+              <TaskCard 
+                key={task.id} 
+                task={task} 
+                onEdit={onEditTask} 
+                isAdminView={isAdminView}
+                onTaskUpdated={onTaskUpdated}
+              />
             ))}
             {/* Empty drop zone at bottom for better drop targeting */}
             <div className="h-12" />

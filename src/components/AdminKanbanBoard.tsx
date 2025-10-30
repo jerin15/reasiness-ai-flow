@@ -302,6 +302,7 @@ export const AdminKanbanBoard = () => {
                   tasks={tasks.filter((task) => task.status === column.status)}
                   onEditTask={handleEditTask}
                   isAdminView={true}
+                  onTaskUpdated={fetchTasks}
                 />
               ))}
             </SortableContext>
