@@ -23,8 +23,13 @@ export default defineConfig(({ mode }) => ({
         theme_color: '#ffffff',
         icons: [
           {
-            src: 'https://storage.googleapis.com/gpt-engineer-file-uploads/Bv8mTBmBPvSqg9JIZAQiKtO8Rys1/uploads/1761555042123-WhatsApp_Image_2025-05-15_at_5.18.05_PM-removebg-preview.png',
+            src: '/rea-logo-icon.png',
             sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: '/rea-logo-icon.png',
+            sizes: '512x512',
             type: 'image/png'
           }
         ]

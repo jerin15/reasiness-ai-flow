@@ -323,7 +323,7 @@ export const StatusChangeNotification = () => {
           if (Notification.permission === 'granted') {
             new Notification(`🔔 Task Update: ${taskData.title}`, {
               body: `${changedByName} - ${browserNotificationBody}`,
-              icon: '/favicon.ico',
+              icon: '/rea-logo-icon.png',
               tag: notification.id,
               requireInteraction: false
             });
