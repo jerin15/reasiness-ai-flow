@@ -38,7 +38,7 @@ type Column = {
 
 const ADMIN_COLUMNS: Column[] = [
   { id: "admin_cost_approval", title: "Admin Cost Approval", status: "admin_approval" },
-  { id: "approved", title: "Approved", status: "approved" },
+  { id: "approved", title: "Approve (Drop Here)", status: "approved" },
   { id: "production", title: "Production (Operations)", status: "production" },
 ];
 
@@ -307,7 +307,10 @@ export const AdminKanbanBoard = () => {
               strategy={horizontalListSortingStrategy}
             >
               {ADMIN_COLUMNS.map((column) => {
-                const columnTasks = tasks.filter((task) => task.status === column.status);
+                // For "Approved" column, don't show any tasks (it's just a drop zone)
+                const columnTasks = column.status === 'approved' 
+                  ? [] 
+                  : tasks.filter((task) => task.status === column.status);
                 return (
                   <KanbanColumn
                     key={column.id}
