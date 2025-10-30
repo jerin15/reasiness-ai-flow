@@ -84,7 +84,8 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
   };
 
   const getRolePipelines = (role: string) => {
-    switch (role) {
+    console.log("TaskCard - Getting pipelines for role:", role);
+    switch (role?.toLowerCase()) {
       case "estimation":
         return [
           { value: "todo", label: "To-Do List" },
@@ -112,7 +113,8 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
           { value: "delivery", label: "Delivery" },
           { value: "done", label: "Done" },
         ];
-      default:
+      case "admin":
+        // Admin sees all pipelines
         return [
           { value: "todo", label: "To-Do List" },
           { value: "estimation", label: "Estimation" },
@@ -131,10 +133,23 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
           { value: "delivery", label: "Delivery" },
           { value: "done", label: "Done" },
         ];
+      default:
+        // Default to operations for unknown roles
+        console.warn("Unknown role, defaulting to operations:", role);
+        return [
+          { value: "production", label: "Production" },
+          { value: "final_invoice", label: "Final Invoice" },
+          { value: "production_pending", label: "Production Pending" },
+          { value: "with_client", label: "With Client" },
+          { value: "approval", label: "Approval" },
+          { value: "delivery", label: "Delivery" },
+          { value: "done", label: "Done" },
+        ];
     }
   };
 
   const pipelines = getRolePipelines(userRole || "operations");
+  console.log("TaskCard - Task:", task.title, "| Role:", userRole, "| Pipelines count:", pipelines.length);
 
   const handleMoveTask = async (newStatus: string) => {
     if (newStatus === task.status || isMoving) return;
@@ -196,7 +211,7 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                       <ArrowRight className="h-3 w-3" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-56 p-2" align="end">
+                  <PopoverContent className="w-56 p-2 bg-card border z-50" align="end">
                     <div className="space-y-1">
                       <p className="text-xs font-medium mb-2 px-2">Move to Pipeline</p>
                       {pipelines.map((pipeline) => (

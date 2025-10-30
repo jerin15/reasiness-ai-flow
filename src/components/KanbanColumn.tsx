@@ -37,8 +37,12 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTask
 
   const getTaskRole = (task: Task) => {
     if (userRolesMap) {
-      return userRolesMap[(task as any).assigned_to || (task as any).created_by] || "operations";
+      // Get the role of the task creator, not who it's assigned to
+      const taskCreatorRole = userRolesMap[(task as any).created_by];
+      console.log("getTaskRole - Task:", task.title, "| Created by:", (task as any).created_by, "| Role:", taskCreatorRole);
+      return taskCreatorRole || "operations";
     }
+    console.log("getTaskRole - Using passed userRole:", userRole);
     return userRole || "operations";
   };
 
