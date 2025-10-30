@@ -92,7 +92,7 @@ export const AdminKanbanBoard = () => {
         throw approvalError;
       }
 
-      // Fetch approved tasks
+      // Fetch approved tasks (should be empty after proper flow)
       const { data: approvedTasks, error: approvedError } = await supabase
         .from('tasks')
         .select('*')
@@ -100,7 +100,22 @@ export const AdminKanbanBoard = () => {
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      console.log('✅ Approved tasks:', approvedTasks?.length, approvedTasks);
+      // Note: Tasks should never stay in 'approved' - they immediately become 'quotation_bill'
+      if (approvedTasks && approvedTasks.length > 0) {
+        console.warn('⚠️ Found tasks in approved status - auto-fixing to quotation_bill:', approvedTasks.length);
+        // Auto-fix any stuck approved tasks
+        for (const task of approvedTasks) {
+          await supabase
+            .from('tasks')
+            .update({
+              status: 'quotation_bill',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', task.id);
+        }
+        toast.info(`Auto-fixed ${approvedTasks.length} stuck task(s) - moved to Quotation Bill`);
+      }
+      console.log('✅ Approved tasks (should be 0):', approvedTasks?.length, approvedTasks);
       if (approvedError) {
         console.error('❌ Error fetching approved tasks:', approvedError);
         throw approvedError;
