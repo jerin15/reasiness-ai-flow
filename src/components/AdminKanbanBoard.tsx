@@ -237,6 +237,7 @@ export const AdminKanbanBoard = () => {
         const updates = {
           status: 'quotation_bill' as any,
           previous_status: 'admin_approval' as any,
+          assigned_to: task.created_by, // Return task to original creator (estimation)
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString()
         };
