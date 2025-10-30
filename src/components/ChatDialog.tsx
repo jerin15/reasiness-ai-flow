@@ -52,6 +52,8 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
 
   useEffect(() => {
     if (open && currentUserId && recipientId) {
+      // Mark messages as read immediately when dialog opens
+      markMessagesAsRead();
       fetchMessages();
       
       // Subscribe to all messages in this conversation - listen to ALL events for instant sync

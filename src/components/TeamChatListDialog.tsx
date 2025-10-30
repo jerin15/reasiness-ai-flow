@@ -34,37 +34,42 @@ export const TeamChatListDialog = ({
     if (open) {
       fetchTeamMembers();
       fetchUnreadCounts();
-
-      // Subscribe to ALL message events for instant unread count updates
-      const channel = supabase
-        .channel('new-messages-unread-counts', {
-          config: {
-            broadcast: { self: true }
-          }
-        })
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'messages',
-            filter: `recipient_id=eq.${currentUserId}`,
-          },
-          (payload) => {
-            console.log('📨 Message event:', payload.eventType, '- Updating unread counts');
-            // Instant update without delay
-            fetchUnreadCounts();
-          }
-        )
-        .subscribe((status) => {
-          console.log('📡 Team chat list subscription:', status);
-        });
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
     }
   }, [open, currentUserId]);
+
+  // Separate effect for real-time subscription - always active
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    // Subscribe to ALL message events for instant unread count updates
+    const channel = supabase
+      .channel('new-messages-unread-counts', {
+        config: {
+          broadcast: { self: true }
+        }
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `recipient_id=eq.${currentUserId}`,
+        },
+        (payload) => {
+          console.log('📨 Message event for team chat list:', payload.eventType);
+          // Instant update
+          fetchUnreadCounts();
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Team chat list subscription:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
 
   const fetchTeamMembers = async () => {
     try {

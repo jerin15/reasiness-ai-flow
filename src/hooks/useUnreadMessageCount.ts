@@ -35,14 +35,26 @@ export const useUnreadMessageCount = (userId: string) => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'messages',
           filter: `recipient_id=eq.${userId}`
         },
         (payload) => {
-          console.log('📬 Real-time unread count event:', payload.eventType);
-          // Immediate update without delay
+          console.log('📬 New message received, updating count');
+          fetchUnreadCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `recipient_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('📬 Message updated (likely marked as read), updating count');
           fetchUnreadCount();
         }
       )
