@@ -156,10 +156,17 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
 
     setIsMoving(true);
     try {
+      // Special handling for admin approval - convert "approved" to "quotation_bill"
+      let finalStatus = newStatus;
+      if (newStatus === 'approved' && task.status === 'admin_approval') {
+        finalStatus = 'quotation_bill';
+        console.log('✅ Admin approval: Converting "approved" to "quotation_bill" for estimation');
+      }
+
       const { error } = await supabase
         .from("tasks")
         .update({
-          status: newStatus as any,
+          status: finalStatus as any,
           previous_status: task.status as any,
           status_changed_at: new Date().toISOString(),
         })
@@ -167,7 +174,11 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
 
       if (error) throw error;
 
-      toast.success("Task moved successfully");
+      const successMessage = finalStatus === 'quotation_bill' && newStatus === 'approved'
+        ? "Task approved! Moved to Quotation Bill in estimation's panel"
+        : "Task moved successfully";
+      
+      toast.success(successMessage);
       setPopoverOpen(false);
       onTaskUpdated?.();
     } catch (error: any) {
