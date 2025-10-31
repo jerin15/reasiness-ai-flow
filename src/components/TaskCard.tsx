@@ -35,9 +35,10 @@ type TaskCardProps = {
   isAdminView?: boolean;
   onTaskUpdated?: () => void;
   userRole?: string;
+  isAdminOwnPanel?: boolean;
 };
 
-export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated, userRole }: TaskCardProps) => {
+export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel }: TaskCardProps) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
 
@@ -84,8 +85,14 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
   };
 
   const getRolePipelines = (role: string) => {
-    console.log("TaskCard - Getting pipelines for role:", role);
+    console.log("TaskCard - Getting pipelines for role:", role, "| isAdminOwnPanel:", isAdminOwnPanel);
     let allPipelines: { value: string; label: string }[] = [];
+    
+    // Special case: Admin viewing their own panel - only show "Approved" option
+    if (isAdminOwnPanel && task.status === "admin_approval") {
+      console.log("Admin own panel - only showing Approved option");
+      return [{ value: "approved", label: "Approved" }];
+    }
     
     switch (role?.toLowerCase()) {
       case "estimation":
@@ -97,22 +104,27 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
           { value: "client_approval", label: "Client Approval" },
           { value: "admin_approval", label: "Admin Cost Approval" },
           { value: "quotation_bill", label: "Quotation Bill" },
+          { value: "production", label: "Production" },
+          { value: "final_invoice", label: "Final Invoice" },
+          { value: "done", label: "Done" },
         ];
         break;
       case "designer":
         allPipelines = [
+          { value: "todo", label: "To-Do List" },
           { value: "design", label: "Design" },
           { value: "mockup_pending", label: "Mockup Pending" },
           { value: "client_approval", label: "Client Approval" },
+          { value: "production_pending", label: "Production Pending" },
+          { value: "with_client", label: "With Client" },
+          { value: "done", label: "Done" },
         ];
         break;
       case "operations":
         allPipelines = [
-          { value: "production", label: "Production" },
-          { value: "final_invoice", label: "Final Invoice" },
-          { value: "production_pending", label: "Production Pending" },
-          { value: "with_client", label: "With Client" },
+          { value: "todo", label: "To-Do List" },
           { value: "approval", label: "Approval" },
+          { value: "production", label: "Production" },
           { value: "delivery", label: "Delivery" },
           { value: "done", label: "Done" },
         ];
@@ -121,11 +133,9 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
         // Default to operations for unknown roles
         console.warn("Unknown role, defaulting to operations:", role);
         allPipelines = [
-          { value: "production", label: "Production" },
-          { value: "final_invoice", label: "Final Invoice" },
-          { value: "production_pending", label: "Production Pending" },
-          { value: "with_client", label: "With Client" },
+          { value: "todo", label: "To-Do List" },
           { value: "approval", label: "Approval" },
+          { value: "production", label: "Production" },
           { value: "delivery", label: "Delivery" },
           { value: "done", label: "Done" },
         ];

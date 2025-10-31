@@ -322,7 +322,7 @@ export const AdminKanbanBoard = () => {
               items={ADMIN_COLUMNS.map((col) => col.id)}
               strategy={horizontalListSortingStrategy}
             >
-               {ADMIN_COLUMNS.map((column) => {
+              {ADMIN_COLUMNS.map((column) => {
                 // For "Approved" column, don't show any tasks (it's just a drop zone)
                 const columnTasks = column.status === 'approved' 
                   ? [] 
@@ -337,6 +337,7 @@ export const AdminKanbanBoard = () => {
                     isAdminView={true}
                     onTaskUpdated={fetchTasks}
                     userRole="admin"
+                    isAdminOwnPanel={true}
                   />
                 );
               })}
@@ -350,6 +351,7 @@ export const AdminKanbanBoard = () => {
                 isDragging 
                 isAdminView={true}
                 userRole="admin"
+                isAdminOwnPanel={true}
               />
             ) : null}
           </DragOverlay>
