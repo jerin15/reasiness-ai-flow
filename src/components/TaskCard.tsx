@@ -98,8 +98,6 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
       case "estimation":
         allPipelines = [
           { value: "todo", label: "To-Do List" },
-          { value: "estimation", label: "Estimation" },
-          { value: "design", label: "Design" },
           { value: "supplier_quotes", label: "Supplier Quotes" },
           { value: "client_approval", label: "Client Approval" },
           { value: "admin_approval", label: "Admin Cost Approval" },
