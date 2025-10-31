@@ -205,13 +205,41 @@ export const StatusChangeNotification = () => {
           let shouldNotify = false;
 
           if (auditLog.action === 'status_changed') {
+            const oldStatus = (auditLog.old_values as any)?.status;
+            const newStatus = (auditLog.new_values as any)?.status;
+            
+            console.log('📊 Status change detected:', {
+              task: taskData.title,
+              oldStatus,
+              newStatus,
+              changerIsAdmin: isChangerAdmin,
+              currentUserIsAdmin: isAdmin,
+              taskCreator: taskData.created_by,
+              taskAssignedTo: taskData.assigned_to,
+              currentUserId: currentUser.id
+            });
+            
             // For status changes:
             // - Notify all admins if changer is NOT admin
             // - Notify task creator/assignee if changer IS admin
+            // - Special case: Admin approval (admin_approval → quotation_bill) should ALWAYS notify task creator
             if (isAdmin && !isChangerAdmin) {
               shouldNotify = true;
-            } else if (isChangerAdmin && (taskData.created_by === currentUser.id || taskData.assigned_to === currentUser.id)) {
-              shouldNotify = true;
+              console.log('✅ Notifying: User is admin, changer is not admin');
+            } else if (isChangerAdmin) {
+              // Admin made the change - notify the task creator or assignee
+              const isTaskCreator = taskData.created_by === currentUser.id;
+              const isAssignedToUser = taskData.assigned_to === currentUser.id;
+              
+              if (isTaskCreator || isAssignedToUser) {
+                shouldNotify = true;
+                console.log('✅ Notifying: Admin changed task, user is creator or assignee', {
+                  isTaskCreator,
+                  isAssignedToUser
+                });
+              } else {
+                console.log('❌ Not notifying: User is not creator or assignee');
+              }
             }
           } else if (auditLog.action === 'assigned') {
             // For assignment changes:
@@ -226,7 +254,12 @@ export const StatusChangeNotification = () => {
             }
           }
 
-          if (!shouldNotify) return;
+          if (!shouldNotify) {
+            console.log('❌ Skipping notification - shouldNotify is false');
+            return;
+          }
+          
+          console.log('🔔 Creating notification for user:', currentUser.id);
 
           // Get the person who made the change
           const { data: changedByProfile } = await supabase
