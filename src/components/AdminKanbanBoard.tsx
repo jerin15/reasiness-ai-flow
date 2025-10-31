@@ -245,6 +245,10 @@ export const AdminKanbanBoard = () => {
         const { error } = await updateTaskOffline(taskId, updates);
 
         if (error) throw error;
+        
+        // Immediately refetch to update UI
+        await fetchTasks();
+        
         console.log('✅ Task approved and moved to Quotation Bill in estimation panel');
         
         if (!navigator.onLine) {
@@ -270,10 +274,10 @@ export const AdminKanbanBoard = () => {
         } else {
           toast.success("Task moved successfully");
         }
+        
+        // Immediate refetch to ensure UI is in sync
+        await fetchTasks();
       }
-      
-      // Immediate refetch to ensure UI is in sync
-      await fetchTasks();
     } catch (error) {
       console.error('Error updating task:', error);
       toast.error('Failed to move task');
