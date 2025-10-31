@@ -35,17 +35,6 @@ type KanbanColumnProps = {
 export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated, userRole, userRolesMap }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
-  const getTaskRole = (task: Task) => {
-    if (userRolesMap) {
-      // Get the role of the task creator, not who it's assigned to
-      const taskCreatorRole = userRolesMap[(task as any).created_by];
-      console.log("getTaskRole - Task:", task.title, "| Created by:", (task as any).created_by, "| Role:", taskCreatorRole);
-      return taskCreatorRole || "operations";
-    }
-    console.log("getTaskRole - Using passed userRole:", userRole);
-    return userRole || "operations";
-  };
-
   return (
     <div 
       ref={setNodeRef}
@@ -78,7 +67,7 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTask
                 onEdit={onEditTask} 
                 isAdminView={isAdminView}
                 onTaskUpdated={onTaskUpdated}
-                userRole={getTaskRole(task)}
+                userRole={userRole}
               />
             ))}
             {/* Empty drop zone at bottom for better drop targeting */}
