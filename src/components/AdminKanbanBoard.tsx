@@ -157,9 +157,14 @@ export const AdminKanbanBoard = () => {
   useEffect(() => {
     fetchTasks();
     
-    // Real-time subscription for all task changes
+    // Real-time subscription for all task changes with aggressive polling
     const channel = supabase
-      .channel('admin-kanban-realtime')
+      .channel('admin-kanban-realtime', {
+        config: {
+          broadcast: { self: true },
+          presence: { key: 'admin' }
+        }
+      })
       .on(
         'postgres_changes',
         {
@@ -168,17 +173,26 @@ export const AdminKanbanBoard = () => {
           table: 'tasks'
         },
         (payload) => {
-          console.log('Admin received task change:', payload);
+          console.log('🔄 Admin received task change:', payload.eventType, payload.new);
           // Immediate refetch on any task change
           fetchTasks();
         }
       )
       .subscribe((status) => {
-        console.log('Admin subscription status:', status);
+        console.log('📡 Admin subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Admin real-time connected');
+        }
       });
+
+    // Aggressive polling as backup (every 3 seconds)
+    const pollInterval = setInterval(() => {
+      fetchTasks();
+    }, 3000);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, []);
 

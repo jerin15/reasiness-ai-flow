@@ -165,7 +165,12 @@ export const StatusChangeNotification = () => {
 
     // Subscribe to task audit log for status changes AND assignment changes
     const channel = supabase
-      .channel(`task-changes-${currentUser.id}`)
+      .channel(`task-changes-${currentUser.id}`, {
+        config: {
+          broadcast: { self: true },
+          presence: { key: currentUser.id }
+        }
+      })
       .on(
         'postgres_changes',
         {

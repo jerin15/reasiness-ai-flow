@@ -208,7 +208,12 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     // Subscribe to realtime changes with a unique channel per view
     const channelName = `tasks-changes-${viewingUserId || 'default'}`;
     const channel = supabase
-      .channel(channelName)
+      .channel(channelName, {
+        config: {
+          broadcast: { self: true },
+          presence: { key: viewingUserId || 'default' }
+        }
+      })
       .on(
         "postgres_changes",
         {
@@ -217,16 +222,25 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           table: "tasks",
         },
         (payload) => {
-          console.log('Real-time update received:', payload);
+          console.log('🔄 Real-time update received:', payload.eventType, payload.new);
           fetchTasks();
         }
       )
       .subscribe((status) => {
-        console.log('Subscription status:', status);
+        console.log('📡 Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Real-time connected for', channelName);
+        }
       });
+
+    // Aggressive polling as backup (every 3 seconds)
+    const pollInterval = setInterval(() => {
+      fetchTasks();
+    }, 3000);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [viewingUserId, isAdmin]);
 
