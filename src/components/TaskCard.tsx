@@ -85,26 +85,29 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
 
   const getRolePipelines = (role: string) => {
     console.log("TaskCard - Getting pipelines for role:", role);
+    let allPipelines: { value: string; label: string }[] = [];
+    
     switch (role?.toLowerCase()) {
       case "estimation":
-        return [
+        allPipelines = [
           { value: "todo", label: "To-Do List" },
           { value: "estimation", label: "Estimation" },
           { value: "design", label: "Design" },
           { value: "supplier_quotes", label: "Supplier Quotes" },
           { value: "client_approval", label: "Client Approval" },
           { value: "admin_approval", label: "Admin Cost Approval" },
-          { value: "approved", label: "Approved" },
           { value: "quotation_bill", label: "Quotation Bill" },
         ];
+        break;
       case "designer":
-        return [
+        allPipelines = [
           { value: "design", label: "Design" },
           { value: "mockup_pending", label: "Mockup Pending" },
           { value: "client_approval", label: "Client Approval" },
         ];
+        break;
       case "operations":
-        return [
+        allPipelines = [
           { value: "production", label: "Production" },
           { value: "final_invoice", label: "Final Invoice" },
           { value: "production_pending", label: "Production Pending" },
@@ -113,30 +116,11 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
           { value: "delivery", label: "Delivery" },
           { value: "done", label: "Done" },
         ];
-      case "admin":
-        // Admin sees all pipelines
-        return [
-          { value: "todo", label: "To-Do List" },
-          { value: "estimation", label: "Estimation" },
-          { value: "design", label: "Design" },
-          { value: "supplier_quotes", label: "Supplier Quotes" },
-          { value: "client_approval", label: "Client Approval" },
-          { value: "admin_approval", label: "Admin Cost Approval" },
-          { value: "approved", label: "Approved" },
-          { value: "quotation_bill", label: "Quotation Bill" },
-          { value: "production", label: "Production" },
-          { value: "final_invoice", label: "Final Invoice" },
-          { value: "mockup_pending", label: "Mockup Pending" },
-          { value: "production_pending", label: "Production Pending" },
-          { value: "with_client", label: "With Client" },
-          { value: "approval", label: "Approval" },
-          { value: "delivery", label: "Delivery" },
-          { value: "done", label: "Done" },
-        ];
+        break;
       default:
         // Default to operations for unknown roles
         console.warn("Unknown role, defaulting to operations:", role);
-        return [
+        allPipelines = [
           { value: "production", label: "Production" },
           { value: "final_invoice", label: "Final Invoice" },
           { value: "production_pending", label: "Production Pending" },
@@ -145,11 +129,15 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
           { value: "delivery", label: "Delivery" },
           { value: "done", label: "Done" },
         ];
+        break;
     }
+    
+    // Filter out the current pipeline the task is in
+    return allPipelines.filter(pipeline => pipeline.value !== task.status);
   };
 
   const pipelines = getRolePipelines(userRole || "operations");
-  console.log("TaskCard - Task:", task.title, "| Role:", userRole, "| Pipelines count:", pipelines.length);
+  console.log("TaskCard - Task:", task.title, "| Role:", userRole, "| Current status:", task.status, "| Available pipelines:", pipelines.length);
 
   const handleMoveTask = async (newStatus: string) => {
     if (newStatus === task.status || isMoving) return;
