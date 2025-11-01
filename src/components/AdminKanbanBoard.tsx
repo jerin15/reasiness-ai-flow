@@ -144,7 +144,14 @@ export const AdminKanbanBoard = () => {
         throw productionError;
       }
 
-      const allTasks = [...(approvalTasks || []), ...(approvedTasks || []), ...(productionTasks || [])];
+      // Also fetch quotation_bill tasks to check for misassignments
+      const { data: quotationBillTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'quotation_bill')
+        .is('deleted_at', null);
+
+      const allTasks = [...(approvalTasks || []), ...(approvedTasks || []), ...(productionTasks || []), ...(quotationBillTasks || [])];
       console.log('📦 Total tasks in admin panel:', allTasks.length);
       
       // Auto-fix: Check for quotation_bill tasks assigned to admins instead of estimation users
@@ -182,13 +189,15 @@ export const AdminKanbanBoard = () => {
           
           toast.info(`Auto-fixed ${tasksToFix.length} task(s) - assigned to estimation team`);
           
-          // Refetch to show updated data
+          // Refetch to show updated data without the fixed tasks
           await fetchTasks();
           return;
         }
       }
       
-      setTasks(allTasks);
+      // Don't show quotation_bill tasks in admin panel (they belong to estimation)
+      const adminPanelTasks = allTasks.filter(task => task.status !== 'quotation_bill');
+      setTasks(adminPanelTasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
       toast.error('Failed to load tasks');
