@@ -248,10 +248,29 @@ export const AdminKanbanBoard = () => {
       // If moving to approved, automatically transition to quotation_bill for estimation
       if (newStatus === 'approved') {
         console.log('✅ Admin approving task - moving to quotation_bill for estimation');
+        
+        // Check if task creator is estimation user, otherwise assign to first estimation user
+        const creatorRole = userRoles[task.created_by];
+        let assignTo = task.created_by;
+        
+        if (creatorRole !== 'estimation') {
+          // Task was created by non-estimation user (e.g., admin), find an estimation user
+          const { data: estimationUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', 'estimation')
+            .limit(1);
+          
+          if (estimationUsers && estimationUsers.length > 0) {
+            assignTo = estimationUsers[0].user_id;
+            console.log('📝 Assigning to estimation user:', assignTo);
+          }
+        }
+        
         const updates = {
           status: 'quotation_bill' as any,
           previous_status: 'admin_approval' as any,
-          assigned_to: task.created_by, // Return task to original creator (estimation)
+          assigned_to: assignTo, // Assign to estimation user
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString()
         };
