@@ -138,6 +138,10 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         // Admin viewing their OWN panel - only their assigned tasks or personal tasks
         console.log("👤 Admin viewing own pipeline");
         query = query.or(`assigned_to.eq.${user.id},and(created_by.eq.${user.id},or(assigned_to.is.null,assigned_to.eq.${user.id}))`);
+      } else {
+        // Regular user (non-admin) - show tasks they created OR are assigned to
+        console.log("👤 Regular user viewing own tasks");
+        query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
       }
 
       // For estimation role, order by type first (quotations, invoices, productions, generals)
