@@ -77,7 +77,8 @@ export const AdminKanbanBoard = () => {
       });
       setUserRoles(rolesMap);
 
-      // Fetch ALL tasks for admin approval pipeline (admins should see everything)
+      // Fetch ALL tasks for admin approval pipeline
+      // Admin sees tasks from estimation/admin that need cost approval
       const { data: approvalTasks, error: approvalError } = await supabase
         .from('tasks')
         .select('*')
@@ -145,6 +146,48 @@ export const AdminKanbanBoard = () => {
 
       const allTasks = [...(approvalTasks || []), ...(approvedTasks || []), ...(productionTasks || [])];
       console.log('📦 Total tasks in admin panel:', allTasks.length);
+      
+      // Auto-fix: Check for quotation_bill tasks assigned to admins instead of estimation users
+      const tasksToFix = allTasks.filter(task => {
+        const isQuotationBill = task.status === 'quotation_bill';
+        const assignedToAdmin = task.assigned_to && rolesMap[task.assigned_to] === 'admin';
+        return isQuotationBill && assignedToAdmin;
+      });
+      
+      if (tasksToFix.length > 0) {
+        console.log('🔧 Auto-fixing misassigned quotation_bill tasks:', tasksToFix.length);
+        
+        // Find estimation user
+        const { data: estimationUsers } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'estimation')
+          .limit(1);
+        
+        if (estimationUsers && estimationUsers.length > 0) {
+          const estimationUserId = estimationUsers[0].user_id;
+          
+          // Update all misassigned tasks
+          for (const task of tasksToFix) {
+            await supabase
+              .from('tasks')
+              .update({
+                assigned_to: estimationUserId,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', task.id);
+            
+            console.log(`✅ Fixed task ${task.title} - assigned to estimation user`);
+          }
+          
+          toast.info(`Auto-fixed ${tasksToFix.length} task(s) - assigned to estimation team`);
+          
+          // Refetch to show updated data
+          await fetchTasks();
+          return;
+        }
+      }
+      
       setTasks(allTasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -249,12 +292,13 @@ export const AdminKanbanBoard = () => {
       if (newStatus === 'approved') {
         console.log('✅ Admin approving task - moving to quotation_bill for estimation');
         
-        // Check if task creator is estimation user, otherwise assign to first estimation user
-        const creatorRole = userRoles[task.created_by];
-        let assignTo = task.created_by;
+        // Find estimation user to assign the task to
+        // Check if task is already assigned to estimation user
+        const assignedUserRole = task.assigned_to ? userRoles[task.assigned_to] : null;
+        let assignTo = task.assigned_to;
         
-        if (creatorRole !== 'estimation') {
-          // Task was created by non-estimation user (e.g., admin), find an estimation user
+        // If not assigned to estimation user, find one
+        if (assignedUserRole !== 'estimation') {
           const { data: estimationUsers } = await supabase
             .from('user_roles')
             .select('user_id')
