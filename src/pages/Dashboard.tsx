@@ -470,7 +470,7 @@ const Dashboard = () => {
         <KanbanBoard 
           userRole={userRole} 
           viewingUserId={selectedUserId}
-          isAdmin={userRole === "admin"}
+          isAdmin={userRole === "admin" || userRole === "technical_head"}
           viewingUserRole={selectedUserRole}
         />
       </main>
@@ -522,7 +522,7 @@ const Dashboard = () => {
         />
       )}
 
-      {userRole === "admin" && (
+      {(userRole === "admin" || userRole === "technical_head") && (
         <AdminTaskReportDialog
           open={showAdminTaskReport}
           onOpenChange={setShowAdminTaskReport}

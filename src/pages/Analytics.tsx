@@ -76,7 +76,7 @@ const Analytics = () => {
         .single();
 
       const role = profile?.user_roles?.[0]?.role;
-      if (role !== "admin") {
+      if (role !== "admin" && role !== "technical_head") {
         toast.error("Access denied. Admin only.");
         navigate("/");
         return;
