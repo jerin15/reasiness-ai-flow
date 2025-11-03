@@ -124,8 +124,8 @@ const Dashboard = () => {
         setUserRole(role);
         setSelectedUserRole(role);
 
-        // If admin, fetch all team members
-        if (role === "admin") {
+        // If admin or technical_head, fetch all team members
+        if (role === "admin" || role === "technical_head") {
           fetchTeamMembers();
         }
       }
@@ -194,8 +194,8 @@ const Dashboard = () => {
     );
   }
 
-  // Show admin dashboard for admin and technical_head users viewing their own tasks
-  if ((userRole === 'admin' || userRole === 'technical_head') && selectedUserId === currentUserId) {
+  // Show admin dashboard only for admin users viewing their own tasks
+  if (userRole === 'admin' && selectedUserId === currentUserId) {
     return (
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card shadow-sm sticky top-0 z-10">
@@ -346,7 +346,7 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {userRole === "admin" && (
+              {(userRole === "admin" || userRole === "technical_head") && (
                 <>
                   <Select value={selectedUserId} onValueChange={handleUserChange}>
                     <SelectTrigger className="w-[240px]">
@@ -395,7 +395,7 @@ const Dashboard = () => {
                   </Button>
                 </>
               )}
-              {userRole !== "admin" && (
+              {(userRole !== "admin" && userRole !== "technical_head") && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -413,7 +413,7 @@ const Dashboard = () => {
                 <FileText className="h-3 w-3 mr-2" />
                 My Report
               </Button>
-              {userRole === "admin" && (
+              {(userRole === "admin" || userRole === "technical_head") && (
                 <>
                   <Button
                     variant="outline"

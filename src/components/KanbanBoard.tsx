@@ -92,6 +92,16 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           { id: "delivery", title: "Delivery", status: "delivery" },
           { id: "done", title: "Done", status: "done" },
         ];
+      case "technical_head":
+        return [
+          { id: "todo", title: "To-Do", status: "todo" },
+          { id: "developing", title: "Developing", status: "developing" },
+          { id: "testing", title: "Testing", status: "testing" },
+          { id: "under_review", title: "Under Review", status: "under_review" },
+          { id: "deployed", title: "Deployed", status: "deployed" },
+          { id: "trial_and_error", title: "Trial and Error", status: "trial_and_error" },
+          { id: "done", title: "Done", status: "done" },
+        ];
       default:
         return [
           { id: "todo", title: "To-Do List", status: "todo" },

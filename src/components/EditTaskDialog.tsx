@@ -299,6 +299,11 @@ export const EditTaskDialog = ({
                 <SelectItem value="with_client">With Client</SelectItem>
                 <SelectItem value="approval">Approval</SelectItem>
                 <SelectItem value="delivery">Delivery</SelectItem>
+                <SelectItem value="developing">Developing</SelectItem>
+                <SelectItem value="testing">Testing</SelectItem>
+                <SelectItem value="under_review">Under Review</SelectItem>
+                <SelectItem value="deployed">Deployed</SelectItem>
+                <SelectItem value="trial_and_error">Trial and Error</SelectItem>
                 <SelectItem value="done">Done</SelectItem>
               </SelectContent>
             </Select>
