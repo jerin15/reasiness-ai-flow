@@ -33,6 +33,7 @@ export const VoiceCallDialog = ({
   
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const channelRef = useRef<any>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -108,12 +109,23 @@ export const VoiceCallDialog = ({
 
     // Handle incoming audio stream
     pc.ontrack = (event) => {
-      console.log('🔊 Received remote audio stream');
-      const remoteAudio = new Audio();
-      remoteAudio.srcObject = event.streams[0];
-      remoteAudio.play();
-      setCallStatus('connected');
-      startCallTimer();
+      console.log('🔊 Received remote audio stream', event.streams[0]);
+      
+      if (!remoteAudioRef.current) {
+        remoteAudioRef.current = new Audio();
+        remoteAudioRef.current.autoplay = true;
+        remoteAudioRef.current.volume = 1.0;
+      }
+      
+      remoteAudioRef.current.srcObject = event.streams[0];
+      remoteAudioRef.current.play().then(() => {
+        console.log('✅ Remote audio playing');
+        setCallStatus('connected');
+        startCallTimer();
+      }).catch(error => {
+        console.error('❌ Error playing remote audio:', error);
+        toast.error('Failed to play remote audio');
+      });
     };
 
     // Handle ICE candidates
@@ -331,6 +343,12 @@ export const VoiceCallDialog = ({
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
+    }
+
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.pause();
+      remoteAudioRef.current.srcObject = null;
+      remoteAudioRef.current = null;
     }
 
     if (peerConnectionRef.current) {
