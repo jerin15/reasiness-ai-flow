@@ -38,10 +38,10 @@ export const ReminderNotification = () => {
         .eq("user_id", user.id)
         .maybeSingle();
       
-      const userIsAdmin = roleData?.role === 'admin';
+      const userIsAdmin = roleData?.role === 'admin' || (roleData?.role as string) === 'technical_head';
       setIsAdmin(userIsAdmin);
       
-      // Only check reminders if not admin
+      // Only check reminders if not admin/technical_head
       if (!userIsAdmin) {
         checkReminders();
         checkIntervalRef.current = setInterval(checkReminders, 10000);

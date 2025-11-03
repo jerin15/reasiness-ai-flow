@@ -88,9 +88,9 @@ export const WeeklyReportNotification = () => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const isAdmin = roleData?.role === 'admin';
+    const isAdmin = roleData?.role === 'admin' || (roleData?.role as string) === 'technical_head';
     
-    // Show to admin OR users with done tasks
+    // Show to admin/technical_head OR users with done tasks
     return isAdmin || hasDoneTasks;
   };
 
@@ -120,8 +120,8 @@ export const WeeklyReportNotification = () => {
       URL.revokeObjectURL(url);
 
       // Only clear the user's own done tasks, not all done tasks
-      if (userRole === 'admin') {
-        // Admin can clear all done tasks
+      if (userRole === 'admin' || userRole === 'technical_head') {
+        // Admin and technical_head can clear all done tasks
         await supabase
           .from('tasks')
           .update({ deleted_at: new Date().toISOString() })
@@ -189,7 +189,7 @@ export const WeeklyReportNotification = () => {
             <p className="text-sm font-medium text-destructive flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
               <span>
-                {userRole === 'admin' 
+                {(userRole === 'admin' || userRole === 'technical_head')
                   ? `This will permanently delete all ${doneTaskCount} tasks from the Done pipeline after downloading the report.`
                   : `This will permanently delete your ${doneTaskCount} tasks from the Done pipeline after downloading the report.`
                 }
@@ -198,8 +198,8 @@ export const WeeklyReportNotification = () => {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {userRole === 'admin' 
-              ? "As an admin, both you and affected team members must approve before tasks are cleared."
+            {(userRole === 'admin' || userRole === 'technical_head')
+              ? "As an admin/technical head, both you and affected team members must approve before tasks are cleared."
               : "You must download and approve to clear your completed tasks."
             }
           </p>

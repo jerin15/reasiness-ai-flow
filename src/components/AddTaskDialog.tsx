@@ -104,8 +104,8 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         type: taskType as "quotation" | "invoice" | "design" | "general" | "production",
       };
 
-      // Admin can assign to selected member, others create self-assigned tasks
-      if (currentUserRole === 'admin' && selectedMember) {
+      // Admin and technical_head can assign to selected member, others create self-assigned tasks
+      if ((currentUserRole === 'admin' || currentUserRole === 'technical_head') && selectedMember) {
         taskData.assigned_to = selectedMember;
       } else if (defaultAssignedTo) {
         taskData.assigned_to = defaultAssignedTo;
@@ -218,7 +218,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
               placeholder="Supplier name"
             />
           </div>
-          {currentUserRole === 'admin' && (
+          {(currentUserRole === 'admin' || currentUserRole === 'technical_head') && (
             <div className="space-y-2">
               <Label htmlFor="assignedTo">Assign To *</Label>
               <Select value={selectedMember} onValueChange={setSelectedMember} required>

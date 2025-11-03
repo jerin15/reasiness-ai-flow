@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
 import { PersonalAnalytics } from "@/components/PersonalAnalytics";
 import { StatusChangeNotification } from "@/components/StatusChangeNotification";
+import { VoiceMessageNotification } from "@/components/VoiceMessageNotification";
 import { Badge } from "@/components/ui/badge";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 
@@ -187,8 +188,8 @@ const Dashboard = () => {
     );
   }
 
-  // Show admin dashboard for admin users viewing their own tasks
-  if (userRole === 'admin' && selectedUserId === currentUserId) {
+  // Show admin dashboard for admin and technical_head users viewing their own tasks
+  if ((userRole === 'admin' || userRole === 'technical_head') && selectedUserId === currentUserId) {
     return (
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card shadow-sm sticky top-0 z-10">
@@ -273,6 +274,7 @@ const Dashboard = () => {
                     <MessageSquare className="h-3 w-3" />
                   </Button>
                   <StatusChangeNotification />
+                  <VoiceMessageNotification />
                   <Button variant="destructive" size="sm" onClick={handleSignOut}>
                     <LogOut className="h-3 w-3" />
                   </Button>
@@ -443,6 +445,7 @@ const Dashboard = () => {
                 )}
               </Button>
               <StatusChangeNotification />
+              <VoiceMessageNotification />
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-3 w-3 mr-2" />
                 Sign Out

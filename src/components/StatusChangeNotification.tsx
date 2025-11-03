@@ -42,7 +42,7 @@ export const StatusChangeNotification = () => {
         .eq("user_id", user.id)
         .maybeSingle();
       
-      const userIsAdmin = roleData?.role === 'admin';
+      const userIsAdmin = roleData?.role === 'admin' || (roleData?.role as string) === 'technical_head';
       setIsAdmin(userIsAdmin);
 
       // Request notification permission
@@ -226,7 +226,7 @@ export const StatusChangeNotification = () => {
             .eq('user_id', auditLog.changed_by)
             .single();
 
-          const isChangerAdmin = changerRole?.role === 'admin';
+          const isChangerAdmin = changerRole?.role === 'admin' || (changerRole?.role as string) === 'technical_head';
 
           // Determine if we should notify
           let shouldNotify = false;
