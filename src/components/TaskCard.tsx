@@ -97,6 +97,12 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
       return [{ value: "approved", label: "Approved" }];
     }
     
+    // Special case: Tasks in with_client status - only show "Approved" option for admin
+    if (task.status === "with_client" && isAdminOwnPanel) {
+      console.log("Task in with_client (admin panel) - only showing Approved option");
+      return [{ value: "approved_designer", label: "Approved" }];
+    }
+    
     switch (role?.toLowerCase()) {
       case "estimation":
         allPipelines = [
