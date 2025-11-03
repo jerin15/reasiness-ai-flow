@@ -393,7 +393,7 @@ const Dashboard = () => {
                     <FileText className="h-3 w-3 mr-2" />
                     Team Reports
                   </Button>
-                </>
+                 </>
               )}
               {(userRole !== "admin" && userRole !== "technical_head") && (
                 <Button
