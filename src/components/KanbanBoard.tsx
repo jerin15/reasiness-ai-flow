@@ -63,6 +63,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Define columns based on role - use viewing user's role if admin is viewing someone else
   const getColumnsForRole = (): Column[] => {
@@ -119,6 +120,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Store current user ID
+      setCurrentUserId(user.id);
 
       // Get current user's role
       const { data: roleData } = await supabase
@@ -444,6 +448,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                   isAdminView={isAdmin && !!viewingUserId}
                   onTaskUpdated={fetchTasks}
                   userRole={(isAdmin && viewingUserRole) ? viewingUserRole : userRole}
+                  isAdminOwnPanel={isAdmin && (!viewingUserId || viewingUserId === currentUserId)}
                 />
               ))}
             </SortableContext>

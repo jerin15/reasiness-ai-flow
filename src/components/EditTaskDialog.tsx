@@ -98,29 +98,59 @@ export const EditTaskDialog = ({
       // Check if status changed
       const statusChanged = status !== task.status;
       
+      let updateData: any = {
+        title,
+        description: description || null,
+        priority: priority as "low" | "medium" | "high" | "urgent",
+        due_date: dueDate || null,
+        assigned_by: assignedBy || null,
+        client_name: clientName || null,
+        supplier_name: supplierName || null,
+        my_status: myStatus as "pending" | "done_from_my_side",
+        type: taskType as "quotation" | "invoice" | "design" | "general" | "production",
+        status: status as any,
+        ...(statusChanged && {
+          previous_status: task.status as any,
+          status_changed_at: new Date().toISOString(),
+        }),
+      };
+
+      // Handle sending task to designer mockup from edit dialog
+      if (status === 'send_to_designer_mockup') {
+        // Get designer user
+        const { data: designerUsers } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'designer')
+          .limit(1);
+        
+        if (!designerUsers || designerUsers.length === 0) {
+          toast.error('No designer found');
+          setLoading(false);
+          return;
+        }
+
+        updateData = {
+          ...updateData,
+          status: 'mockup',
+          assigned_to: designerUsers[0].user_id,
+          sent_to_designer_mockup: true,
+          mockup_completed_by_designer: false,
+          previous_status: task.status,
+          status_changed_at: new Date().toISOString(),
+        };
+      }
+      
       const { error } = await supabase
         .from("tasks")
-        .update({
-          title,
-          description: description || null,
-          priority: priority as "low" | "medium" | "high" | "urgent",
-          due_date: dueDate || null,
-          assigned_by: assignedBy || null,
-          client_name: clientName || null,
-          supplier_name: supplierName || null,
-          my_status: myStatus as "pending" | "done_from_my_side",
-          type: taskType as "quotation" | "invoice" | "design" | "general" | "production",
-          status: status as any,
-          ...(statusChanged && {
-            previous_status: task.status as any,
-            status_changed_at: new Date().toISOString(),
-          }),
-        })
+        .update(updateData)
         .eq("id", task.id);
 
       if (error) throw error;
 
-      if (statusChanged) {
+      if (status === 'send_to_designer_mockup') {
+        toast.success("Task sent to designer's mockup pipeline");
+      } else if (statusChanged) {
         toast.success("Task updated and moved to new pipeline");
       } else {
         toast.success("Task updated successfully");
@@ -284,27 +314,81 @@ export const EditTaskDialog = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todo">To-Do List</SelectItem>
-                <SelectItem value="estimation">Estimation</SelectItem>
-                <SelectItem value="design">Design</SelectItem>
-                <SelectItem value="supplier_quotes">Supplier Quotes</SelectItem>
-                <SelectItem value="client_approval">Client Approval</SelectItem>
-                <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="quotation_bill">Quotation Bill</SelectItem>
-                <SelectItem value="production">Production</SelectItem>
-                <SelectItem value="final_invoice">Final Invoice</SelectItem>
-                <SelectItem value="mockup">MOCKUP</SelectItem>
-                <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
-                <SelectItem value="with_client">With Client</SelectItem>
-                <SelectItem value="approval">Approval</SelectItem>
-                <SelectItem value="delivery">Delivery</SelectItem>
-                <SelectItem value="developing">Developing</SelectItem>
-                <SelectItem value="testing">Testing</SelectItem>
-                <SelectItem value="under_review">Under Review</SelectItem>
-                <SelectItem value="deployed">Deployed</SelectItem>
-                <SelectItem value="trial_and_error">Trial and Error</SelectItem>
-                <SelectItem value="done">Done</SelectItem>
+                {(() => {
+                  const roleToUse = viewingUserRole || currentUserRole;
+                  
+                  if (roleToUse === 'estimation') {
+                    return (
+                      <>
+                        <SelectItem value="todo">To-Do List</SelectItem>
+                        <SelectItem value="supplier_quotes">Supplier Quotes</SelectItem>
+                        <SelectItem value="client_approval">Client Approval</SelectItem>
+                        <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>
+                        <SelectItem value="quotation_bill">Quotation Bill</SelectItem>
+                        <SelectItem value="production">Production</SelectItem>
+                        <SelectItem value="final_invoice">Final Invoice</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                        <SelectItem value="send_to_designer_mockup">→ Send to Designer Mockup</SelectItem>
+                      </>
+                    );
+                  } else if (roleToUse === 'designer') {
+                    return (
+                      <>
+                        <SelectItem value="todo">To-Do List</SelectItem>
+                        <SelectItem value="mockup">MOCKUP</SelectItem>
+                        <SelectItem value="with_client">With Client</SelectItem>
+                        <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </>
+                    );
+                  } else if (roleToUse === 'operations') {
+                    return (
+                      <>
+                        <SelectItem value="todo">To-Do List</SelectItem>
+                        <SelectItem value="approval">Approval</SelectItem>
+                        <SelectItem value="production">Production</SelectItem>
+                        <SelectItem value="delivery">Delivery</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </>
+                    );
+                  } else if (roleToUse === 'technical_head') {
+                    return (
+                      <>
+                        <SelectItem value="todo">To-Do</SelectItem>
+                        <SelectItem value="developing">Developing</SelectItem>
+                        <SelectItem value="testing">Testing</SelectItem>
+                        <SelectItem value="under_review">Under Review</SelectItem>
+                        <SelectItem value="deployed">Deployed</SelectItem>
+                        <SelectItem value="trial_and_error">Trial and Error</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </>
+                    );
+                  } else {
+                    // Admin or default - show all pipelines
+                    return (
+                      <>
+                        <SelectItem value="todo">To-Do List</SelectItem>
+                        <SelectItem value="supplier_quotes">Supplier Quotes</SelectItem>
+                        <SelectItem value="client_approval">Client Approval</SelectItem>
+                        <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>
+                        <SelectItem value="quotation_bill">Quotation Bill</SelectItem>
+                        <SelectItem value="production">Production</SelectItem>
+                        <SelectItem value="final_invoice">Final Invoice</SelectItem>
+                        <SelectItem value="mockup">MOCKUP</SelectItem>
+                        <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
+                        <SelectItem value="with_client">With Client</SelectItem>
+                        <SelectItem value="approval">Approval</SelectItem>
+                        <SelectItem value="delivery">Delivery</SelectItem>
+                        <SelectItem value="developing">Developing</SelectItem>
+                        <SelectItem value="testing">Testing</SelectItem>
+                        <SelectItem value="under_review">Under Review</SelectItem>
+                        <SelectItem value="deployed">Deployed</SelectItem>
+                        <SelectItem value="trial_and_error">Trial and Error</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </>
+                    );
+                  }
+                })()}
               </SelectContent>
             </Select>
           </div>

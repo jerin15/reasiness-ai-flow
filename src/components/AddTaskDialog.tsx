@@ -260,31 +260,51 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                       return (
                         <>
                           <SelectItem value="todo">To-Do List</SelectItem>
-                          <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
                           <SelectItem value="mockup">MOCKUP</SelectItem>
+                          <SelectItem value="with_client">With Client</SelectItem>
+                          <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
+                          <SelectItem value="done">Done</SelectItem>
                         </>
                       );
                     } else if (memberRole === 'estimation') {
                       return (
                         <>
                           <SelectItem value="todo">To-Do List</SelectItem>
-                          <SelectItem value="supplier_quotes">SUPPLIER QUOTES</SelectItem>
-                          <SelectItem value="done">DONE</SelectItem>
+                          <SelectItem value="supplier_quotes">Supplier Quotes</SelectItem>
+                          <SelectItem value="client_approval">Client Approval</SelectItem>
+                          <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>
+                          <SelectItem value="quotation_bill">Quotation Bill</SelectItem>
+                          <SelectItem value="production">Production</SelectItem>
+                          <SelectItem value="final_invoice">Final Invoice</SelectItem>
+                          <SelectItem value="done">Done</SelectItem>
                         </>
                       );
                     } else if (memberRole === 'operations') {
                       return (
                         <>
-                          <SelectItem value="production">PRODUCTION</SelectItem>
-                          <SelectItem value="delivery">DELIVERY</SelectItem>
-                          <SelectItem value="done">DONE</SelectItem>
+                          <SelectItem value="todo">To-Do List</SelectItem>
+                          <SelectItem value="approval">Approval</SelectItem>
+                          <SelectItem value="production">Production</SelectItem>
+                          <SelectItem value="delivery">Delivery</SelectItem>
+                          <SelectItem value="done">Done</SelectItem>
+                        </>
+                      );
+                    } else if (memberRole === 'technical_head') {
+                      return (
+                        <>
+                          <SelectItem value="todo">To-Do</SelectItem>
+                          <SelectItem value="developing">Developing</SelectItem>
+                          <SelectItem value="testing">Testing</SelectItem>
+                          <SelectItem value="under_review">Under Review</SelectItem>
+                          <SelectItem value="deployed">Deployed</SelectItem>
+                          <SelectItem value="trial_and_error">Trial and Error</SelectItem>
+                          <SelectItem value="done">Done</SelectItem>
                         </>
                       );
                     } else {
                       return (
                         <>
                           <SelectItem value="todo">To-Do List</SelectItem>
-                          <SelectItem value="in_progress">In Progress</SelectItem>
                           <SelectItem value="done">Done</SelectItem>
                         </>
                       );
