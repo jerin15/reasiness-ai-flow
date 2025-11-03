@@ -37,9 +37,10 @@ type Column = {
 };
 
 const ADMIN_COLUMNS: Column[] = [
-  { id: "admin_cost_approval", title: "Admin Cost Approval", status: "admin_approval" },
-  { id: "approved", title: "Approve (Drop Here)", status: "approved" },
-  { id: "production", title: "Production (Operations)", status: "production" },
+  { id: "admin_cost_approval", title: "Admin Cost Approval (Estimation)", status: "admin_approval" },
+  { id: "quotation_approve", title: "Approve (Estimation)", status: "approved" },
+  { id: "with_client", title: "With Client (Designer)", status: "with_client" },
+  { id: "approved_designer", title: "Approved (Designer)", status: "approved_designer" },
 ];
 
 export const AdminKanbanBoard = () => {
@@ -93,55 +94,18 @@ export const AdminKanbanBoard = () => {
         throw approvalError;
       }
 
-      // Fetch approved tasks (should be empty after proper flow)
-      const { data: approvedTasks, error: approvedError } = await supabase
+      // Fetch tasks with_client status (designer approval flow)
+      const { data: withClientTasks, error: withClientError } = await supabase
         .from('tasks')
         .select('*')
-        .eq('status', 'approved')
+        .eq('status', 'with_client')
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      // Note: Tasks should never stay in 'approved' - they immediately become 'quotation_bill'
-      if (approvedTasks && approvedTasks.length > 0) {
-        console.warn('⚠️ Found tasks in approved status - auto-fixing to quotation_bill:', approvedTasks.length);
-        // Auto-fix any stuck approved tasks
-        for (const task of approvedTasks) {
-          await supabase
-            .from('tasks')
-            .update({
-              status: 'quotation_bill',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', task.id);
-        }
-        toast.info(`Auto-fixed ${approvedTasks.length} stuck task(s) - moved to Quotation Bill`);
-      }
-      console.log('✅ Approved tasks (should be 0):', approvedTasks?.length, approvedTasks);
-      if (approvedError) {
-        console.error('❌ Error fetching approved tasks:', approvedError);
-        throw approvedError;
-      }
-
-      // Fetch production tasks created by operations team only (to avoid duplicates)
-      const { data: operationsUsers } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'operations');
-
-      const operationsUserIds = operationsUsers?.map(u => u.user_id) || [];
-
-      const { data: productionTasks, error: productionError } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('status', 'production')
-        .in('created_by', operationsUserIds)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false });
-
-      console.log('🏭 Production tasks:', productionTasks?.length, productionTasks);
-      if (productionError) {
-        console.error('❌ Error fetching production tasks:', productionError);
-        throw productionError;
+      console.log('👥 With Client tasks:', withClientTasks?.length, withClientTasks);
+      if (withClientError) {
+        console.error('❌ Error fetching with_client tasks:', withClientError);
+        throw withClientError;
       }
 
       // Also fetch quotation_bill tasks to check for misassignments
@@ -151,7 +115,7 @@ export const AdminKanbanBoard = () => {
         .eq('status', 'quotation_bill')
         .is('deleted_at', null);
 
-      const allTasks = [...(approvalTasks || []), ...(approvedTasks || []), ...(productionTasks || []), ...(quotationBillTasks || [])];
+      const allTasks = [...(approvalTasks || []), ...(withClientTasks || []), ...(quotationBillTasks || [])];
       console.log('📦 Total tasks in admin panel:', allTasks.length);
       
       // Auto-fix: Check for quotation_bill tasks assigned to admins instead of estimation users
@@ -290,19 +254,12 @@ export const AdminKanbanBoard = () => {
     // If status unchanged, abort
     if (task.status === newStatus) return;
 
-    // Don't allow moving production tasks - they're read-only monitoring
-    if (task.status === 'production') {
-      toast.error("Production tasks cannot be moved from admin panel");
-      return;
-    }
-
     try {
-      // If moving to approved, automatically transition to quotation_bill for estimation
-      if (newStatus === 'approved') {
-        console.log('✅ Admin approving task - moving to quotation_bill for estimation');
+      // Handle estimation approval flow: admin_approval → approved → quotation_bill
+      if (task.status === 'admin_approval' && newStatus === 'approved') {
+        console.log('✅ Admin approving estimation task - moving to quotation_bill');
         
         // Find estimation user to assign the task to
-        // Check if task is already assigned to estimation user
         const assignedUserRole = task.assigned_to ? userRoles[task.assigned_to] : null;
         let assignTo = task.assigned_to;
         
@@ -323,7 +280,7 @@ export const AdminKanbanBoard = () => {
         const updates = {
           status: 'quotation_bill' as any,
           previous_status: 'admin_approval' as any,
-          assigned_to: assignTo, // Assign to estimation user
+          assigned_to: assignTo,
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString()
         };
@@ -332,15 +289,58 @@ export const AdminKanbanBoard = () => {
 
         if (error) throw error;
         
-        // Immediately refetch to update UI
         await fetchTasks();
         
-        console.log('✅ Task approved and moved to Quotation Bill in estimation panel');
+        console.log('✅ Estimation task approved and moved to Quotation Bill');
         
         if (!navigator.onLine) {
           toast.success("Task approved (offline - will sync when online)");
         } else {
           toast.success("Task approved! Moved to Quotation Bill in estimation's panel");
+        }
+      } 
+      // Handle designer approval flow: with_client → approved_designer → production_file
+      else if (task.status === 'with_client' && newStatus === 'approved_designer') {
+        console.log('✅ Admin approving designer task - moving to production_file');
+        
+        // Find designer user to assign back to
+        const assignedUserRole = task.assigned_to ? userRoles[task.assigned_to] : null;
+        let assignTo = task.assigned_to;
+        
+        // If not assigned to designer, find one
+        if (assignedUserRole !== 'designer') {
+          const { data: designerUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', 'designer')
+            .limit(1);
+          
+          if (designerUsers && designerUsers.length > 0) {
+            assignTo = designerUsers[0].user_id;
+            console.log('📝 Assigning to designer user:', assignTo);
+          }
+        }
+        
+        const updates = {
+          status: 'production_file' as any,
+          previous_status: 'with_client' as any,
+          assigned_to: assignTo,
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString()
+        };
+        
+        const { error } = await updateTaskOffline(taskId, updates);
+
+        if (error) throw error;
+        
+        await fetchTasks();
+        
+        console.log('✅ Designer task approved and moved to Production File');
+        
+        if (!navigator.onLine) {
+          toast.success("Task approved (offline - will sync when online)");
+        } else {
+          toast.success("Task approved! Moved to Production File in designer's panel");
         }
       } else {
         // Regular status update
@@ -361,7 +361,6 @@ export const AdminKanbanBoard = () => {
           toast.success("Task moved successfully");
         }
         
-        // Immediate refetch to ensure UI is in sync
         await fetchTasks();
       }
     } catch (error) {
@@ -413,8 +412,8 @@ export const AdminKanbanBoard = () => {
               strategy={horizontalListSortingStrategy}
             >
               {ADMIN_COLUMNS.map((column) => {
-                // For "Approved" column, don't show any tasks (it's just a drop zone)
-                const columnTasks = column.status === 'approved' 
+                // For "Approved" columns, don't show any tasks (they're just drop zones)
+                const columnTasks = (column.status === 'approved' || column.status === 'approved_designer')
                   ? [] 
                   : tasks.filter((task) => task.status === column.status);
                 return (
