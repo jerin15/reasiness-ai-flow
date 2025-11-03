@@ -22,10 +22,12 @@ type Task = {
   created_at: string;
   updated_at: string;
   status_changed_at: string;
+  created_by: string;
   assigned_by: string | null;
   client_name: string | null;
   supplier_name: string | null;
   type: string;
+  my_status: string;
   assigned_user_role?: string | null;
   sent_to_designer_mockup?: boolean;
   mockup_completed_by_designer?: boolean;
@@ -215,15 +217,15 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
       
       // Handle returning task from designer to estimation
       if (newStatus === 'return_to_estimation') {
-        // Get original estimation user (created_by)
+        // Assign back to original creator (estimation user)
         updateData = {
           status: 'todo',
-          assigned_to: null, // Return to estimation's unassigned pool
+          assigned_to: task.created_by, // Return to original estimation user
           mockup_completed_by_designer: true,
           previous_status: task.status,
           status_changed_at: new Date().toISOString(),
         };
-        console.log('✅ Returning task to estimation with mockup completed');
+        console.log('✅ Returning task to estimation user:', task.created_by);
       }
 
       const { error } = await supabase

@@ -14,11 +14,15 @@ type Task = {
   created_at: string;
   updated_at: string;
   status_changed_at: string;
+  created_by: string;
   assigned_by: string | null;
   client_name: string | null;
   my_status: string;
   supplier_name: string | null;
   type: string;
+  assigned_user_role?: string | null;
+  sent_to_designer_mockup?: boolean;
+  mockup_completed_by_designer?: boolean;
 };
 
 type KanbanColumnProps = {
