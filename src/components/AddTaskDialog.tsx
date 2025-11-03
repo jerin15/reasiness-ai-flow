@@ -37,7 +37,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedMember, setSelectedMember] = useState<string>(defaultAssignedTo || "");
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
-  const [designerPipeline, setDesignerPipeline] = useState("todo");
+  const [selectedPipeline, setSelectedPipeline] = useState("todo");
 
   useEffect(() => {
     if (open) {
@@ -91,17 +91,14 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get the selected member's role
-      const selectedMemberRole = teamMembers.find(m => m.id === selectedMember)?.user_roles?.[0]?.role;
-      
       const taskData: any = {
         title,
         description: description || null,
         priority: priority as "low" | "medium" | "high" | "urgent",
         due_date: dueDate || null,
         created_by: user.id,
-        status: (selectedMemberRole === 'designer' && (currentUserRole === 'admin' || currentUserRole === 'technical_head')) 
-          ? designerPipeline 
+        status: (currentUserRole === 'admin' || currentUserRole === 'technical_head') 
+          ? selectedPipeline 
           : "todo" as const,
         assigned_by: assignedBy || null,
         client_name: clientName || null,
@@ -135,7 +132,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       setMyStatus("pending");
       setTaskType("general");
       setSelectedMember(defaultAssignedTo || "");
-      setDesignerPipeline("todo");
+      setSelectedPipeline("todo");
     } catch (error: any) {
       console.error("Error creating task:", error);
       toast.error(error.message || "Failed to create task");
@@ -248,18 +245,51 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
               </Select>
             </div>
           )}
-          {(currentUserRole === 'admin' || currentUserRole === 'technical_head') && 
-           teamMembers.find(m => m.id === selectedMember)?.user_roles?.[0]?.role === 'designer' && (
+          {(currentUserRole === 'admin' || currentUserRole === 'technical_head') && selectedMember && (
             <div className="space-y-2">
-              <Label htmlFor="designerPipeline">Designer Pipeline *</Label>
-              <Select value={designerPipeline} onValueChange={setDesignerPipeline} required>
+              <Label htmlFor="pipeline">Pipeline *</Label>
+              <Select value={selectedPipeline} onValueChange={setSelectedPipeline} required>
                 <SelectTrigger>
                   <SelectValue placeholder="Select pipeline" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todo">To-Do List</SelectItem>
-                  <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
-                  <SelectItem value="mockup">MOCKUP</SelectItem>
+                  {(() => {
+                    const memberRole = teamMembers.find(m => m.id === selectedMember)?.user_roles?.[0]?.role;
+                    
+                    if (memberRole === 'designer') {
+                      return (
+                        <>
+                          <SelectItem value="todo">To-Do List</SelectItem>
+                          <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
+                          <SelectItem value="mockup">MOCKUP</SelectItem>
+                        </>
+                      );
+                    } else if (memberRole === 'estimation') {
+                      return (
+                        <>
+                          <SelectItem value="todo">To-Do List</SelectItem>
+                          <SelectItem value="supplier_quotes">SUPPLIER QUOTES</SelectItem>
+                          <SelectItem value="done">DONE</SelectItem>
+                        </>
+                      );
+                    } else if (memberRole === 'operations') {
+                      return (
+                        <>
+                          <SelectItem value="production">PRODUCTION</SelectItem>
+                          <SelectItem value="delivery">DELIVERY</SelectItem>
+                          <SelectItem value="done">DONE</SelectItem>
+                        </>
+                      );
+                    } else {
+                      return (
+                        <>
+                          <SelectItem value="todo">To-Do List</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="done">Done</SelectItem>
+                        </>
+                      );
+                    }
+                  })()}
                 </SelectContent>
               </Select>
             </div>
