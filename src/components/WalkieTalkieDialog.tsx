@@ -90,27 +90,31 @@ export const WalkieTalkieDialog = ({
       // Set up audio context for playback
       audioContextRef.current = new AudioContext({ sampleRate: 24000 });
 
-      // Listen for incoming audio chunks on OUR channel (so others can send to us)
+      // Create a shared channel for this conversation
+      const channelName = `walkie-${[currentUserId, recipientId].sort().join('-')}`;
+      console.log('📡 Setting up channel:', channelName);
+
       const channel = supabase
-        .channel(`walkie-audio-${currentUserId}`, {
+        .channel(channelName, {
           config: {
-            broadcast: { self: false, ack: false }
+            broadcast: { self: false }
           }
         })
         .on(
           'broadcast',
           { event: 'audio-chunk' },
           async (payload) => {
-            if (payload.payload.senderId === recipientId) {
-              console.log('🎧 Received audio chunk from:', recipientId);
+            console.log('🎧 Received audio chunk from:', payload.payload.senderId);
+            if (payload.payload.recipientId === currentUserId) {
               await playAudioChunk(payload.payload.audioData);
             }
           }
         )
         .subscribe((status) => {
+          console.log('📡 Channel status:', status);
           if (status === 'SUBSCRIBED') {
             setIsConnected(true);
-            console.log('🎧 Audio receiver ready');
+            console.log('✅ Audio channel ready');
           }
         });
 
@@ -181,7 +185,13 @@ export const WalkieTalkieDialog = ({
         return;
       }
 
+      if (!channelRef.current) {
+        toast.error('Channel not ready');
+        return;
+      }
+
       setIsTalking(true);
+      console.log('🎤 Starting to talk...');
       
       // Request microphone access with specific settings for real-time
       streamRef.current = await navigator.mediaDevices.getUserMedia({ 
@@ -198,7 +208,7 @@ export const WalkieTalkieDialog = ({
       const audioContext = new AudioContext({ sampleRate: 24000 });
       
       sourceRef.current = audioContext.createMediaStreamSource(streamRef.current);
-      processorRef.current = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = audioContext.createScriptProcessor(2048, 1, 1);
       
       processorRef.current.onaudioprocess = async (e) => {
         if (!isTalking) return;
@@ -206,20 +216,19 @@ export const WalkieTalkieDialog = ({
         const inputData = e.inputBuffer.getChannelData(0);
         const pcm16Audio = encodeAudioToPCM16(new Float32Array(inputData));
         
-        // Broadcast to recipient's channel (not our own!)
-        const recipientChannel = supabase.channel(`walkie-audio-${recipientId}`);
-        
-        await recipientChannel.send({
-          type: 'broadcast',
-          event: 'audio-chunk',
-          payload: {
-            senderId: currentUserId,
-            recipientId: recipientId,
-            audioData: pcm16Audio
-          }
-        });
-        
-        console.log('🎤 Sent audio chunk to:', recipientId);
+        // Broadcast audio using the existing shared channel
+        if (channelRef.current) {
+          await channelRef.current.send({
+            type: 'broadcast',
+            event: 'audio-chunk',
+            payload: {
+              senderId: currentUserId,
+              recipientId: recipientId,
+              audioData: pcm16Audio
+            }
+          });
+          console.log('🎤 Sent audio chunk');
+        }
       };
       
       sourceRef.current.connect(processorRef.current);
