@@ -37,6 +37,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedMember, setSelectedMember] = useState<string>(defaultAssignedTo || "");
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
+  const [designerPipeline, setDesignerPipeline] = useState("todo");
 
   useEffect(() => {
     if (open) {
@@ -90,13 +91,18 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Get the selected member's role
+      const selectedMemberRole = teamMembers.find(m => m.id === selectedMember)?.user_roles?.[0]?.role;
+      
       const taskData: any = {
         title,
         description: description || null,
         priority: priority as "low" | "medium" | "high" | "urgent",
         due_date: dueDate || null,
         created_by: user.id,
-        status: "todo" as const,
+        status: (selectedMemberRole === 'designer' && (currentUserRole === 'admin' || currentUserRole === 'technical_head')) 
+          ? designerPipeline 
+          : "todo" as const,
         assigned_by: assignedBy || null,
         client_name: clientName || null,
         supplier_name: supplierName || null,
@@ -129,6 +135,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       setMyStatus("pending");
       setTaskType("general");
       setSelectedMember(defaultAssignedTo || "");
+      setDesignerPipeline("todo");
     } catch (error: any) {
       console.error("Error creating task:", error);
       toast.error(error.message || "Failed to create task");
@@ -237,6 +244,22 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                       </SelectItem>
                     );
                   })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {(currentUserRole === 'admin' || currentUserRole === 'technical_head') && 
+           teamMembers.find(m => m.id === selectedMember)?.user_roles?.[0]?.role === 'designer' && (
+            <div className="space-y-2">
+              <Label htmlFor="designerPipeline">Designer Pipeline *</Label>
+              <Select value={designerPipeline} onValueChange={setDesignerPipeline} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pipeline" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todo">To-Do List</SelectItem>
+                  <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
+                  <SelectItem value="mockup">MOCKUP</SelectItem>
                 </SelectContent>
               </Select>
             </div>

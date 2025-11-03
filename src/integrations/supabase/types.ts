@@ -488,6 +488,8 @@ export type Database = {
         | "under_review"
         | "deployed"
         | "trial_and_error"
+        | "mockup"
+        | "production_file"
       task_type: "quotation" | "invoice" | "general" | "production" | "design"
     }
     CompositeTypes: {
@@ -647,6 +649,8 @@ export const Constants = {
         "under_review",
         "deployed",
         "trial_and_error",
+        "mockup",
+        "production_file",
       ],
       task_type: ["quotation", "invoice", "general", "production", "design"],
     },

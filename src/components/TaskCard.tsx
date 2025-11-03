@@ -26,6 +26,7 @@ type Task = {
   client_name: string | null;
   supplier_name: string | null;
   type: string;
+  assigned_user_role?: string | null;
 };
 
 type TaskCardProps = {
@@ -111,9 +112,9 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
         allPipelines = [
           { value: "todo", label: "To-Do List" },
           { value: "design", label: "Design" },
-          { value: "mockup_pending", label: "Mockup Pending" },
+          { value: "mockup", label: "MOCKUP" },
           { value: "client_approval", label: "Client Approval" },
-          { value: "production_pending", label: "Production Pending" },
+          { value: "production_file", label: "PRODUCTION FILE" },
           { value: "with_client", label: "With Client" },
           { value: "done", label: "Done" },
         ];
@@ -144,8 +145,8 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
     return allPipelines.filter(pipeline => pipeline.value !== task.status);
   };
 
-  const pipelines = getRolePipelines(userRole || "operations");
-  console.log("TaskCard - Task:", task.title, "| Role:", userRole, "| Current status:", task.status, "| Available pipelines:", pipelines.length);
+  const pipelines = getRolePipelines(task.assigned_user_role || userRole || "operations");
+  console.log("TaskCard - Task:", task.title, "| Assigned User Role:", task.assigned_user_role, "| Viewing Role:", userRole, "| Current status:", task.status, "| Available pipelines:", pipelines.length);
 
   const handleMoveTask = async (newStatus: string) => {
     if (newStatus === task.status || isMoving) return;

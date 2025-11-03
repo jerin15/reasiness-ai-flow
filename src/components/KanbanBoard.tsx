@@ -34,6 +34,7 @@ type Task = {
   my_status: string;
   supplier_name: string | null;
   type: string;
+  assigned_user_role?: string | null;
 };
 
 type Column = {
@@ -79,9 +80,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       case "designer":
         return [
           { id: "todo", title: "To-Do List", status: "todo" },
-          { id: "mockup_pending", title: "Mockup Pending", status: "mockup_pending" },
+          { id: "mockup", title: "MOCKUP", status: "mockup" },
           { id: "with_client", title: "With Client", status: "with_client" },
-          { id: "production_pending", title: "Production Pending", status: "production_pending" },
+          { id: "production_file", title: "PRODUCTION FILE", status: "production_file" },
           { id: "done", title: "Done", status: "done" },
         ];
       case "operations":
@@ -138,7 +139,12 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
       let query = supabase
         .from("tasks")
-        .select("*")
+        .select(`
+          *,
+          assigned_profile:profiles!tasks_assigned_to_fkey(
+            user_roles(role)
+          )
+        `)
         .is("deleted_at", null);
 
       if (isAdmin && viewingUserId && viewingUserId !== user.id) {
@@ -198,7 +204,14 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       if (error) throw error;
       console.log("✅ Tasks loaded:", data?.length, "| Production:", data?.filter(t => t.status === 'production').length);
       
-      setTasks(data || []);
+      // Transform data to include assigned_user_role
+      const transformedData = (data || []).map((task: any) => ({
+        ...task,
+        assigned_user_role: task.assigned_profile?.user_roles?.[0]?.role || null,
+        assigned_profile: undefined, // Remove the nested object
+      }));
+      
+      setTasks(transformedData);
       
       // Save to local storage for offline access
       await saveTasksLocally(data || []);
