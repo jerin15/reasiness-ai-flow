@@ -5,11 +5,12 @@ import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Send, Paperclip, X, Smile, Radio } from "lucide-react";
+import { Send, Paperclip, X, Smile, Radio, Phone } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { WalkieTalkieDialog } from "./WalkieTalkieDialog";
+import { VoiceCallDialog } from "./VoiceCallDialog";
 
 type Message = {
   id: string;
@@ -37,6 +38,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showWalkieTalkie, setShowWalkieTalkie] = useState(false);
+  const [showVoiceCall, setShowVoiceCall] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -293,7 +295,18 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Chat with {recipientName}</DialogTitle>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Chat with {recipientName}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowVoiceCall(true)}
+              className="gap-2"
+            >
+              <Phone className="h-4 w-4" />
+              Call
+            </Button>
+          </DialogTitle>
         </DialogHeader>
 
         <ScrollArea ref={scrollRef} className="flex-1 pr-4">
@@ -411,6 +424,15 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
           <WalkieTalkieDialog
             open={showWalkieTalkie}
             onOpenChange={setShowWalkieTalkie}
+            recipientId={recipientId}
+            recipientName={recipientName}
+          />
+        )}
+
+        {showVoiceCall && (
+          <VoiceCallDialog
+            open={showVoiceCall}
+            onOpenChange={setShowVoiceCall}
             recipientId={recipientId}
             recipientName={recipientName}
           />

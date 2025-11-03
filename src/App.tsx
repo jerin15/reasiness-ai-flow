@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ReminderNotification } from "@/components/ReminderNotification";
 import { ChatNotification } from "@/components/ChatNotification";
+import { VoiceCallNotification } from "@/components/VoiceCallNotification";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
@@ -21,6 +22,7 @@ const App = () => (
       <Sonner />
       <ReminderNotification />
       <ChatNotification />
+      <VoiceCallNotification />
       <OfflineIndicator />
       <BrowserRouter>
         <Routes>
