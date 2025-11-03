@@ -79,8 +79,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         return [
           { id: "todo", title: "To-Do List", status: "todo" },
           { id: "mockup_pending", title: "Mockup Pending", status: "mockup_pending" },
-          { id: "production_pending", title: "Production Pending", status: "production_pending" },
           { id: "with_client", title: "With Client", status: "with_client" },
+          { id: "production_pending", title: "Production Pending", status: "production_pending" },
           { id: "done", title: "Done", status: "done" },
         ];
       case "operations":

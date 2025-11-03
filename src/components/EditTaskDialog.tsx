@@ -51,6 +51,7 @@ export const EditTaskDialog = ({
   const [status, setStatus] = useState("todo");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<string>("");
 
   useEffect(() => {
     if (task) {
@@ -66,6 +67,25 @@ export const EditTaskDialog = ({
       setStatus(task.status || "todo");
     }
   }, [task]);
+
+  useEffect(() => {
+    checkUserRole();
+  }, []);
+
+  const checkUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (roleData) {
+      setCurrentUserRole(roleData.role);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,6 +253,9 @@ export const EditTaskDialog = ({
                 <SelectContent>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
+                  {currentUserRole === 'designer' && (
+                    <SelectItem value="on_hold">On Hold</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
