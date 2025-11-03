@@ -9,7 +9,7 @@ import { ScrollArea } from "./ui/scroll-area";
 type TaskNotification = {
   id: string;
   taskTitle: string;
-  type: 'status_change' | 'assignment_change';
+  type: 'status_change' | 'assignment_change' | 'task_created';
   oldStatus?: string;
   newStatus?: string;
   oldAssignee?: string;
@@ -61,11 +61,11 @@ export const StatusChangeNotification = () => {
     try {
       console.log('🔍 Loading historical notifications for admin:', userIsAdmin);
       
-      // Get last 50 audit logs (status changes and assignments)
+      // Get last 50 audit logs (status changes, assignments, and creations)
       const { data: auditLogs } = await supabase
         .from('task_audit_log')
         .select('id, task_id, action, old_values, new_values, changed_by, created_at')
-        .in('action', ['status_changed', 'assigned'])
+        .in('action', ['status_changed', 'assigned', 'created'])
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -150,6 +150,16 @@ export const StatusChangeNotification = () => {
             changedByName: changedByProfile?.full_name || 'Someone',
             timestamp: auditLog.created_at,
           });
+        } else if (auditLog.action === 'created') {
+          // Task creation notification
+          historicalNotifications.push({
+            id: auditLog.id,
+            taskTitle: taskData.title,
+            type: 'task_created',
+            changedBy: auditLog.changed_by,
+            changedByName: changedByProfile?.full_name || 'Someone',
+            timestamp: auditLog.created_at,
+          });
         }
       }
 
@@ -182,11 +192,14 @@ export const StatusChangeNotification = () => {
           console.log('📢 Task change detected:', payload);
           const auditLog = payload.new;
           
-          // Skip if the change was made by the current user
-          if (auditLog.changed_by === currentUser.id) return;
+          // Only handle status_changed, assigned, and created actions
+          if (!['status_changed', 'assigned', 'created'].includes(auditLog.action)) return;
 
-          // Only handle status_changed and assigned actions
-          if (!['status_changed', 'assigned'].includes(auditLog.action)) return;
+          // For status changes and assignments, skip if the change was made by the current user
+          // For creations, we handle the logic separately below
+          if ((auditLog.action === 'status_changed' || auditLog.action === 'assigned') && auditLog.changed_by === currentUser.id) {
+            return;
+          }
 
           // Get task details
           const { data: taskData } = await supabase
@@ -257,6 +270,21 @@ export const StatusChangeNotification = () => {
             if (isAdmin || newAssigneeId === currentUser.id || oldAssigneeId === currentUser.id) {
               shouldNotify = true;
             }
+          } else if (auditLog.action === 'created') {
+            // For task creation:
+            // - Notify the assigned person (if not the creator)
+            // - Notify all admins (except if admin created their own task)
+            const isTaskCreator = taskData.created_by === currentUser.id;
+            const isAssignedToUser = taskData.assigned_to === currentUser.id;
+            
+            // Don't notify the creator unless they assigned it to someone else AND are admin
+            if (isAdmin && !isTaskCreator) {
+              shouldNotify = true;
+              console.log('✅ Notifying admin: New task created');
+            } else if (isAssignedToUser && !isTaskCreator) {
+              shouldNotify = true;
+              console.log('✅ Notifying assignee: New task assigned to you');
+            }
           }
 
           if (!shouldNotify) {
@@ -296,7 +324,7 @@ export const StatusChangeNotification = () => {
 
             toastMessage = `${changedByName} moved "${taskData.title}" from ${notification.oldStatus} to ${notification.newStatus}`;
             browserNotificationBody = `Pipeline: ${notification.oldStatus} → ${notification.newStatus}`;
-          } else {
+          } else if (auditLog.action === 'assigned') {
             // assignment_change
             const oldAssigneeId = (auditLog.old_values as any)?.assigned_to;
             const newAssigneeId = (auditLog.new_values as any)?.assigned_to;
@@ -335,6 +363,22 @@ export const StatusChangeNotification = () => {
 
             toastMessage = `${changedByName} reassigned "${taskData.title}" from ${oldAssigneeName} to ${newAssigneeName}`;
             browserNotificationBody = `Assigned: ${oldAssigneeName} → ${newAssigneeName}`;
+          } else {
+            // task_created
+            notification = {
+              id: auditLog.id,
+              taskTitle: taskData.title,
+              type: 'task_created',
+              changedBy: auditLog.changed_by,
+              changedByName,
+              timestamp: new Date().toISOString(),
+            };
+
+            const assignedTo = taskData.assigned_to === currentUser.id ? 'you' : 'the team';
+            toastMessage = `${changedByName} created a new task: "${taskData.title}"`;
+            browserNotificationBody = taskData.assigned_to === currentUser.id 
+              ? 'New task assigned to you' 
+              : 'New task created';
           }
 
           // Play alarm sound
@@ -350,11 +394,15 @@ export const StatusChangeNotification = () => {
           });
 
           // Show toast
+          const toastIcon = notification.type === 'status_change' 
+            ? <ArrowRightLeft className="h-5 w-5 text-accent" />
+            : notification.type === 'assignment_change'
+            ? <UserPlus className="h-5 w-5 text-accent" />
+            : <Bell className="h-5 w-5 text-accent" />;
+
           toast.info(toastMessage, {
             duration: 8000,
-            icon: notification.type === 'status_change' 
-              ? <ArrowRightLeft className="h-5 w-5 text-accent" />
-              : <UserPlus className="h-5 w-5 text-accent" />,
+            icon: toastIcon,
           });
 
           // Show browser notification
@@ -434,17 +482,27 @@ export const StatusChangeNotification = () => {
                     <div className="flex-shrink-0 mt-1">
                       {notification.type === 'status_change' ? (
                         <ArrowRightLeft className="h-4 w-4 text-accent" />
-                      ) : (
+                      ) : notification.type === 'assignment_change' ? (
                         <UserPlus className="h-4 w-4 text-accent" />
+                      ) : (
+                        <Bell className="h-4 w-4 text-accent" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-foreground mb-1">
-                        {notification.type === 'status_change' ? 'Pipeline Change' : 'Assignment Change'}
+                        {notification.type === 'status_change' 
+                          ? 'Pipeline Change' 
+                          : notification.type === 'assignment_change'
+                          ? 'Assignment Change'
+                          : 'New Task Created'}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">{notification.changedByName}</span>
-                        {notification.type === 'status_change' ? ' moved ' : ' reassigned '}
+                        {notification.type === 'status_change' 
+                          ? ' moved ' 
+                          : notification.type === 'assignment_change'
+                          ? ' reassigned '
+                          : ' created '}
                         <span className="font-medium text-foreground">"{notification.taskTitle}"</span>
                       </p>
                       {notification.type === 'status_change' ? (
