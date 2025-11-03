@@ -147,7 +147,11 @@ export const TeamChatListDialog = ({
                     <div className="flex-1 text-left">
                       <p className="font-medium">{member.full_name || member.email}</p>
                       <p className="text-xs text-muted-foreground">
-                        {member.user_roles?.[0]?.role || 'operations'}
+                        {(() => {
+                          const role = member.user_roles?.[0]?.role || 'operations';
+                          return role === 'technical_head' ? 'Technical Head' : 
+                                 role.charAt(0).toUpperCase() + role.slice(1);
+                        })()}
                       </p>
                     </div>
                      {unreadCounts[member.id] > 0 && (

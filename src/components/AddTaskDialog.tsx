@@ -226,11 +226,17 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                   <SelectValue placeholder="Select team member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.full_name || member.email} ({member.user_roles?.[0]?.role || 'No role'})
-                    </SelectItem>
-                  ))}
+                  {teamMembers.map((member) => {
+                    const role = member.user_roles?.[0]?.role || 'No role';
+                    const formattedRole = role === 'technical_head' ? 'Technical Head' : 
+                                         role === 'No role' ? 'No role' :
+                                         role.charAt(0).toUpperCase() + role.slice(1);
+                    return (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.full_name || member.email} ({formattedRole})
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

@@ -180,6 +180,12 @@ const Dashboard = () => {
     }
   };
 
+  // Helper function to format role names
+  const formatRole = (role: string) => {
+    if (role === 'technical_head') return 'Technical Head';
+    return role.charAt(0).toUpperCase() + role.slice(1);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -199,7 +205,7 @@ const Dashboard = () => {
                 <img src={reaLogo} alt="REA Advertising" className="h-10 w-auto" />
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    Welcome, {userName} (Admin)
+                    Welcome, {userName} ({formatRole(userRole)})
                   </p>
                 </div>
               </div>
@@ -226,7 +232,7 @@ const Dashboard = () => {
                           <div className="flex flex-col items-start">
                             <span>{user.full_name || user.email}</span>
                             <span className="text-xs text-muted-foreground">
-                              {user.user_roles?.[0]?.role}
+                              {formatRole(user.user_roles?.[0]?.role || 'operations')}
                             </span>
                           </div>
                         </SelectItem>
@@ -335,7 +341,7 @@ const Dashboard = () => {
               <img src={reaLogo} alt="REA Advertising" className="h-10 w-auto" />
               <div>
                 <p className="text-sm text-muted-foreground">
-                  Welcome, {userName} ({userRole})
+                  Welcome, {userName} ({formatRole(userRole)})
                 </p>
               </div>
             </div>
@@ -364,7 +370,7 @@ const Dashboard = () => {
                             <div className="flex flex-col items-start">
                               <span>{user.full_name || user.email}</span>
                               <span className="text-xs text-muted-foreground">
-                                {user.user_roles?.[0]?.role}
+                                {formatRole(user.user_roles?.[0]?.role || 'operations')}
                               </span>
                             </div>
                           </SelectItem>
