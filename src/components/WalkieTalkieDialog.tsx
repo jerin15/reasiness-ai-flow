@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Mic, MicOff, Radio } from 'lucide-react';
+import { Mic, Radio } from 'lucide-react';
 
 interface WalkieTalkieDialogProps {
   open: boolean;
@@ -19,22 +19,13 @@ export const WalkieTalkieDialog = ({
   recipientName 
 }: WalkieTalkieDialogProps) => {
   const [isTalking, setIsTalking] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement>(null);
-  const signalChannelRef = useRef<any>(null);
-
-  // ICE servers configuration for WebRTC
-  const iceServers = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-    ]
-  };
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     const initUser = async () => {
@@ -46,7 +37,7 @@ export const WalkieTalkieDialog = ({
 
   useEffect(() => {
     if (open && currentUserId && recipientId) {
-      initializeConnection();
+      setupAudioReceiver();
     }
 
     return () => {
@@ -54,237 +45,143 @@ export const WalkieTalkieDialog = ({
     };
   }, [open, currentUserId, recipientId]);
 
-  const initializeConnection = async () => {
-    try {
-      setIsConnecting(true);
+  const setupAudioReceiver = () => {
+    // Set up audio context for playback
+    audioContextRef.current = new AudioContext();
 
-      // Set up signaling channel
-      setupSignalingChannel();
-
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
-      });
-      localStreamRef.current = stream;
-
-      // Create peer connection
-      const peerConnection = new RTCPeerConnection(iceServers);
-      peerConnectionRef.current = peerConnection;
-
-      // Add local audio tracks
-      stream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, stream);
-      });
-
-      // Handle remote audio
-      peerConnection.ontrack = (event) => {
-        console.log('📻 Received remote audio track');
-        if (remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = event.streams[0];
-        }
-      };
-
-      // Handle ICE candidates
-      peerConnection.onicecandidate = async (event) => {
-        if (event.candidate) {
-          console.log('🧊 Sending ICE candidate');
-        await supabase.from('walkie_talkie_signals').insert({
-          caller_id: currentUserId,
-          callee_id: recipientId,
-          signal_type: 'ice-candidate',
-          signal_data: { candidate: event.candidate }
-        } as any);
-        }
-      };
-
-      // Handle connection state
-      peerConnection.onconnectionstatechange = () => {
-        console.log('🔗 Connection state:', peerConnection.connectionState);
-        if (peerConnection.connectionState === 'connected') {
-          setIsConnected(true);
-          setIsConnecting(false);
-          toast.success(`Connected to ${recipientName}`);
-        } else if (peerConnection.connectionState === 'failed' || 
-                   peerConnection.connectionState === 'disconnected') {
-          setIsConnected(false);
-          toast.error('Connection lost');
-        }
-      };
-
-      // Create and send offer
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-
-      await supabase.from('walkie_talkie_signals').insert({
-        caller_id: currentUserId,
-        callee_id: recipientId,
-        signal_type: 'offer',
-        signal_data: { sdp: offer }
-      } as any);
-
-      // Mark as active call
-      await supabase.from('active_walkie_calls').insert({
-        caller_id: currentUserId,
-        callee_id: recipientId
-      } as any);
-
-      console.log('📞 Walkie-talkie call initiated');
-    } catch (error: any) {
-      console.error('Error initializing connection:', error);
-      toast.error('Failed to connect: ' + error.message);
-      setIsConnecting(false);
-    }
-  };
-
-  const setupSignalingChannel = () => {
-    // Listen for WebRTC signals
+    // Listen for incoming audio chunks
     const channel = supabase
-      .channel(`walkie-talkie-${currentUserId}`)
+      .channel(`walkie-audio-${currentUserId}`)
       .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'walkie_talkie_signals',
-          filter: `callee_id=eq.${currentUserId}`
-        },
+        'broadcast',
+        { event: 'audio-chunk' },
         async (payload) => {
-          const signal = payload.new;
-          console.log('📡 Received signal:', signal.signal_type);
-          
-          if (!peerConnectionRef.current) return;
-
-          try {
-            switch (signal.signal_type) {
-              case 'offer':
-                await handleOffer(signal.signal_data.sdp);
-                break;
-              case 'answer':
-                await handleAnswer(signal.signal_data.sdp);
-                break;
-              case 'ice-candidate':
-                await handleIceCandidate(signal.signal_data.candidate);
-                break;
-              case 'end-call':
-                cleanup();
-                onOpenChange(false);
-                toast.info(`${recipientName} ended the call`);
-                break;
-            }
-
-            // Mark signal as processed
-            await supabase
-              .from('walkie_talkie_signals')
-              .update({ is_processed: true })
-              .eq('id', signal.id);
-          } catch (error) {
-            console.error('Error handling signal:', error);
+          if (payload.payload.senderId === recipientId) {
+            await playAudioChunk(payload.payload.audioData);
           }
         }
       )
       .subscribe();
 
-    signalChannelRef.current = channel;
+    channelRef.current = channel;
+    console.log('🎧 Audio receiver ready');
   };
 
-  const handleOffer = async (offer: RTCSessionDescriptionInit) => {
-    if (!peerConnectionRef.current) return;
+  const playAudioChunk = async (base64Audio: string) => {
+    try {
+      if (!audioContextRef.current) return;
 
-    await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnectionRef.current.createAnswer();
-    await peerConnectionRef.current.setLocalDescription(answer);
+      // Decode base64 to audio buffer
+      const binaryString = atob(base64Audio);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
 
-    await supabase.from('walkie_talkie_signals').insert({
-      caller_id: currentUserId,
-      callee_id: recipientId,
-      signal_type: 'answer',
-      signal_data: { sdp: answer }
-    } as any);
-  };
-
-  const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
-    if (!peerConnectionRef.current) return;
-    await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
-  };
-
-  const handleIceCandidate = async (candidate: RTCIceCandidateInit) => {
-    if (!peerConnectionRef.current) return;
-    await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
-  };
-
-  const startTalking = () => {
-    if (!isConnected) {
-      toast.error('Not connected yet. Please wait...');
-      return;
+      const audioBuffer = await audioContextRef.current.decodeAudioData(bytes.buffer);
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContextRef.current.destination);
+      source.start(0);
+    } catch (error) {
+      console.error('Error playing audio chunk:', error);
     }
-    
-    setIsTalking(true);
-    
-    // Enable audio tracks
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = true;
+  };
+
+  const startTalking = async () => {
+    try {
+      setIsTalking(true);
+      
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000
+        } 
       });
+
+      // Create media recorder to capture audio chunks
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000
+      });
+
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      // Send audio chunks as they're available
+      mediaRecorder.ondataavailable = async (event) => {
+        if (event.data.size > 0) {
+          // Convert blob to base64
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64Audio = (reader.result as string).split(',')[1];
+            
+            // Broadcast audio chunk immediately via Supabase Realtime
+            await channelRef.current?.send({
+              type: 'broadcast',
+              event: 'audio-chunk',
+              payload: {
+                senderId: currentUserId,
+                recipientId: recipientId,
+                audioData: base64Audio
+              }
+            });
+          };
+          reader.readAsDataURL(event.data);
+        }
+      };
+
+      // Start recording and send chunks every 100ms for real-time streaming
+      mediaRecorder.start(100);
+      
+      console.log('🎤 Started talking');
+    } catch (error: any) {
+      console.error('Error starting to talk:', error);
+      toast.error('Microphone access denied');
+      setIsTalking(false);
     }
-    
-    toast.success('🎤 You are now speaking');
   };
 
   const stopTalking = () => {
     setIsTalking(false);
     
-    // Disable audio tracks (mute)
-    if (localStreamRef.current) {
-      localStreamRef.current.getAudioTracks().forEach(track => {
-        track.enabled = false;
-      });
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      
+      // Stop all tracks
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      mediaRecorderRef.current = null;
     }
+    
+    console.log('🔇 Stopped talking');
   };
 
-  const endCall = async () => {
-    // Send end call signal
-    await supabase.from('walkie_talkie_signals').insert({
-      caller_id: currentUserId,
-      callee_id: recipientId,
-      signal_type: 'end-call',
-      signal_data: {}
-    } as any);
-
+  const endCall = () => {
     cleanup();
     onOpenChange(false);
   };
 
   const cleanup = async () => {
-    // Close peer connection
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
+    // Stop talking if active
+    if (isTalking) {
+      stopTalking();
     }
 
-    // Stop local stream
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
+    // Close audio context
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
     }
 
-    // Unsubscribe from signaling
-    if (signalChannelRef.current) {
-      await supabase.removeChannel(signalChannelRef.current);
-      signalChannelRef.current = null;
+    // Unsubscribe from channel
+    if (channelRef.current) {
+      await supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
     }
 
-    // Remove active call
-    await supabase
-      .from('active_walkie_calls')
-      .delete()
-      .or(`caller_id.eq.${currentUserId},callee_id.eq.${currentUserId}`);
-
-    setIsConnected(false);
-    setIsConnecting(false);
     setIsTalking(false);
   };
 
@@ -298,22 +195,13 @@ export const WalkieTalkieDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <audio ref={remoteAudioRef} autoPlay playsInline />
-
         <div className="flex flex-col items-center gap-6 py-8">
-          {/* Connection Status */}
+          {/* Ready indicator */}
           <div className="text-center">
-            {isConnecting && (
-              <p className="text-sm text-muted-foreground animate-pulse">
-                Connecting to {recipientName}...
-              </p>
-            )}
-            {isConnected && (
-              <div className="flex items-center gap-2 text-green-600">
-                <div className="h-2 w-2 rounded-full bg-green-600 animate-pulse" />
-                <p className="text-sm font-medium">Connected</p>
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-green-600">
+              <div className="h-2 w-2 rounded-full bg-green-600 animate-pulse" />
+              <p className="text-sm font-medium">Ready to talk</p>
+            </div>
           </div>
 
           {/* Push-to-Talk Button */}
@@ -322,28 +210,22 @@ export const WalkieTalkieDialog = ({
               size="lg"
               variant={isTalking ? "default" : "outline"}
               className={`h-32 w-32 rounded-full transition-all ${
-                isTalking ? 'scale-110 shadow-lg bg-primary' : ''
+                isTalking ? 'scale-110 shadow-lg bg-primary animate-pulse' : ''
               }`}
               onMouseDown={startTalking}
               onMouseUp={stopTalking}
               onMouseLeave={stopTalking}
               onTouchStart={startTalking}
               onTouchEnd={stopTalking}
-              disabled={!isConnected}
             >
-              {isTalking ? (
-                <Mic className="h-12 w-12" />
-              ) : (
-                <MicOff className="h-12 w-12" />
-              )}
+              <Mic className={`h-12 w-12 ${isTalking ? 'animate-pulse' : ''}`} />
             </Button>
           </div>
 
           <p className="text-sm text-center text-muted-foreground max-w-[280px]">
-            {isConnected 
-              ? 'Hold the button to talk. Release to listen.'
-              : 'Waiting for connection...'
-            }
+            Hold the button to talk. Release to listen.
+            <br />
+            <span className="text-xs">Your voice streams instantly to {recipientName}</span>
           </p>
 
           {/* End Call Button */}
