@@ -29,6 +29,7 @@ type EditTaskDialogProps = {
   onTaskUpdated: () => void;
   onTaskDeleted?: () => void;
   isAdmin?: boolean;
+  viewingUserRole?: string;
 };
 
 export const EditTaskDialog = ({ 
@@ -37,7 +38,8 @@ export const EditTaskDialog = ({
   task, 
   onTaskUpdated,
   onTaskDeleted,
-  isAdmin 
+  isAdmin,
+  viewingUserRole
 }: EditTaskDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -253,7 +255,7 @@ export const EditTaskDialog = ({
                 <SelectContent>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
-                  {currentUserRole === 'designer' && (
+                  {(currentUserRole === 'designer' || viewingUserRole === 'designer') && (
                     <SelectItem value="on_hold">On Hold</SelectItem>
                   )}
                 </SelectContent>

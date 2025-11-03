@@ -20,9 +20,10 @@ type AddTaskDialogProps = {
   onOpenChange: (open: boolean) => void;
   onTaskAdded: () => void;
   defaultAssignedTo?: string;
+  viewingUserRole?: string;
 };
 
-export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssignedTo }: AddTaskDialogProps) => {
+export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssignedTo, viewingUserRole }: AddTaskDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
@@ -244,7 +245,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                 <SelectContent>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
-                  {currentUserRole === 'designer' && (
+                  {(currentUserRole === 'designer' || viewingUserRole === 'designer') && (
                     <SelectItem value="on_hold">On Hold</SelectItem>
                   )}
                 </SelectContent>

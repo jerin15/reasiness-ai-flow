@@ -433,6 +433,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         onOpenChange={setShowAddTask}
         onTaskAdded={handleTaskAdded}
         defaultAssignedTo={isAdmin && viewingUserId ? viewingUserId : undefined}
+        viewingUserRole={isAdmin && viewingUserRole ? viewingUserRole : undefined}
       />
       
       {reminderTask && (
@@ -458,6 +459,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         onTaskUpdated={handleTaskUpdated}
         onTaskDeleted={handleTaskDeleted}
         isAdmin={userRole === "admin"}
+        viewingUserRole={isAdmin && viewingUserRole ? viewingUserRole : undefined}
       />
     </div>
   );
