@@ -91,9 +91,9 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
     console.log("TaskCard - Getting pipelines for role:", role, "| isAdminOwnPanel:", isAdminOwnPanel);
     let allPipelines: { value: string; label: string }[] = [];
     
-    // Special case: Admin viewing their own panel - only show "Approved" option
-    if (isAdminOwnPanel && task.status === "admin_approval") {
-      console.log("Admin own panel - only showing Approved option");
+    // Special case: Tasks in admin_approval status - only show "Approved" option
+    if (task.status === "admin_approval") {
+      console.log("Task in admin_approval - only showing Approved option");
       return [{ value: "approved", label: "Approved" }];
     }
     
