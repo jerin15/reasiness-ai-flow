@@ -180,6 +180,13 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
         console.log('✅ Admin approval: Converting "approved" to "quotation_bill" for estimation');
       }
       
+      // Handle designer approval from with_client
+      if (newStatus === 'approved_designer' && task.status === 'with_client') {
+        finalStatus = 'done';
+        updateData.status = finalStatus;
+        console.log('✅ Designer approved: Moving task to done');
+      }
+      
       // Handle sending task to designer mockup
       if (newStatus === 'send_to_designer_mockup') {
         // Get designer user
@@ -233,6 +240,8 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
         successMessage = "Task sent to designer's mockup pipeline";
       } else if (newStatus === 'return_to_estimation') {
         successMessage = "Task returned to estimation with mockup completed";
+      } else if (newStatus === 'approved_designer' && task.status === 'with_client') {
+        successMessage = "Designer work approved! Task marked as done";
       }
       
       toast.success(successMessage);
@@ -252,7 +261,8 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
       style={style}
       className={cn(
         "cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md",
-        (isDragging || isSortableDragging) && "opacity-50 shadow-lg"
+        (isDragging || isSortableDragging) && "opacity-50 shadow-lg",
+        task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20"
       )}
     >
       <CardContent className="p-3">
