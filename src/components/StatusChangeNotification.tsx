@@ -17,6 +17,9 @@ type TaskNotification = {
   changedBy: string;
   changedByName: string;
   timestamp: string;
+  assignedUserName?: string;
+  assignedUserRole?: string;
+  clientName?: string;
 };
 
 export const StatusChangeNotification = () => {
@@ -151,7 +154,25 @@ export const StatusChangeNotification = () => {
             timestamp: auditLog.created_at,
           });
         } else if (auditLog.action === 'created') {
-          // Task creation notification
+          // Task creation notification with detailed info
+          const taskStatus = (auditLog.new_values as any)?.status || 'todo';
+          const taskClientName = (auditLog.new_values as any)?.client_name;
+          const assignedToId = taskData.assigned_to;
+          
+          let assignedUserName = 'Unassigned';
+          let assignedUserRole = '';
+          
+          if (assignedToId) {
+            const { data: assignedProfile } = await supabase
+              .from('profiles')
+              .select('full_name, user_roles(role)')
+              .eq('id', assignedToId)
+              .single();
+            
+            assignedUserName = assignedProfile?.full_name || 'Someone';
+            assignedUserRole = (assignedProfile?.user_roles as any)?.[0]?.role || '';
+          }
+          
           historicalNotifications.push({
             id: auditLog.id,
             taskTitle: taskData.title,
@@ -159,6 +180,10 @@ export const StatusChangeNotification = () => {
             changedBy: auditLog.changed_by,
             changedByName: changedByProfile?.full_name || 'Someone',
             timestamp: auditLog.created_at,
+            newStatus: formatStatus(taskStatus),
+            assignedUserName,
+            assignedUserRole,
+            clientName: taskClientName,
           });
         } else if (auditLog.action === 'updated') {
           // Task update notification
@@ -388,7 +413,26 @@ export const StatusChangeNotification = () => {
             toastMessage = `${changedByName} reassigned "${taskData.title}" from ${oldAssigneeName} to ${newAssigneeName}`;
             browserNotificationBody = `Assigned: ${oldAssigneeName} → ${newAssigneeName}`;
           } else if (auditLog.action === 'created') {
-            // task_created
+            // task_created - Get more details about where and for whom
+            const taskStatus = (auditLog.new_values as any)?.status || 'todo';
+            const taskClientName = (auditLog.new_values as any)?.client_name;
+            const assignedToId = (auditLog.new_values as any)?.assigned_to;
+            
+            // Get assigned user's name and role if assigned
+            let assignedUserName = 'Unassigned';
+            let assignedUserRole = '';
+            
+            if (assignedToId) {
+              const { data: assignedProfile } = await supabase
+                .from('profiles')
+                .select('full_name, user_roles(role)')
+                .eq('id', assignedToId)
+                .single();
+              
+              assignedUserName = assignedProfile?.full_name || 'Someone';
+              assignedUserRole = (assignedProfile?.user_roles as any)?.[0]?.role || '';
+            }
+            
             notification = {
               id: auditLog.id,
               taskTitle: taskData.title,
@@ -396,12 +440,23 @@ export const StatusChangeNotification = () => {
               changedBy: auditLog.changed_by,
               changedByName,
               timestamp: new Date().toISOString(),
+              newStatus: formatStatus(taskStatus),
             };
 
-            toastMessage = `${changedByName} created a new task: "${taskData.title}"`;
+            // Build detailed message
+            let detailParts = [];
+            if (assignedUserName !== 'Unassigned') {
+              detailParts.push(`for ${assignedUserName}${assignedUserRole ? ` (${assignedUserRole})` : ''}`);
+            }
+            detailParts.push(`in ${formatStatus(taskStatus)} pipeline`);
+            if (taskClientName) {
+              detailParts.push(`[Client: ${taskClientName}]`);
+            }
+            
+            toastMessage = `${changedByName} created "${taskData.title}" ${detailParts.join(' ')}`;
             browserNotificationBody = taskData.assigned_to === currentUser.id 
-              ? 'New task assigned to you' 
-              : 'New task created';
+              ? `Assigned to you in ${formatStatus(taskStatus)} pipeline` 
+              : `Created in ${formatStatus(taskStatus)} pipeline`;
           } else if (auditLog.action === 'updated') {
             // task_updated
             notification = {
@@ -559,6 +614,27 @@ export const StatusChangeNotification = () => {
                           {' → '}
                           <span className="text-success font-medium">{notification.newAssignee}</span>
                         </p>
+                      ) : notification.type === 'task_created' ? (
+                        <div className="text-xs mt-1 space-y-0.5">
+                          {notification.newStatus && (
+                            <p className="text-muted-foreground">
+                              Pipeline: <span className="text-accent font-medium">{notification.newStatus}</span>
+                            </p>
+                          )}
+                          {notification.assignedUserName && notification.assignedUserName !== 'Unassigned' && (
+                            <p className="text-muted-foreground">
+                              Assigned to: <span className="text-foreground font-medium">{notification.assignedUserName}</span>
+                              {notification.assignedUserRole && (
+                                <span className="text-muted-foreground"> ({notification.assignedUserRole})</span>
+                              )}
+                            </p>
+                          )}
+                          {notification.clientName && (
+                            <p className="text-muted-foreground">
+                              Client: <span className="text-primary font-medium">{notification.clientName}</span>
+                            </p>
+                          )}
+                        </div>
                       ) : null}
                       <p className="text-xs text-muted-foreground/70 mt-1">
                         {new Date(notification.timestamp).toLocaleTimeString()}
