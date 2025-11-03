@@ -458,7 +458,12 @@ export type Database = {
       mark_old_completed_tasks: { Args: never; Returns: undefined }
     }
     Enums: {
-      app_role: "admin" | "estimation" | "designer" | "operations"
+      app_role:
+        | "admin"
+        | "estimation"
+        | "designer"
+        | "operations"
+        | "technical_head"
       my_task_status: "pending" | "done_from_my_side"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status:
@@ -606,7 +611,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "estimation", "designer", "operations"],
+      app_role: [
+        "admin",
+        "estimation",
+        "designer",
+        "operations",
+        "technical_head",
+      ],
       my_task_status: ["pending", "done_from_my_side"],
       task_priority: ["low", "medium", "high", "urgent"],
       task_status: [
