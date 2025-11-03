@@ -9,6 +9,7 @@ import { AddTaskDialog } from "./AddTaskDialog";
 import { ReminderDialog } from "./ReminderDialog";
 import { EditTaskDialog } from "./EditTaskDialog";
 import { StatusChangeNotification } from "./StatusChangeNotification";
+import { WeeklyReportNotification } from "./WeeklyReportNotification";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Plus } from "lucide-react";
@@ -377,6 +378,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   return (
     <div className="h-full flex flex-col">
       <StatusChangeNotification />
+      <WeeklyReportNotification />
       
       <div className="flex items-center justify-between mb-4 gap-4">
         <h2 className="text-2xl font-bold">
