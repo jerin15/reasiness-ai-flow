@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
 import { PersonalAnalytics } from "@/components/PersonalAnalytics";
 import { StatusChangeNotification } from "@/components/StatusChangeNotification";
-import { VoiceMessageNotification } from "@/components/VoiceMessageNotification";
+import { WalkieTalkieNotification } from "@/components/WalkieTalkieNotification";
 import { Badge } from "@/components/ui/badge";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 
@@ -274,7 +274,7 @@ const Dashboard = () => {
                     <MessageSquare className="h-3 w-3" />
                   </Button>
                   <StatusChangeNotification />
-                  <VoiceMessageNotification />
+                  <WalkieTalkieNotification />
                   <Button variant="destructive" size="sm" onClick={handleSignOut}>
                     <LogOut className="h-3 w-3" />
                   </Button>
@@ -445,7 +445,7 @@ const Dashboard = () => {
                 )}
               </Button>
               <StatusChangeNotification />
-              <VoiceMessageNotification />
+              <WalkieTalkieNotification />
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 <LogOut className="h-3 w-3 mr-2" />
                 Sign Out

@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_walkie_calls: {
+        Row: {
+          callee_id: string
+          caller_id: string
+          id: string
+          started_at: string | null
+        }
+        Insert: {
+          callee_id: string
+          caller_id: string
+          id?: string
+          started_at?: string | null
+        }
+        Update: {
+          callee_id?: string
+          caller_id?: string
+          id?: string
+          started_at?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           attachment_name: string | null
@@ -385,6 +406,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      walkie_talkie_signals: {
+        Row: {
+          callee_id: string
+          caller_id: string
+          created_at: string | null
+          id: string
+          is_processed: boolean | null
+          signal_data: Json
+          signal_type: string
+        }
+        Insert: {
+          callee_id: string
+          caller_id: string
+          created_at?: string | null
+          id?: string
+          is_processed?: boolean | null
+          signal_data: Json
+          signal_type: string
+        }
+        Update: {
+          callee_id?: string
+          caller_id?: string
+          created_at?: string | null
+          id?: string
+          is_processed?: boolean | null
+          signal_data?: Json
+          signal_type?: string
+        }
+        Relationships: []
       }
     }
     Views: {

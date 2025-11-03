@@ -5,12 +5,11 @@ import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Send, Paperclip, X, Smile, Mic } from "lucide-react";
+import { Send, Paperclip, X, Smile, Radio } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { VoiceRecorder } from "./VoiceRecorder";
-import { VoiceMessagePlayer } from "./VoiceMessagePlayer";
+import { WalkieTalkieDialog } from "./WalkieTalkieDialog";
 
 type Message = {
   id: string;
@@ -21,8 +20,6 @@ type Message = {
   attachment_name: string | null;
   is_read: boolean;
   created_at: string;
-  voice_message_url?: string | null;
-  voice_duration?: number | null;
 };
 
 type ChatDialogProps = {
@@ -39,7 +36,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [sendingVoice, setSendingVoice] = useState(false);
+  const [showWalkieTalkie, setShowWalkieTalkie] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -292,52 +289,6 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
     }
   };
 
-  const handleVoiceRecordingComplete = async (audioBlob: Blob, duration: number) => {
-    setSendingVoice(true);
-    try {
-      // Upload audio to voice-messages bucket
-      const fileName = `${currentUserId}/${Date.now()}.webm`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('voice-messages')
-        .upload(fileName, audioBlob, {
-          contentType: 'audio/webm;codecs=opus',
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('voice-messages')
-        .getPublicUrl(fileName);
-
-      // Send message with voice note indicator
-      const { error: messageError } = await supabase.from('messages').insert({
-        sender_id: currentUserId,
-        recipient_id: recipientId,
-        message: `🎤 Voice message (${duration}s)`,
-        voice_message_url: uploadData.path,
-        voice_duration: duration,
-      });
-
-      if (messageError) throw messageError;
-
-      toast.success('Voice message sent!');
-    } catch (error: any) {
-      console.error('Error sending voice message:', error);
-      toast.error('Failed to send voice message');
-    } finally {
-      setSendingVoice(false);
-    }
-  };
-
-  const getVoiceMessageUrl = async (path: string): Promise<string> => {
-    const { data } = await supabase.storage
-      .from('voice-messages')
-      .createSignedUrl(path, 3600); // 1 hour expiry
-    
-    return data?.signedUrl || '';
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col">
@@ -361,24 +312,15 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
                         : 'bg-muted'
                     }`}
                    >
-                     {msg.voice_message_url ? (
-                       <VoiceMessagePlayer
-                         audioUrl={msg.voice_message_url}
-                         duration={msg.voice_duration || 0}
-                       />
-                     ) : (
-                       <>
-                         <p className="text-sm">{msg.message}</p>
-                         {msg.attachment_url && (
-                           <button
-                             onClick={() => downloadAttachment(msg.attachment_url!, msg.attachment_name!)}
-                             className="mt-2 flex items-center gap-2 text-xs underline hover:no-underline"
-                           >
-                             <Paperclip className="h-3 w-3" />
-                             {msg.attachment_name}
-                           </button>
-                         )}
-                       </>
+                     <p className="text-sm">{msg.message}</p>
+                     {msg.attachment_url && (
+                       <button
+                         onClick={() => downloadAttachment(msg.attachment_url!, msg.attachment_name!)}
+                         className="mt-2 flex items-center gap-2 text-xs underline hover:no-underline"
+                       >
+                         <Paperclip className="h-3 w-3" />
+                         {msg.attachment_name}
+                       </button>
                      )}
                      <p className="text-xs opacity-70 mt-1">
                        {formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}
@@ -428,7 +370,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
                 type="button"
                 variant="outline"
                 size="icon"
-                disabled={uploading || sendingVoice}
+                disabled={uploading}
               >
                 <Smile className="h-4 w-4" />
               </Button>
@@ -441,23 +383,38 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
               />
             </PopoverContent>
           </Popover>
-          <VoiceRecorder
-            onRecordingComplete={handleVoiceRecordingComplete}
-            disabled={uploading || sendingVoice}
-          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => setShowWalkieTalkie(true)}
+            disabled={uploading}
+            title="Start walkie-talkie call"
+          >
+            <Radio className="h-4 w-4" />
+          </Button>
           <Button
             type="button"
             variant="outline"
             size="icon"
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || sendingVoice}
+            disabled={uploading}
           >
             <Paperclip className="h-4 w-4" />
           </Button>
-          <Button type="submit" size="icon" disabled={uploading || sendingVoice || (!newMessage.trim() && !selectedFile)}>
+          <Button type="submit" size="icon" disabled={uploading || (!newMessage.trim() && !selectedFile)}>
             <Send className="h-4 w-4" />
           </Button>
         </form>
+
+        {showWalkieTalkie && (
+          <WalkieTalkieDialog
+            open={showWalkieTalkie}
+            onOpenChange={setShowWalkieTalkie}
+            recipientId={recipientId}
+            recipientName={recipientName}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
