@@ -23,6 +23,7 @@ type Task = {
   updated_at: string;
   status_changed_at: string;
   created_by: string;
+  assigned_to: string | null;
   assigned_by: string | null;
   client_name: string | null;
   supplier_name: string | null;
@@ -217,15 +218,35 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
       
       // Handle returning task from designer to estimation
       if (newStatus === 'return_to_estimation') {
-        // Assign back to original creator (estimation user)
+        // Find the original estimation user from audit log
+        const { data: auditLog } = await supabase
+          .from('task_audit_log')
+          .select('old_values')
+          .eq('task_id', task.id)
+          .eq('action', 'status_changed')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        // Find the last assigned_to before it was sent to designer
+        let originalAssignedTo = task.assigned_to;
+        if (auditLog && auditLog.length > 0) {
+          for (const log of auditLog) {
+            const oldValues = log.old_values as any;
+            if (oldValues?.status !== 'mockup' && oldValues?.status !== 'designer_mockup' && oldValues?.assigned_to) {
+              originalAssignedTo = oldValues.assigned_to;
+              break;
+            }
+          }
+        }
+
         updateData = {
           status: 'todo',
-          assigned_to: task.created_by, // Return to original estimation user
+          assigned_to: originalAssignedTo, // Restore original estimation user
           mockup_completed_by_designer: true,
           previous_status: task.status,
           status_changed_at: new Date().toISOString(),
         };
-        console.log('✅ Returning task to estimation user:', task.created_by);
+        console.log('✅ Returning task to estimation user:', originalAssignedTo);
       }
 
       const { error } = await supabase

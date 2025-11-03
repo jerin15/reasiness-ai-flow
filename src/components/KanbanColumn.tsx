@@ -15,6 +15,7 @@ type Task = {
   updated_at: string;
   status_changed_at: string;
   created_by: string;
+  assigned_to: string | null;
   assigned_by: string | null;
   client_name: string | null;
   my_status: string;
