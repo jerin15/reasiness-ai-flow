@@ -27,6 +27,8 @@ type Task = {
   supplier_name: string | null;
   type: string;
   assigned_user_role?: string | null;
+  sent_to_designer_mockup?: boolean;
+  mockup_completed_by_designer?: boolean;
 };
 
 type TaskCardProps = {
@@ -106,6 +108,7 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
           { value: "production", label: "Production" },
           { value: "final_invoice", label: "Final Invoice" },
           { value: "done", label: "Done" },
+          { value: "send_to_designer_mockup", label: "→ Send to Designer Mockup" },
         ];
         break;
       case "designer":
@@ -118,6 +121,10 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
           { value: "with_client", label: "With Client" },
           { value: "done", label: "Done" },
         ];
+        // Add option to send mockup back to estimation if task was sent from estimation
+        if (task.sent_to_designer_mockup && task.status === "mockup") {
+          allPipelines.push({ value: "return_to_estimation", label: "→ Return to Estimation (Mockup Done)" });
+        }
         break;
       case "operations":
         allPipelines = [
@@ -153,27 +160,74 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
 
     setIsMoving(true);
     try {
-      // Special handling for admin approval - convert "approved" to "quotation_bill"
       let finalStatus = newStatus;
+      let updateData: any = {
+        status: finalStatus as any,
+        previous_status: task.status as any,
+        status_changed_at: new Date().toISOString(),
+      };
+
+      // Special handling for admin approval - convert "approved" to "quotation_bill"
       if (newStatus === 'approved' && task.status === 'admin_approval') {
         finalStatus = 'quotation_bill';
+        updateData.status = finalStatus;
         console.log('✅ Admin approval: Converting "approved" to "quotation_bill" for estimation');
+      }
+      
+      // Handle sending task to designer mockup
+      if (newStatus === 'send_to_designer_mockup') {
+        // Get designer user
+        const { data: designerUsers } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'designer')
+          .limit(1);
+        
+        if (!designerUsers || designerUsers.length === 0) {
+          toast.error('No designer found');
+          setIsMoving(false);
+          return;
+        }
+
+        updateData = {
+          status: 'mockup',
+          assigned_to: designerUsers[0].user_id,
+          sent_to_designer_mockup: true,
+          mockup_completed_by_designer: false,
+          previous_status: task.status,
+          status_changed_at: new Date().toISOString(),
+        };
+        console.log('✅ Sending task to designer mockup');
+      }
+      
+      // Handle returning task from designer to estimation
+      if (newStatus === 'return_to_estimation') {
+        // Get original estimation user (created_by)
+        updateData = {
+          status: 'todo',
+          assigned_to: null, // Return to estimation's unassigned pool
+          mockup_completed_by_designer: true,
+          previous_status: task.status,
+          status_changed_at: new Date().toISOString(),
+        };
+        console.log('✅ Returning task to estimation with mockup completed');
       }
 
       const { error } = await supabase
         .from("tasks")
-        .update({
-          status: finalStatus as any,
-          previous_status: task.status as any,
-          status_changed_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", task.id);
 
       if (error) throw error;
 
-      const successMessage = finalStatus === 'quotation_bill' && newStatus === 'approved'
-        ? "Task approved! Moved to Quotation Bill in estimation's panel"
-        : "Task moved successfully";
+      let successMessage = "Task moved successfully";
+      if (finalStatus === 'quotation_bill' && newStatus === 'approved') {
+        successMessage = "Task approved! Moved to Quotation Bill in estimation's panel";
+      } else if (newStatus === 'send_to_designer_mockup') {
+        successMessage = "Task sent to designer's mockup pipeline";
+      } else if (newStatus === 'return_to_estimation') {
+        successMessage = "Task returned to estimation with mockup completed";
+      }
       
       toast.success(successMessage);
       setPopoverOpen(false);
@@ -270,6 +324,14 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
               >
                 {task.type}
               </Badge>
+              {task.mockup_completed_by_designer && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 animate-pulse"
+                >
+                  ✓ Mockup Ready
+                </Badge>
+              )}
               {task.assigned_by && (
                 <Badge
                   variant="secondary"

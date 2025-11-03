@@ -291,11 +291,13 @@ export type Database = {
           due_date: string | null
           id: string
           linked_task_id: string | null
+          mockup_completed_by_designer: boolean | null
           my_status: Database["public"]["Enums"]["my_task_status"] | null
           position: number
           previous_status: Database["public"]["Enums"]["task_status"] | null
           priority: Database["public"]["Enums"]["task_priority"]
           reminder_sent: boolean | null
+          sent_to_designer_mockup: boolean | null
           status: Database["public"]["Enums"]["task_status"]
           status_changed_at: string | null
           supplier_name: string | null
@@ -316,11 +318,13 @@ export type Database = {
           due_date?: string | null
           id?: string
           linked_task_id?: string | null
+          mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
           reminder_sent?: boolean | null
+          sent_to_designer_mockup?: boolean | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null
@@ -341,11 +345,13 @@ export type Database = {
           due_date?: string | null
           id?: string
           linked_task_id?: string | null
+          mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
           reminder_sent?: boolean | null
+          sent_to_designer_mockup?: boolean | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null

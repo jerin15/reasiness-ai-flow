@@ -35,6 +35,8 @@ type Task = {
   supplier_name: string | null;
   type: string;
   assigned_user_role?: string | null;
+  sent_to_designer_mockup?: boolean;
+  mockup_completed_by_designer?: boolean;
 };
 
 type Column = {
