@@ -1,0 +1,244 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card } from './ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Input } from './ui/input';
+import { Users, Circle } from 'lucide-react';
+
+interface UserPresence {
+  user_id: string;
+  status: string;
+  custom_message: string | null;
+  last_active: string;
+  profiles: {
+    full_name: string;
+    avatar_url: string | null;
+  };
+}
+
+const STATUS_OPTIONS = [
+  { value: 'available', label: 'Available', color: 'bg-green-500' },
+  { value: 'busy', label: 'Busy', color: 'bg-red-500' },
+  { value: 'away', label: 'Away', color: 'bg-yellow-500' },
+  { value: 'in_meeting', label: 'In Meeting', color: 'bg-purple-500' },
+  { value: 'at_desk', label: 'At Desk', color: 'bg-blue-500' },
+];
+
+export const UserPresenceIndicator = () => {
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [presences, setPresences] = useState<UserPresence[]>([]);
+  const [myStatus, setMyStatus] = useState('available');
+  const [customMessage, setCustomMessage] = useState('');
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    const initUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        
+        // Initialize or fetch user presence
+        const { data: existing } = await supabase
+          .from('user_presence')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (existing) {
+          setMyStatus(existing.status);
+          setCustomMessage(existing.custom_message || '');
+        } else {
+          // Create initial presence
+          await supabase
+            .from('user_presence')
+            .insert({ user_id: user.id, status: 'available' });
+        }
+      }
+    };
+    initUser();
+  }, []);
+
+  useEffect(() => {
+    fetchPresences();
+
+    // Subscribe to presence changes
+    const channel = supabase
+      .channel('user-presence-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_presence'
+        },
+        () => {
+          fetchPresences();
+        }
+      )
+      .subscribe();
+
+    // Update last_active every 30 seconds
+    const interval = setInterval(() => {
+      if (currentUserId) {
+        supabase
+          .from('user_presence')
+          .update({ last_active: new Date().toISOString() })
+          .eq('user_id', currentUserId)
+          .then();
+      }
+    }, 30000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [currentUserId]);
+
+  const fetchPresences = async () => {
+    const { data: presenceData, error } = await supabase
+      .from('user_presence')
+      .select('*')
+      .order('last_active', { ascending: false });
+
+    if (!presenceData || error) return;
+
+    // Fetch profiles separately
+    const userIds = presenceData.map(p => p.user_id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', userIds);
+
+    // Merge data
+    const data = presenceData.map(presence => ({
+      ...presence,
+      profiles: profiles?.find(p => p.id === presence.user_id) || null
+    }));
+
+    if (data && !error) {
+      setPresences(data as any);
+    }
+  };
+
+  const updateMyStatus = async (status: string) => {
+    if (!currentUserId) return;
+    
+    setMyStatus(status);
+    await supabase
+      .from('user_presence')
+      .upsert({
+        user_id: currentUserId,
+        status,
+        custom_message: customMessage,
+        last_active: new Date().toISOString()
+      });
+  };
+
+  const updateCustomMessage = async () => {
+    if (!currentUserId) return;
+    
+    await supabase
+      .from('user_presence')
+      .update({ custom_message: customMessage })
+      .eq('user_id', currentUserId);
+  };
+
+  const getStatusColor = (status: string) => {
+    return STATUS_OPTIONS.find(s => s.value === status)?.color || 'bg-gray-500';
+  };
+
+  const displayedPresences = showAll ? presences : presences.slice(0, 5);
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Team Status</h3>
+        </div>
+        <Badge variant="secondary">{presences.length} online</Badge>
+      </div>
+
+      {/* My Status */}
+      <div className="mb-4 p-3 bg-secondary/50 rounded-lg">
+        <p className="text-xs font-medium mb-2">Your Status</p>
+        <div className="flex gap-2 mb-2">
+          <Select value={myStatus} onValueChange={updateMyStatus}>
+            <SelectTrigger className="flex-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  <div className="flex items-center gap-2">
+                    <Circle className={`h-2 w-2 fill-current ${option.color.replace('bg-', 'text-')}`} />
+                    {option.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Custom message..."
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            className="text-xs"
+          />
+          <Button size="sm" onClick={updateCustomMessage}>Set</Button>
+        </div>
+      </div>
+
+      {/* Team Presences */}
+      <div className="space-y-2">
+        {displayedPresences.map((presence) => (
+          <div
+            key={presence.user_id}
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors"
+          >
+            <div className="relative">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={presence.profiles?.avatar_url || undefined} />
+                <AvatarFallback>
+                  {presence.profiles?.full_name?.charAt(0) || '?'}
+                </AvatarFallback>
+              </Avatar>
+              <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(presence.status)}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {presence.profiles?.full_name}
+                {presence.user_id === currentUserId && ' (You)'}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {STATUS_OPTIONS.find(s => s.value === presence.status)?.label || presence.status}
+                {presence.custom_message && ` • ${presence.custom_message}`}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {presences.length > 5 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full mt-2"
+          onClick={() => setShowAll(!showAll)}
+        >
+          {showAll ? 'Show Less' : `Show ${presences.length - 5} More`}
+        </Button>
+      )}
+    </Card>
+  );
+};

@@ -7,6 +7,8 @@ import { ReminderNotification } from "@/components/ReminderNotification";
 import { ChatNotification } from "@/components/ChatNotification";
 import { VoiceCallNotification } from "@/components/VoiceCallNotification";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { VoiceAnnouncementPlayer } from "@/components/VoiceAnnouncementPlayer";
+import { UrgentNotificationModal } from "@/components/UrgentNotificationModal";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 
@@ -23,6 +25,8 @@ const App = () => (
       <ReminderNotification />
       <ChatNotification />
       <VoiceCallNotification />
+      <VoiceAnnouncementPlayer />
+      <UrgentNotificationModal />
       <OfflineIndicator />
       <BrowserRouter>
         <Routes>

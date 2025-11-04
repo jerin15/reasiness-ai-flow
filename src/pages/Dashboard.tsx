@@ -19,6 +19,8 @@ import reaLogo from "@/assets/rea_logo_h.jpg";
 import { PersonalAnalytics } from "@/components/PersonalAnalytics";
 import { IncomingCallNotification } from "@/components/IncomingCallNotification";
 import { ProminentMessageNotification } from "@/components/ProminentMessageNotification";
+import { AdminCommunicationPanel } from "@/components/AdminCommunicationPanel";
+import { UserPresenceIndicator } from "@/components/UserPresenceIndicator";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -376,26 +378,36 @@ const Dashboard = () => {
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowChat(true)}
-                  className="relative bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-                >
-                  <MessageSquare className="h-5 w-5" />
-                  <span>Team Chat</span>
-                  {unreadCount > 0 && (
-                    <Badge
-                      variant="destructive"
-                      className="absolute -top-2 -right-2 h-6 min-w-6 flex items-center justify-center p-1 text-xs font-bold animate-pulse"
-                    >
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </Badge>
+                <div className="flex items-center gap-3">
+                  {(userRole === "admin" || userRole === "technical_head") && (
+                    <AdminCommunicationPanel />
                   )}
-                </button>
+                  <button
+                    onClick={() => setShowChat(true)}
+                    className="relative bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+                  >
+                    <MessageSquare className="h-5 w-5" />
+                    <span>Team Chat</span>
+                    {unreadCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="absolute -top-2 -right-2 h-6 min-w-6 flex items-center justify-center p-1 text-xs font-bold animate-pulse"
+                      >
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </Badge>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </header>
 
-          <main className="container mx-auto px-4 py-6">
+          <main className="container mx-auto px-4 py-6 relative">
+            {/* User Presence Indicator - Fixed position */}
+            <div className="fixed bottom-6 right-6 z-40 w-80 max-h-[500px] overflow-hidden">
+              <UserPresenceIndicator />
+            </div>
+
             {showPersonalAnalytics && userRole !== "admin" && (
               <div className="mb-6">
                 <PersonalAnalytics userId={currentUserId} userRole={userRole} />

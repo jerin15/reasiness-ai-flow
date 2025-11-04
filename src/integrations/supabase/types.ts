@@ -543,6 +543,72 @@ export type Database = {
           },
         ]
       }
+      urgent_notifications: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string | null
+          id: string
+          is_acknowledged: boolean | null
+          is_broadcast: boolean | null
+          message: string
+          priority: string | null
+          recipient_id: string | null
+          sender_id: string
+          title: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_acknowledged?: boolean | null
+          is_broadcast?: boolean | null
+          message: string
+          priority?: string | null
+          recipient_id?: string | null
+          sender_id: string
+          title: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_acknowledged?: boolean | null
+          is_broadcast?: boolean | null
+          message?: string
+          priority?: string | null
+          recipient_id?: string | null
+          sender_id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      user_presence: {
+        Row: {
+          custom_message: string | null
+          id: string
+          last_active: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          custom_message?: string | null
+          id?: string
+          last_active?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          custom_message?: string | null
+          id?: string
+          last_active?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -571,6 +637,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      voice_announcements: {
+        Row: {
+          audio_url: string
+          created_at: string | null
+          duration: number
+          id: string
+          is_broadcast: boolean | null
+          is_played: boolean | null
+          message_text: string | null
+          recipient_id: string | null
+          sender_id: string
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string | null
+          duration: number
+          id?: string
+          is_broadcast?: boolean | null
+          is_played?: boolean | null
+          message_text?: string | null
+          recipient_id?: string | null
+          sender_id: string
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string | null
+          duration?: number
+          id?: string
+          is_broadcast?: boolean | null
+          is_played?: boolean | null
+          message_text?: string | null
+          recipient_id?: string | null
+          sender_id?: string
+        }
+        Relationships: []
       }
       walkie_talkie_signals: {
         Row: {
