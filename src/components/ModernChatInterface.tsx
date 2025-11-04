@@ -161,9 +161,10 @@ export const ModernChatInterface = ({
       if (chatType === "group") {
         query = query.eq("group_id", chatId);
       } else {
-        query = query.or(
-          `and(sender_id.eq.${currentUserId},recipient_id.eq.${chatId}),and(sender_id.eq.${chatId},recipient_id.eq.${currentUserId})`
-        ).is("group_id", null);
+        // For direct messages: get messages between current user and chat partner
+        query = query
+          .is("group_id", null)
+          .or(`and(sender_id.eq.${currentUserId},recipient_id.eq.${chatId}),and(sender_id.eq.${chatId},recipient_id.eq.${currentUserId})`);
       }
 
       const { data, error } = await query;
