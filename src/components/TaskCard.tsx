@@ -144,6 +144,17 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
           { value: "done", label: "Done" },
         ];
         break;
+      case "technical_head":
+        allPipelines = [
+          { value: "todo", label: "To-Do" },
+          { value: "developing", label: "Developing" },
+          { value: "testing", label: "Testing" },
+          { value: "under_review", label: "Under Review" },
+          { value: "deployed", label: "Deployed" },
+          { value: "trial_and_error", label: "Trial and Error" },
+          { value: "done", label: "Done" },
+        ];
+        break;
       default:
         // Default to operations for unknown roles
         console.warn("Unknown role, defaulting to operations:", role);
