@@ -84,7 +84,7 @@ export const ModernChatList = ({
       // Get all users who have chatted with current user
       const { data: profiles, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, full_name, email, avatar_url")
         .neq("id", currentUserId);
 
       if (error) throw error;
@@ -118,6 +118,7 @@ export const ModernChatList = ({
             id: profile.id,
             name: profile.full_name,
             type: "direct" as const,
+            avatar: profile.avatar_url,
             lastMessage: lastMsg?.message,
             lastMessageTime: lastMsg?.created_at,
             unreadCount: count || 0,

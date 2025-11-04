@@ -21,6 +21,7 @@ type TeamMember = {
   id: string;
   full_name: string;
   email: string;
+  avatar_url?: string;
 };
 
 type CreateGroupDialogProps = {
@@ -58,7 +59,7 @@ export const CreateGroupDialog = ({
       setLoading(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, full_name, email, avatar_url")
         .neq("id", currentUserId)
         .order("full_name");
 
@@ -209,6 +210,7 @@ export const CreateGroupDialog = ({
                         onCheckedChange={() => toggleMember(member.id)}
                       />
                       <Avatar className="h-8 w-8">
+                        <AvatarImage src={member.avatar_url} />
                         <AvatarFallback className="bg-primary/10 text-primary text-xs">
                           {getInitials(member.full_name)}
                         </AvatarFallback>

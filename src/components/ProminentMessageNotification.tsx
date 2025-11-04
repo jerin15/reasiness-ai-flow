@@ -87,7 +87,7 @@ export const ProminentMessageNotification = () => {
             // Fetch sender details
             const { data: senderProfile } = await supabase
               .from("profiles")
-              .select("full_name, email")
+              .select("full_name, email, avatar_url")
               .eq("id", message.sender_id)
               .single();
 
@@ -108,6 +108,7 @@ export const ProminentMessageNotification = () => {
                 senderProfile?.full_name ||
                 senderProfile?.email ||
                 "Unknown",
+              sender_avatar: senderProfile?.avatar_url,
               message: message.message,
               group_id: message.group_id,
               group_name: groupName,

@@ -78,7 +78,7 @@ export const IncomingCallNotification = () => {
           // Fetch caller details
           const { data: callerProfile } = await supabase
             .from("profiles")
-            .select("full_name, email")
+            .select("full_name, email, avatar_url")
             .eq("id", session.caller_id)
             .single();
 
@@ -87,6 +87,7 @@ export const IncomingCallNotification = () => {
             caller_id: session.caller_id,
             call_type: session.call_type,
             caller_name: callerProfile?.full_name || callerProfile?.email || "Unknown",
+            caller_avatar: callerProfile?.avatar_url,
           });
 
           // Play ringtone
