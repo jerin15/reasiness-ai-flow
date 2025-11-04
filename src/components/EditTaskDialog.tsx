@@ -222,7 +222,7 @@ export const EditTaskDialog = ({
                 e.target.style.height = e.target.scrollHeight + 'px';
               }}
               placeholder="Add task details"
-              className="min-h-[60px] resize-none overflow-hidden"
+              className="min-h-[200px] resize-y"
               style={{ height: 'auto' }}
             />
           </div>
