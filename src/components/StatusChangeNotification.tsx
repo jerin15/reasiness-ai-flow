@@ -230,12 +230,7 @@ export const StatusChangeNotification = () => {
           // Only handle status_changed, assigned, created, and updated actions
           if (!['status_changed', 'assigned', 'created', 'updated'].includes(auditLog.action)) return;
 
-          // Skip if the change was made by the current user (except for edge cases we want to track)
-          if (auditLog.changed_by === currentUser.id) {
-            return;
-          }
-
-          // Get task details
+          // Get task details first
           const { data: taskData } = await supabase
             .from('tasks')
             .select('title, created_by, assigned_to')
@@ -244,100 +239,60 @@ export const StatusChangeNotification = () => {
 
           if (!taskData) return;
 
-          // Get changer's role
-          const { data: changerRole } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', auditLog.changed_by)
-            .single();
+          // Skip if the change was made by the current user (don't notify yourself)
+          if (auditLog.changed_by === currentUser.id) {
+            console.log('⏭️ Skipping self-notification');
+            return;
+          }
 
-          const isChangerAdmin = changerRole?.role === 'admin' || (changerRole?.role as string) === 'technical_head';
-
-          // Determine if we should notify
+          // SIMPLIFIED NOTIFICATION LOGIC:
+          // 1. ALL admins get notified of ALL task activities (except their own)
+          // 2. Task creator gets notified of ALL changes to their task (except their own)
+          // 3. Current assignee gets notified of ALL changes to their task (except their own)
+          // 4. Previous assignee gets notified if they're removed from a task
+          
           let shouldNotify = false;
+          const isTaskCreator = taskData.created_by === currentUser.id;
+          const isCurrentAssignee = taskData.assigned_to === currentUser.id;
+          const wasPreviouslyAssigned = (auditLog.old_values as any)?.assigned_to === currentUser.id;
 
-          if (auditLog.action === 'status_changed') {
-            const oldStatus = (auditLog.old_values as any)?.status;
-            const newStatus = (auditLog.new_values as any)?.status;
-            
-            console.log('📊 Status change detected:', {
-              task: taskData.title,
-              oldStatus,
-              newStatus,
-              changerIsAdmin: isChangerAdmin,
-              currentUserIsAdmin: isAdmin,
-              taskCreator: taskData.created_by,
-              taskAssignedTo: taskData.assigned_to,
-              currentUserId: currentUser.id
-            });
-            
-            // For status changes:
-            // - Notify all admins if changer is NOT admin
-            // - Notify task creator/assignee if changer IS admin
-            // - Special case: Admin approval (admin_approval → quotation_bill) should ALWAYS notify task creator
-            if (isAdmin && !isChangerAdmin) {
-              shouldNotify = true;
-              console.log('✅ Notifying: User is admin, changer is not admin');
-            } else if (isChangerAdmin) {
-              // Admin made the change - notify the task creator or assignee
-              const isTaskCreator = taskData.created_by === currentUser.id;
-              const isAssignedToUser = taskData.assigned_to === currentUser.id;
-              
-              if (isTaskCreator || isAssignedToUser) {
-                shouldNotify = true;
-                console.log('✅ Notifying: Admin changed task, user is creator or assignee', {
-                  isTaskCreator,
-                  isAssignedToUser
-                });
-              } else {
-                console.log('❌ Not notifying: User is not creator or assignee');
-              }
-            }
-          } else if (auditLog.action === 'assigned') {
-            // For assignment changes:
-            // - Notify if user is newly assigned
-            // - Notify if user was previously assigned (task taken away)
-            // - Notify all admins
-            const oldAssigneeId = (auditLog.old_values as any)?.assigned_to;
-            const newAssigneeId = (auditLog.new_values as any)?.assigned_to;
-            
-            if (isAdmin || newAssigneeId === currentUser.id || oldAssigneeId === currentUser.id) {
-              shouldNotify = true;
-            }
-          } else if (auditLog.action === 'created') {
-            // For task creation:
-            // - Notify the assigned person (if not the creator)
-            // - Notify all admins (except if admin created their own task)
-            const isTaskCreator = taskData.created_by === currentUser.id;
-            const isAssignedToUser = taskData.assigned_to === currentUser.id;
-            
-            // Don't notify the creator unless they assigned it to someone else AND are admin
-            if (isAdmin && !isTaskCreator) {
-              shouldNotify = true;
-              console.log('✅ Notifying admin: New task created');
-            } else if (isAssignedToUser && !isTaskCreator) {
-              shouldNotify = true;
-              console.log('✅ Notifying assignee: New task assigned to you');
-            }
-          } else if (auditLog.action === 'updated') {
-            // For task updates:
-            // - Notify task creator if they didn't make the change
-            // - Notify assigned user if they didn't make the change
-            // - Notify all admins if the changer is not admin
-            const isTaskCreator = taskData.created_by === currentUser.id;
-            const isAssignedToUser = taskData.assigned_to === currentUser.id;
-            
-            if (isAdmin && !isChangerAdmin) {
-              shouldNotify = true;
-              console.log('✅ Notifying admin: Task updated by non-admin');
-            } else if (isChangerAdmin && (isTaskCreator || isAssignedToUser)) {
-              shouldNotify = true;
-              console.log('✅ Notifying team member: Admin updated your task');
-            }
+          console.log('🔍 Checking notification eligibility:', {
+            task: taskData.title,
+            action: auditLog.action,
+            currentUserIsAdmin: isAdmin,
+            isTaskCreator,
+            isCurrentAssignee,
+            wasPreviouslyAssigned,
+            currentUserId: currentUser.id,
+            changedBy: auditLog.changed_by
+          });
+
+          // Rule 1: Admins get notified of everything
+          if (isAdmin) {
+            shouldNotify = true;
+            console.log('✅ Notifying: User is admin');
+          }
+          
+          // Rule 2: Task creator gets notified of all changes to their task
+          if (isTaskCreator) {
+            shouldNotify = true;
+            console.log('✅ Notifying: User is task creator');
+          }
+          
+          // Rule 3: Current assignee gets notified
+          if (isCurrentAssignee) {
+            shouldNotify = true;
+            console.log('✅ Notifying: User is current assignee');
+          }
+          
+          // Rule 4: Previous assignee gets notified if they were removed
+          if (wasPreviouslyAssigned && auditLog.action === 'assigned') {
+            shouldNotify = true;
+            console.log('✅ Notifying: User was previously assigned');
           }
 
           if (!shouldNotify) {
-            console.log('❌ Skipping notification - shouldNotify is false');
+            console.log('❌ Skipping notification - user not involved in this task');
             return;
           }
           
