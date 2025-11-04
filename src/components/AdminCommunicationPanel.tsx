@@ -129,8 +129,8 @@ export const AdminCommunicationPanel = () => {
     }
 
     try {
-      // Upload audio to storage
-      const fileName = `voice-${Date.now()}.webm`;
+      // Upload audio to storage with user ID folder for RLS
+      const fileName = `${currentUserId}/voice-${Date.now()}.webm`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('chat-attachments')
         .upload(fileName, audioBlob);
