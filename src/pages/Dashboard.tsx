@@ -22,6 +22,7 @@ import reaLogo from "@/assets/rea_logo_h.jpg";
 import { PersonalAnalytics } from "@/components/PersonalAnalytics";
 import { StatusChangeNotification } from "@/components/StatusChangeNotification";
 import { WalkieTalkieNotification } from "@/components/WalkieTalkieNotification";
+import { IncomingCallNotification } from "@/components/IncomingCallNotification";
 import { Badge } from "@/components/ui/badge";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 
@@ -323,6 +324,8 @@ const Dashboard = () => {
           onOpenChange={setShowPendingTasks}
           onConfirmSignOut={handleSignOut}
         />
+        
+        <IncomingCallNotification />
       </div>
     );
   }
@@ -520,6 +523,8 @@ const Dashboard = () => {
           teamMembers={teamMembers}
         />
       )}
+      
+      <IncomingCallNotification />
     </div>
   );
 };

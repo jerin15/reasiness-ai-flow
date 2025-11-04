@@ -22,6 +22,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import EmojiPicker from "emoji-picker-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { WebRTCCall } from "./WebRTCCall";
 
 type Message = {
   id: string;
@@ -72,6 +73,8 @@ export const ModernChatInterface = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [showVoiceCall, setShowVoiceCall] = useState(false);
+  const [showVideoCall, setShowVideoCall] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageNotificationSound = useRef<HTMLAudioElement | null>(null);
@@ -348,17 +351,29 @@ export const ModernChatInterface = ({
             </p>
           </div>
 
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Video className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Phone className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <MoreVertical className="h-5 w-5" />
-            </Button>
-          </div>
+          {chatType === "direct" && (
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setShowVideoCall(true)}
+              >
+                <Video className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                onClick={() => setShowVoiceCall(true)}
+              >
+                <Phone className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Messages Area */}
@@ -579,6 +594,30 @@ export const ModernChatInterface = ({
           </div>
         </div>
       </DialogContent>
+
+      {/* Voice Call Dialog */}
+      {showVoiceCall && chatType === "direct" && (
+        <WebRTCCall
+          open={showVoiceCall}
+          onOpenChange={setShowVoiceCall}
+          callType="voice"
+          partnerId={chatId}
+          partnerName={chatName}
+          partnerAvatar={chatAvatar}
+        />
+      )}
+
+      {/* Video Call Dialog */}
+      {showVideoCall && chatType === "direct" && (
+        <WebRTCCall
+          open={showVideoCall}
+          onOpenChange={setShowVideoCall}
+          callType="video"
+          partnerId={chatId}
+          partnerName={chatName}
+          partnerAvatar={chatAvatar}
+        />
+      )}
     </Dialog>
   );
 };

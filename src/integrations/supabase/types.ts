@@ -35,6 +35,45 @@ export type Database = {
         }
         Relationships: []
       }
+      call_sessions: {
+        Row: {
+          answer: string | null
+          answered_at: string | null
+          call_type: string
+          callee_id: string
+          caller_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          offer: string | null
+          status: string
+        }
+        Insert: {
+          answer?: string | null
+          answered_at?: string | null
+          call_type: string
+          callee_id: string
+          caller_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          offer?: string | null
+          status?: string
+        }
+        Update: {
+          answer?: string | null
+          answered_at?: string | null
+          call_type?: string
+          callee_id?: string
+          caller_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          offer?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       chat_groups: {
         Row: {
           avatar_url: string | null
@@ -93,6 +132,38 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "chat_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ice_candidates: {
+        Row: {
+          call_session_id: string
+          candidate: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          call_session_id: string
+          candidate: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          call_session_id?: string
+          candidate?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ice_candidates_call_session_id_fkey"
+            columns: ["call_session_id"]
+            isOneToOne: false
+            referencedRelation: "call_sessions"
             referencedColumns: ["id"]
           },
         ]
