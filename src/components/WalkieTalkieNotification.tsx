@@ -66,14 +66,34 @@ export const WalkieTalkieNotification = () => {
             },
           });
 
-          // Browser notification
-          if (Notification.permission === 'granted') {
-            new Notification(`Walkie-Talkie Call from ${callerName}`, {
+          // Browser notification with mobile support
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const notificationOptions = {
               body: 'Click to answer',
-              icon: '/rea-advertising-logo.jpg',
+              icon: '/rea-logo-icon.png',
+              badge: '/rea-logo-icon.png',
               tag: call.id,
-            });
-          } else if (Notification.permission !== 'denied') {
+              requireInteraction: true,
+              vibrate: [200, 100, 200],
+              silent: false
+            };
+            
+            try {
+              if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(registration => {
+                  registration.showNotification(`📻 Walkie-Talkie Call from ${callerName}`, notificationOptions);
+                });
+              } else {
+                new Notification(`📻 Walkie-Talkie Call from ${callerName}`, notificationOptions);
+              }
+            } catch (error) {
+              console.error('Error showing notification:', error);
+              new Notification(`Walkie-Talkie Call from ${callerName}`, {
+                body: 'Click to answer',
+                icon: '/rea-logo-icon.png'
+              });
+            }
+          } else if (Notification.permission === 'default') {
             Notification.requestPermission();
           }
         }

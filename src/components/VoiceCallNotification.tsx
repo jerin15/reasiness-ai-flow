@@ -103,13 +103,40 @@ export const VoiceCallNotification = () => {
           const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLXiTcIF2m98OScTgwPUKXh8LVkHQU3kdXzzn0vBSR2x+/ekEELFF+06eunVRULRp/f8r1sIAUsgsz...'); // Short ringtone
           audio.play().catch(e => console.log('Could not play ringtone:', e));
 
-          // Browser notification
+          // Browser notification with mobile support
           if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('Incoming Call', {
+            const notificationOptions = {
               body: `${payload.fromName} is calling`,
               icon: '/rea-logo-icon.png',
-              tag: payload.callId
-            });
+              badge: '/rea-logo-icon.png',
+              tag: payload.callId,
+              requireInteraction: true,
+              vibrate: [300, 100, 300, 100, 300],
+              silent: false,
+              actions: [
+                { action: 'answer', title: 'Answer' },
+                { action: 'decline', title: 'Decline' }
+              ]
+            };
+            
+            try {
+              if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(registration => {
+                  registration.showNotification('📞 Incoming Voice Call', notificationOptions);
+                });
+              } else {
+                new Notification('📞 Incoming Voice Call', notificationOptions);
+              }
+            } catch (error) {
+              console.error('Error showing notification:', error);
+              new Notification('Incoming Call', {
+                body: `${payload.fromName} is calling`,
+                icon: '/rea-logo-icon.png',
+                tag: payload.callId
+              });
+            }
+          } else if (Notification.permission === 'default') {
+            Notification.requestPermission();
           }
         }
       })

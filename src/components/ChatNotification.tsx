@@ -29,6 +29,11 @@ export const ChatNotification = () => {
 
     // Initialize notification sound
     audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZUQ8PVqzn77BdGAg+ltryym4lBSh+y/HVkEILFl+16+6oVhQLR6Hh8r9vIgU0idLz1YU1Bx9xwvDil1QQD1es5/CxXxgJPpba8sp9JgYngszx15FDDRZZ');
+    
+    // Request notification permission for mobile
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   }, []);
 
   useEffect(() => {
@@ -116,12 +121,32 @@ export const ChatNotification = () => {
 
             // Show browser notification INSTANTLY
             if (Notification.permission === 'granted') {
-              new Notification(`💬 ${senderName} sent you a message`, {
+              const notificationOptions = {
                 body: newMsg.message,
                 icon: '/rea-logo-icon.png',
+                badge: '/rea-logo-icon.png',
                 tag: newMsg.id,
-                requireInteraction: false
-              });
+                requireInteraction: false,
+                vibrate: [200, 100, 200],
+                silent: false
+              };
+              
+              try {
+                // Use service worker notification for better mobile support
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                  navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification(`💬 ${senderName} sent you a message`, notificationOptions);
+                  });
+                } else {
+                  new Notification(`💬 ${senderName} sent you a message`, notificationOptions);
+                }
+              } catch (error) {
+                console.error('Error showing notification:', error);
+                new Notification(`💬 ${senderName} sent you a message`, {
+                  body: newMsg.message,
+                  icon: '/rea-logo-icon.png'
+                });
+              }
             } else if (Notification.permission === 'default') {
               Notification.requestPermission();
             }

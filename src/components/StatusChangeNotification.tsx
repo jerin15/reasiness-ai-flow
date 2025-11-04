@@ -35,7 +35,7 @@ export const StatusChangeNotification = () => {
       
       setCurrentUser(user);
       
-      // Initialize alarm sound
+      // Initialize notification sound
       audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZUQ8PVqzn77BdGAg+ltryym4lBSh+y/HVkEILFl+16+6oVhQLR6Hh8r9vIgU0idLz1YU1Bx9xwvDil1QQD1es5/CxXxgJPpba8sp9JgYngszx15FDDRZZ');
       
       // Check if user is admin
@@ -48,9 +48,21 @@ export const StatusChangeNotification = () => {
       const userIsAdmin = roleData?.role === 'admin' || (roleData?.role as string) === 'technical_head';
       setIsAdmin(userIsAdmin);
 
-      // Request notification permission
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
+      // Request notification permission immediately for mobile devices
+      if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+          console.log('📱 Requesting notification permission for mobile...');
+          const permission = await Notification.requestPermission();
+          console.log('📱 Notification permission:', permission);
+          
+          if (permission === 'granted') {
+            toast.success('✅ Notifications enabled! You will receive alerts for task updates.', {
+              duration: 3000
+            });
+          }
+        } else if (Notification.permission === 'granted') {
+          console.log('✅ Notifications already enabled');
+        }
       }
 
       // Load historical notifications
@@ -453,13 +465,43 @@ export const StatusChangeNotification = () => {
             icon: toastIcon,
           });
 
-          // Show browser notification
-          if (Notification.permission === 'granted') {
-            new Notification(`🔔 Task Update: ${taskData.title}`, {
+          // Show browser notification with mobile-friendly options
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const notificationOptions = {
               body: `${changedByName} - ${browserNotificationBody}`,
               icon: '/rea-logo-icon.png',
+              badge: '/rea-logo-icon.png',
               tag: notification.id,
-              requireInteraction: false
+              requireInteraction: false,
+              vibrate: [200, 100, 200], // Vibration pattern for mobile
+              silent: false,
+              renotify: true
+            };
+            
+            try {
+              // For service worker notifications (better mobile support)
+              if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(registration => {
+                  registration.showNotification(`🔔 Task Update: ${taskData.title}`, notificationOptions);
+                });
+              } else {
+                // Fallback to regular notification
+                new Notification(`🔔 Task Update: ${taskData.title}`, notificationOptions);
+              }
+            } catch (error) {
+              console.error('❌ Error showing notification:', error);
+              // Fallback to basic notification
+              new Notification(`🔔 Task Update: ${taskData.title}`, {
+                body: `${changedByName} - ${browserNotificationBody}`,
+                icon: '/rea-logo-icon.png'
+              });
+            }
+          } else if (Notification.permission === 'default') {
+            // Request permission if not yet asked
+            Notification.requestPermission().then(permission => {
+              if (permission === 'granted') {
+                toast.info('✅ Notifications enabled! You will now receive alerts.', { duration: 3000 });
+              }
             });
           }
         }
