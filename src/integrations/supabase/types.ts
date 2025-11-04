@@ -546,6 +546,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_group_admin: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_group_member: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       mark_old_completed_tasks: { Args: never; Returns: undefined }
     }
     Enums: {
