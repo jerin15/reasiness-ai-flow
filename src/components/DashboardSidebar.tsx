@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { StatusChangeNotification } from "./StatusChangeNotification";
@@ -57,6 +57,7 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const { open } = useSidebar();
   const isAdminOrHead = userRole === "admin" || userRole === "technical_head";
+  const isAdminOrEstimation = userRole === "admin" || userRole === "estimation";
 
   return (
     <Sidebar collapsible="icon">
@@ -158,6 +159,16 @@ export function DashboardSidebar({
                   <SidebarMenuButton onClick={onEstimationReportClick}>
                     <Download className="h-4 w-4" />
                     <span>Estimation Report</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* Cost Sheet Approval */}
+              {isAdminOrEstimation && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => window.open('https://reacostsheet.netlify.app/', '_blank')}>
+                    <FileCheck className="h-4 w-4" />
+                    <span>Cost Sheet Approval</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
