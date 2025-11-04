@@ -168,26 +168,31 @@ export const VoiceCallDialog = ({
       const pc = await setupPeerConnection();
       if (!pc) return;
 
-      // Create offer first
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      // Set up signaling channel
+      // Set up signaling channel FIRST before creating offer
       const channelName = `voice-call-${newCallId}`;
       const channel = supabase
         .channel(channelName, {
           config: { broadcast: { self: false } }
         })
         .on('broadcast', { event: 'call-answer' }, async ({ payload }) => {
-          console.log('📥 Received answer');
+          console.log('📥 Received answer', payload);
           if (payload.to === currentUserId && payload.answer) {
-            await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+              console.log('✅ Remote description set from answer');
+            } catch (err) {
+              console.error('❌ Error setting remote description:', err);
+            }
           }
         })
         .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
           if (payload.to === currentUserId && payload.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-            console.log('📥 Added ICE candidate');
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+              console.log('📥 Added ICE candidate');
+            } catch (err) {
+              console.error('❌ Error adding ICE candidate:', err);
+            }
           }
         })
         .on('broadcast', { event: 'call-ended' }, ({ payload }) => {
@@ -195,25 +200,42 @@ export const VoiceCallDialog = ({
             endCall();
           }
         })
-        .subscribe();
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Signaling channel ready:', channelName);
+            
+            // Create and send offer AFTER channel is ready
+            try {
+              const offer = await pc.createOffer({
+                offerToReceiveAudio: true
+              });
+              await pc.setLocalDescription(offer);
+              console.log('📤 Created offer:', offer);
+
+              // Send call invitation to recipient's personal channel
+              const inviteChannel = supabase.channel(`user-calls-${recipientId}`);
+              await inviteChannel.send({
+                type: 'broadcast',
+                event: 'call-offer',
+                payload: {
+                  offer: offer,
+                  from: currentUserId,
+                  fromName: currentUserName || 'Someone',
+                  to: recipientId,
+                  callId: newCallId
+                }
+              });
+
+              console.log('📤 Sent call offer to recipient');
+            } catch (err) {
+              console.error('❌ Error creating/sending offer:', err);
+              toast.error('Failed to create call offer');
+              endCall();
+            }
+          }
+        });
 
       channelRef.current = channel;
-
-      // Send call invitation to recipient's personal channel
-      const inviteChannel = supabase.channel(`user-calls-${recipientId}`);
-      await inviteChannel.send({
-        type: 'broadcast',
-        event: 'call-offer',
-        payload: {
-          offer: offer,
-          from: currentUserId,
-          fromName: currentUserName || 'Someone',
-          to: recipientId,
-          callId: newCallId
-        }
-      });
-
-      console.log('📤 Sent call offer to recipient');
     } catch (error) {
       console.error('Error initiating call:', error);
       toast.error('Failed to initiate call');
@@ -235,8 +257,12 @@ export const VoiceCallDialog = ({
         })
         .on('broadcast', { event: 'ice-candidate' }, async ({ payload }) => {
           if (payload.to === currentUserId && payload.candidate) {
-            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-            console.log('📥 Added ICE candidate');
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+              console.log('📥 Added ICE candidate');
+            } catch (err) {
+              console.error('❌ Error adding ICE candidate:', err);
+            }
           }
         })
         .on('broadcast', { event: 'call-ended' }, ({ payload }) => {
@@ -244,10 +270,13 @@ export const VoiceCallDialog = ({
             endCall();
           }
         })
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED' && incomingOffer) {
-            // Process the offer once channel is ready
-            handleOffer(pc, channel);
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Signaling channel ready:', channelName);
+            if (incomingOffer) {
+              // Process the offer once channel is ready
+              await handleOffer(pc, channel);
+            }
           }
         });
 
@@ -263,30 +292,40 @@ export const VoiceCallDialog = ({
 
   const handleOffer = async (pc: RTCPeerConnection, channel: any) => {
     try {
-      if (!incomingOffer) return;
+      if (!incomingOffer) {
+        console.error('❌ No incoming offer to process');
+        return;
+      }
 
-      console.log('📥 Processing offer');
+      console.log('📥 Processing offer:', incomingOffer);
       await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
+      console.log('✅ Remote description set from offer');
       
-      // Create answer
-      const answer = await pc.createAnswer();
+      // Create answer with proper constraints
+      const answer = await pc.createAnswer({
+        offerToReceiveAudio: true
+      });
       await pc.setLocalDescription(answer);
+      console.log('📤 Created answer:', answer);
+      
+      // Wait a bit for ICE gathering
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Send answer
       await channel.send({
         type: 'broadcast',
         event: 'call-answer',
         payload: {
-          answer: answer,
+          answer: pc.localDescription,
           from: currentUserId,
           to: recipientId,
           callId: callId
         }
       });
       
-      console.log('📤 Sent answer');
+      console.log('📤 Sent answer with ICE candidates');
     } catch (error) {
-      console.error('Error handling offer:', error);
+      console.error('❌ Error handling offer:', error);
       toast.error('Failed to process call');
       endCall();
     }

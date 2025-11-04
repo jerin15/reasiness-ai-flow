@@ -314,8 +314,14 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       return;
     }
 
-    // Check if moving to supplier_quotes or client_approval for estimation role (from any status)
+    // LOCK: Prevent estimation users from moving tasks out of admin_approval
     const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
+    if (roleToCheck === "estimation" && task.status === "admin_approval") {
+      toast.error("⛔ Task locked! Only admin can approve and move to Quotation Bill");
+      return;
+    }
+
+    // Check if moving to supplier_quotes or client_approval for estimation role (from any status)
     if ((newStatus === "supplier_quotes" || newStatus === "client_approval") && roleToCheck === "estimation") {
       // Show reminder dialog and track the target status
       setReminderTask(task);
