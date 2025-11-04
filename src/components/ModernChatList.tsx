@@ -101,16 +101,18 @@ export const ModernChatList = ({
             .is("group_id", null)
             .order("created_at", { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
-          // Get unread count
-          const { count } = await supabase
-            .from("messages")
-            .select("*", { count: "exact", head: true })
-            .eq("sender_id", profile.id)
-            .eq("recipient_id", currentUserId)
-            .eq("is_read", false)
-            .is("group_id", null);
+      // Get unread count
+      const { data: unreadMessages } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("sender_id", profile.id)
+        .eq("recipient_id", currentUserId)
+        .eq("is_read", false)
+        .is("group_id", null);
+
+      const count = unreadMessages?.length || 0;
 
           return {
             id: profile.id,
@@ -163,15 +165,17 @@ export const ModernChatList = ({
             .eq("group_id", group.id)
             .order("created_at", { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
           // Get unread count
-          const { count } = await supabase
+          const { data: unreadMessages } = await supabase
             .from("messages")
-            .select("*", { count: "exact", head: true })
+            .select("id")
             .eq("group_id", group.id)
             .neq("sender_id", currentUserId)
             .eq("is_read", false);
+
+          const count = unreadMessages?.length || 0;
 
           return {
             id: group.id,

@@ -153,10 +153,7 @@ export const ModernChatInterface = ({
         .select(
           `
           *,
-          sender_profile:profiles!messages_sender_id_fkey(full_name, email),
-          replied_message:messages!messages_reply_to_message_id_fkey(
-            id, message, sender_profile:profiles!messages_sender_id_fkey(full_name)
-          )
+          sender_profile:profiles!messages_sender_id_fkey(full_name, email)
         `
         )
         .order("created_at", { ascending: true });
@@ -166,20 +163,37 @@ export const ModernChatInterface = ({
       } else {
         query = query.or(
           `and(sender_id.eq.${currentUserId},recipient_id.eq.${chatId}),and(sender_id.eq.${chatId},recipient_id.eq.${currentUserId})`
-        );
+        ).is("group_id", null);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
       
-      // Transform data to handle replied_message as single object
-      const transformedMessages = (data || []).map((msg: any) => ({
-        ...msg,
-        replied_message: msg.replied_message?.[0] || null,
-      }));
+      // Fetch replied messages separately to avoid foreign key issues
+      const messagesWithReplies = await Promise.all(
+        (data || []).map(async (msg: any) => {
+          if (msg.reply_to_message_id) {
+            const { data: repliedMsg } = await supabase
+              .from("messages")
+              .select("id, message, sender_profile:profiles!messages_sender_id_fkey(full_name)")
+              .eq("id", msg.reply_to_message_id)
+              .maybeSingle();
+            
+            return {
+              ...msg,
+              replied_message: repliedMsg ? {
+                id: repliedMsg.id,
+                message: repliedMsg.message,
+                sender_profile: repliedMsg.sender_profile
+              } : null
+            };
+          }
+          return { ...msg, replied_message: null };
+        })
+      );
       
-      setMessages(transformedMessages);
+      setMessages(messagesWithReplies);
     } catch (error: any) {
       console.error("Error fetching messages:", error);
       toast.error("Failed to load messages");
@@ -188,16 +202,21 @@ export const ModernChatInterface = ({
 
   const markMessagesAsRead = async () => {
     try {
-      const { error } = await supabase
+      let query = supabase
         .from("messages")
         .update({ is_read: true, updated_at: new Date().toISOString() })
-        .or(
-          chatType === "group"
-            ? `group_id.eq.${chatId}`
-            : `and(recipient_id.eq.${currentUserId},sender_id.eq.${chatId})`
-        )
         .eq("is_read", false);
 
+      if (chatType === "group") {
+        query = query.eq("group_id", chatId);
+      } else {
+        query = query
+          .eq("recipient_id", currentUserId)
+          .eq("sender_id", chatId)
+          .is("group_id", null);
+      }
+
+      const { error } = await query;
       if (error) throw error;
     } catch (error) {
       console.error("Error marking messages as read:", error);
