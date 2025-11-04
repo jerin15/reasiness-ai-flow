@@ -14,23 +14,22 @@ import { ChatDialog } from "@/components/ChatDialog";
 import { ModernChatList } from "@/components/ModernChatList";
 import { ReportsDownloadDialog } from "@/components/ReportsDownloadDialog";
 import { AdminTaskReportDialog } from "@/components/AdminTaskReportDialog";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, Clock } from "lucide-react";
 import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
 import { PersonalAnalytics } from "@/components/PersonalAnalytics";
-import { StatusChangeNotification } from "@/components/StatusChangeNotification";
-import { WalkieTalkieNotification } from "@/components/WalkieTalkieNotification";
 import { IncomingCallNotification } from "@/components/IncomingCallNotification";
 import { ProminentMessageNotification } from "@/components/ProminentMessageNotification";
-import { Badge } from "@/components/ui/badge";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
+import { DashboardSidebar } from "@/components/DashboardSidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Menu } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
+  const [userAvatar, setUserAvatar] = useState<string>("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedUserRole, setSelectedUserRole] = useState<string>("");
@@ -122,6 +121,7 @@ const Dashboard = () => {
 
       if (profile) {
         setUserName(profile.full_name || profile.email);
+        setUserAvatar(profile.avatar_url || "");
         const role = profile.user_roles?.[0]?.role || "operations";
         setUserRole(role);
         setSelectedUserRole(role);
@@ -142,7 +142,7 @@ const Dashboard = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, user_roles(*)")
+        .select("id, full_name, email, avatar_url, user_roles(*)")
         .order("full_name");
 
       if (error) throw error;
@@ -199,100 +199,54 @@ const Dashboard = () => {
   // Show admin dashboard only for admin users viewing their own tasks
   if (userRole === 'admin' && selectedUserId === currentUserId) {
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b bg-card shadow-sm sticky top-0 z-10">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <img src={reaLogo} alt="REA Advertising" className="h-10 w-auto" />
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    Welcome, {userName} ({formatRole(userRole)})
-                  </p>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <DashboardSidebar
+            userRole={userRole}
+            currentUserId={currentUserId}
+            selectedUserId={selectedUserId}
+            teamMembers={teamMembers}
+            unreadCount={unreadCount}
+            onUserChange={handleUserChange}
+            onAnalyticsClick={() => navigate("/analytics")}
+            onMyReportClick={() => setShowMyReport(true)}
+            onTeamReportClick={() => setShowTeamReport(true)}
+            onEstimationReportClick={() => setShowEstimationReport(true)}
+            onAdminTaskReportClick={() => {}}
+            onChatClick={() => setShowChatList(true)}
+            onPersonalAnalyticsClick={() => {}}
+            onSignOut={handleSignOut}
+            getSelectedUserName={getSelectedUserName}
+            formatRole={formatRole}
+          />
+
+          <div className="flex-1 flex flex-col">
+            <header className="border-b bg-card shadow-sm sticky top-0 z-10">
+              <div className="container mx-auto px-4 py-3">
+                <div className="flex items-center gap-4">
+                  <SidebarTrigger className="lg:hidden">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <img src={reaLogo} alt="REA Advertising" className="h-12 w-auto" />
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={userAvatar} alt={userName} />
+                      <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-sm">Welcome, {userName}</p>
+                      <p className="text-xs text-muted-foreground">{formatRole(userRole)}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Select value={selectedUserId} onValueChange={handleUserChange}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        <span>{getSelectedUserName()}</span>
-                      </div>
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={currentUserId}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">My Tasks</span>
-                      </div>
-                    </SelectItem>
-                    {teamMembers
-                      .filter((user) => user.id !== currentUserId)
-                      .map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          <div className="flex flex-col items-start">
-                            <span>{user.full_name || user.email}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatRole(user.user_roles?.[0]?.role || 'operations')}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate("/analytics")}
-                  >
-                    <BarChart3 className="h-3 w-3 mr-1" />
-                    Analytics
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowMyReport(true)}
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    My Reports
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowTeamReport(true)}
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    Team
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowEstimationReport(true)}
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    Estimation
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowChatList(true)}
-                  >
-                    <MessageSquare className="h-3 w-3" />
-                  </Button>
-                  <StatusChangeNotification />
-                  <WalkieTalkieNotification />
-                  <Button variant="destructive" size="sm" onClick={handleSignOut}>
-                    <LogOut className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+            </header>
+            
+            <main className="flex-1">
+              <AdminDashboard />
+            </main>
           </div>
-        </header>
-        
-        <AdminDashboard />
+        </div>
 
         <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
         <ModernChatList
@@ -328,152 +282,69 @@ const Dashboard = () => {
         
         <IncomingCallNotification />
         <ProminentMessageNotification />
-      </div>
+      </SidebarProvider>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <img src={reaLogo} alt="REA Advertising" className="h-10 w-auto" />
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Welcome, {userName} ({formatRole(userRole)})
-                </p>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <DashboardSidebar
+          userRole={userRole}
+          currentUserId={currentUserId}
+          selectedUserId={selectedUserId}
+          teamMembers={teamMembers}
+          unreadCount={unreadCount}
+          onUserChange={handleUserChange}
+          onAnalyticsClick={() => navigate("/analytics")}
+          onMyReportClick={() => setShowMyReport(true)}
+          onTeamReportClick={() => setShowTeamReport(true)}
+          onEstimationReportClick={() => setShowEstimationReport(true)}
+          onAdminTaskReportClick={() => setShowAdminTaskReport(true)}
+          onChatClick={() => setShowChat(true)}
+          onPersonalAnalyticsClick={() => setShowPersonalAnalytics(!showPersonalAnalytics)}
+          onSignOut={handleSignOut}
+          showPersonalAnalytics={showPersonalAnalytics}
+          getSelectedUserName={getSelectedUserName}
+          formatRole={formatRole}
+        />
+
+        <div className="flex-1 flex flex-col">
+          <header className="border-b bg-card shadow-sm sticky top-0 z-10">
+            <div className="container mx-auto px-4 py-3">
+              <div className="flex items-center gap-4">
+                <SidebarTrigger className="lg:hidden">
+                  <Menu className="h-5 w-5" />
+                </SidebarTrigger>
+                <img src={reaLogo} alt="REA Advertising" className="h-12 w-auto" />
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={userAvatar} alt={userName} />
+                    <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium text-sm">Welcome, {userName}</p>
+                    <p className="text-xs text-muted-foreground">{formatRole(userRole)}</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {(userRole === "admin" || userRole === "technical_head") && (
-                <>
-                  <Select value={selectedUserId} onValueChange={handleUserChange}>
-                    <SelectTrigger className="w-[240px]">
-                      <SelectValue>
-                        <div className="flex items-center gap-2">
-                          <Users className="h-3 w-3" />
-                          <span>{getSelectedUserName()}</span>
-                        </div>
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={currentUserId}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">My Tasks</span>
-                        </div>
-                      </SelectItem>
-                      {teamMembers
-                        .filter((user) => user.id !== currentUserId)
-                        .map((user) => (
-                          <SelectItem key={user.id} value={user.id}>
-                            <div className="flex flex-col items-start">
-                              <span>{user.full_name || user.email}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {formatRole(user.user_roles?.[0]?.role || 'operations')}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate("/analytics")}
-                  >
-                    <BarChart3 className="h-3 w-3 mr-2" />
-                    Analytics
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowTeamReport(true)}
-                  >
-                    <FileText className="h-3 w-3 mr-2" />
-                    Team Reports
-                  </Button>
-                 </>
-              )}
-              {(userRole !== "admin" && userRole !== "technical_head") && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowPersonalAnalytics(!showPersonalAnalytics)}
-                >
-                  <BarChart3 className="h-3 w-3 mr-2" />
-                  {showPersonalAnalytics ? "Hide" : "Show"} Analytics
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowMyReport(true)}
-              >
-                <FileText className="h-3 w-3 mr-2" />
-                My Report
-              </Button>
-              {(userRole === "admin" || userRole === "technical_head") && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAdminTaskReport(true)}
-                  >
-                    <FileText className="h-3 w-3 mr-2" />
-                    Member Reports
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowEstimationReport(true)}
-                  >
-                    <Download className="h-3 w-3 mr-2" />
-                    Estimation Report
-                  </Button>
-                </>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowChat(true)}
-                className="relative"
-              >
-                <MessageSquare className="h-3 w-3 mr-2" />
-                Team Chat
-                {unreadCount > 0 && (
-                  <Badge 
-                    variant="destructive" 
-                    className="absolute -top-2 -right-2 h-5 min-w-5 flex items-center justify-center p-0 text-xs"
-                  >
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </Badge>
-                )}
-              </Button>
-              <StatusChangeNotification />
-              <WalkieTalkieNotification />
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-3 w-3 mr-2" />
-                Sign Out
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+          </header>
 
-      <main className="container mx-auto px-4 py-6">
-        {showPersonalAnalytics && userRole !== "admin" && (
-          <div className="mb-6">
-            <PersonalAnalytics userId={currentUserId} userRole={userRole} />
-          </div>
-        )}
-        <KanbanBoard 
-          userRole={userRole} 
-          viewingUserId={selectedUserId}
-          isAdmin={userRole === "admin" || userRole === "technical_head"}
-          viewingUserRole={selectedUserRole}
-        />
-      </main>
+          <main className="container mx-auto px-4 py-6">
+            {showPersonalAnalytics && userRole !== "admin" && (
+              <div className="mb-6">
+                <PersonalAnalytics userId={currentUserId} userRole={userRole} />
+              </div>
+            )}
+            <KanbanBoard 
+              userRole={userRole} 
+              viewingUserId={selectedUserId}
+              isAdmin={userRole === "admin" || userRole === "technical_head"}
+              viewingUserRole={selectedUserRole}
+            />
+          </main>
+        </div>
 
       <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
       <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />
@@ -526,9 +397,10 @@ const Dashboard = () => {
         />
       )}
       
-      <IncomingCallNotification />
-      <ProminentMessageNotification />
-    </div>
+        <IncomingCallNotification />
+        <ProminentMessageNotification />
+      </div>
+    </SidebarProvider>
   );
 };
 
