@@ -148,7 +148,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         .select(`
           *,
           assigned_profile:profiles!tasks_assigned_to_fkey(
-            user_roles(role)
+            id,
+            full_name,
+            user_roles!inner(role)
           )
         `)
         .is("deleted_at", null);
@@ -211,11 +213,25 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       console.log("✅ Tasks loaded:", data?.length, "| Production:", data?.filter(t => t.status === 'production').length);
       
       // Transform data to include assigned_user_role
-      const transformedData = (data || []).map((task: any) => ({
-        ...task,
-        assigned_user_role: task.assigned_profile?.user_roles?.[0]?.role || null,
-        assigned_profile: undefined, // Remove the nested object
-      }));
+      const transformedData = (data || []).map((task: any) => {
+        // Extract the role from the nested structure
+        // user_roles could be an object (single role) or array (multiple roles)
+        let assignedUserRole = null;
+        if (task.assigned_profile?.user_roles) {
+          if (Array.isArray(task.assigned_profile.user_roles)) {
+            assignedUserRole = task.assigned_profile.user_roles[0]?.role || null;
+          } else {
+            assignedUserRole = task.assigned_profile.user_roles.role || null;
+          }
+        }
+        console.log("Task:", task.title, "| Assigned to:", task.assigned_to, "| Role:", assignedUserRole);
+        
+        return {
+          ...task,
+          assigned_user_role: assignedUserRole,
+          assigned_profile: undefined, // Remove the nested object
+        };
+      });
       
       setTasks(transformedData);
       
