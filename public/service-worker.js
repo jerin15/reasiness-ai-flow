@@ -1,15 +1,47 @@
 self.addEventListener('install', event => {
   console.log('✅ Service Worker installed');
-  self.skipWaiting();
+  self.skipWaiting(); // Activate immediately
 });
 
 self.addEventListener('activate', event => {
   console.log('✅ Service Worker activated');
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    Promise.all([
+      clients.claim(), // Take control immediately
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            // Clear old caches on activate
+            if (cacheName.includes('supabase-cache') || cacheName.includes('workbox')) {
+              console.log('🗑️ Clearing cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    ])
+  );
 });
 
+// Network-first strategy for all requests
 self.addEventListener('fetch', event => {
-  event.respondWith(fetch(event.request));
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        // Don't cache Supabase realtime or auth requests
+        if (event.request.url.includes('supabase.co') && 
+            (event.request.url.includes('realtime') || 
+             event.request.url.includes('auth') ||
+             event.request.url.includes('rest'))) {
+          return response;
+        }
+        return response;
+      })
+      .catch(() => {
+        // Fallback to cache only if network fails
+        return caches.match(event.request);
+      })
+  );
 });
 
 // Handle notification clicks
@@ -35,7 +67,7 @@ self.addEventListener('notificationclick', event => {
   );
 });
 
-// Handle background notifications (for future push notifications)
+// Handle background notifications - KEEP SERVICE WORKER ALIVE
 self.addEventListener('push', event => {
   console.log('📬 Push notification received:', event);
   
@@ -47,12 +79,21 @@ self.addEventListener('push', event => {
       badge: '/rea-logo-icon.png',
       vibrate: [200, 100, 200],
       tag: data.tag || 'notification',
-      requireInteraction: false,
+      requireInteraction: true, // Keep notification visible
+      silent: false,
       data: data.data || {}
     };
     
     event.waitUntil(
       self.registration.showNotification(data.title || 'REAssist Notification', options)
     );
+  }
+});
+
+// Keep service worker alive for background notifications
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'KEEP_ALIVE') {
+    console.log('💓 Service Worker keep-alive ping');
+    event.ports[0].postMessage({ type: 'KEEP_ALIVE_RESPONSE' });
   }
 });
