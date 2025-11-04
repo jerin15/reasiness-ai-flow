@@ -35,15 +35,80 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_groups: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string | null
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string | null
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string | null
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "chat_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           attachment_name: string | null
           attachment_url: string | null
           created_at: string | null
+          group_id: string | null
           id: string
           is_read: boolean | null
           message: string
+          message_type: string | null
           recipient_id: string
+          reply_to_message_id: string | null
           sender_id: string
           updated_at: string | null
         }
@@ -51,10 +116,13 @@ export type Database = {
           attachment_name?: string | null
           attachment_url?: string | null
           created_at?: string | null
+          group_id?: string | null
           id?: string
           is_read?: boolean | null
           message: string
+          message_type?: string | null
           recipient_id: string
+          reply_to_message_id?: string | null
           sender_id: string
           updated_at?: string | null
         }
@@ -62,19 +130,36 @@ export type Database = {
           attachment_name?: string | null
           attachment_url?: string | null
           created_at?: string | null
+          group_id?: string | null
           id?: string
           is_read?: boolean | null
           message?: string
+          message_type?: string | null
           recipient_id?: string
+          reply_to_message_id?: string | null
           sender_id?: string
           updated_at?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "chat_groups"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "messages_recipient_id_fkey"
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {

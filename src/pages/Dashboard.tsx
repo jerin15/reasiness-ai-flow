@@ -11,7 +11,7 @@ import { DailyPendingTasksDialog } from "@/components/DailyPendingTasksDialog";
 import { TeamMemberReportDialog } from "@/components/TeamMemberReportDialog";
 import { EstimationTeamReportDialog } from "@/components/EstimationTeamReportDialog";
 import { ChatDialog } from "@/components/ChatDialog";
-import { TeamChatListDialog } from "@/components/TeamChatListDialog";
+import { ModernChatList } from "@/components/ModernChatList";
 import { ReportsDownloadDialog } from "@/components/ReportsDownloadDialog";
 import { AdminTaskReportDialog } from "@/components/AdminTaskReportDialog";
 import { Button } from "@/components/ui/button";
@@ -293,14 +293,9 @@ const Dashboard = () => {
         <AdminDashboard />
 
         <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
-        <TeamChatListDialog
+        <ModernChatList
           open={showChatList} 
           onOpenChange={setShowChatList}
-          onSelectMember={(recipientId, recipientName) => {
-            setChatRecipientId(recipientId);
-            setChatRecipientName(recipientName);
-            setShowChatList(false);
-          }}
           currentUserId={currentUserId}
         />
         {chatRecipientId && (
@@ -498,13 +493,9 @@ const Dashboard = () => {
         onOpenChange={setShowEstimationReport}
       />
       
-      <TeamChatListDialog
+      <ModernChatList
         open={showChat}
         onOpenChange={setShowChat}
-        onSelectMember={(memberId, memberName) => {
-          setChatRecipientId(memberId);
-          setChatRecipientName(memberName);
-        }}
         currentUserId={currentUserId}
       />
       
