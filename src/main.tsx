@@ -1,15 +1,8 @@
-// Enhanced Service Worker registration with auto-update and keep-alive
+// Service Worker registration - manual update only
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/service-worker.js')
     .then((registration) => {
       console.log('✅ Service Worker registered');
-      
-      // Check for updates every 30 seconds
-      setInterval(() => {
-        registration.update().then(() => {
-          console.log('🔄 Checked for service worker updates');
-        });
-      }, 30000);
       
       // Keep service worker alive for background notifications
       setInterval(() => {
@@ -26,19 +19,6 @@ if ('serviceWorker' in navigator) {
           );
         }
       }, 25000); // Every 25 seconds to keep alive
-      
-      // Force update when new service worker is waiting
-      registration.addEventListener('updatefound', () => {
-        const newWorker = registration.installing;
-        if (newWorker) {
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('🆕 New version available! Reloading...');
-              window.location.reload();
-            }
-          });
-        }
-      });
     })
     .catch(error => {
       console.error('❌ Service Worker registration failed:', error);
