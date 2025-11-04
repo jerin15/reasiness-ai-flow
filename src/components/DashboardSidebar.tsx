@@ -161,22 +161,6 @@ export function DashboardSidebar({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-
-              {/* Team Chat */}
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={onChatClick} className="relative">
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Team Chat</span>
-                  {unreadCount > 0 && (
-                    <Badge
-                      variant="destructive"
-                      className="absolute -top-1 left-6 h-5 min-w-5 flex items-center justify-center p-0 text-xs"
-                    >
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </Badge>
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
