@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, Play, Pause } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 
@@ -23,6 +23,7 @@ export const VoiceAnnouncementPlayer = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState<VoiceAnnouncement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [autoplayFailed, setAutoplayFailed] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
 
@@ -128,8 +129,10 @@ export const VoiceAnnouncementPlayer = () => {
     };
   }, [currentUserId, toast]);
 
-  const playAnnouncement = async (audioUrl: string) => {
+  const playAnnouncement = async (audioUrl: string, isManual = false) => {
     try {
+      console.log('🔊 Attempting to play announcement:', audioUrl);
+      
       if (audioRef.current) {
         audioRef.current.pause();
       }
@@ -139,8 +142,10 @@ export const VoiceAnnouncementPlayer = () => {
       
       audio.volume = 1.0;
       setIsPlaying(true);
+      setAutoplayFailed(false);
       
       audio.onended = async () => {
+        console.log('✅ Audio playback ended');
         setIsPlaying(false);
         if (announcement) {
           await supabase
@@ -151,15 +156,38 @@ export const VoiceAnnouncementPlayer = () => {
         setTimeout(() => setAnnouncement(null), 2000);
       };
 
+      audio.onerror = (e) => {
+        console.error('❌ Audio error:', e);
+        setIsPlaying(false);
+        setAutoplayFailed(true);
+      };
+
       await audio.play();
+      console.log('✅ Audio playing successfully');
     } catch (error) {
-      console.error('Error playing announcement:', error);
+      console.error('❌ Error playing announcement:', error);
       setIsPlaying(false);
-      toast({
-        title: 'Playback Error',
-        description: 'Could not play voice announcement',
-        variant: 'destructive',
-      });
+      
+      // Only set autoplay failed if this wasn't a manual attempt
+      if (!isManual) {
+        setAutoplayFailed(true);
+        toast({
+          title: '🔊 Click to Play',
+          description: 'Click the play button to hear the announcement',
+        });
+      } else {
+        toast({
+          title: 'Playback Error',
+          description: 'Could not play voice announcement. Check audio file.',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const handleManualPlay = () => {
+    if (announcement && announcement.audio_url) {
+      playAnnouncement(announcement.audio_url, true);
     }
   };
 
@@ -168,6 +196,7 @@ export const VoiceAnnouncementPlayer = () => {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
+      setAutoplayFailed(false);
       setAnnouncement(null);
     }
   };
@@ -196,10 +225,26 @@ export const VoiceAnnouncementPlayer = () => {
               {announcement.message_text}
             </p>
           )}
+          
+          {/* Play/Pause button */}
           <div className="flex items-center gap-2 mt-3">
+            {(autoplayFailed || !isPlaying) && (
+              <Button
+                onClick={handleManualPlay}
+                size="sm"
+                className="gap-2"
+                disabled={isPlaying}
+              >
+                <Play className="h-4 w-4" />
+                Play Audio
+              </Button>
+            )}
             {isPlaying && (
-              <div className="flex-1 h-1 bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-primary animate-pulse" style={{ width: '100%' }} />
+              <div className="flex items-center gap-2 flex-1">
+                <Pause className="h-4 w-4 text-primary" />
+                <div className="flex-1 h-1 bg-secondary rounded-full overflow-hidden">
+                  <div className="h-full bg-primary animate-pulse" style={{ width: '100%' }} />
+                </div>
               </div>
             )}
           </div>
