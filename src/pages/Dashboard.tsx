@@ -23,6 +23,7 @@ import { PersonalAnalytics } from "@/components/PersonalAnalytics";
 import { StatusChangeNotification } from "@/components/StatusChangeNotification";
 import { WalkieTalkieNotification } from "@/components/WalkieTalkieNotification";
 import { IncomingCallNotification } from "@/components/IncomingCallNotification";
+import { ProminentMessageNotification } from "@/components/ProminentMessageNotification";
 import { Badge } from "@/components/ui/badge";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 
@@ -326,6 +327,7 @@ const Dashboard = () => {
         />
         
         <IncomingCallNotification />
+        <ProminentMessageNotification />
       </div>
     );
   }
@@ -525,6 +527,7 @@ const Dashboard = () => {
       )}
       
       <IncomingCallNotification />
+      <ProminentMessageNotification />
     </div>
   );
 };

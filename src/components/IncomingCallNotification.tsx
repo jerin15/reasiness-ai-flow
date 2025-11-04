@@ -18,11 +18,36 @@ export const IncomingCallNotification = () => {
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const [showCallDialog, setShowCallDialog] = useState(false);
-  const [ringtone] = useState(
-    new Audio(
-      "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
-    )
-  );
+  
+  // Create a proper ringtone sound (longer and more noticeable)
+  const [ringtone] = useState(() => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Create a more attention-grabbing ringtone pattern
+    const createRingtone = () => {
+      const duration = 2;
+      const sampleRate = audioContext.sampleRate;
+      const buffer = audioContext.createBuffer(1, duration * sampleRate, sampleRate);
+      const channel = buffer.getChannelData(0);
+      
+      for (let i = 0; i < buffer.length; i++) {
+        const t = i / sampleRate;
+        // Create a pattern with multiple frequencies for attention
+        const freq1 = 800 * Math.sin(2 * Math.PI * 2 * t);
+        const freq2 = 1000 * Math.sin(2 * Math.PI * 3 * t);
+        channel[i] = (Math.sin(2 * Math.PI * freq1 * t) + Math.sin(2 * Math.PI * freq2 * t)) * 0.3;
+      }
+      
+      return buffer;
+    };
+    
+    const source = audioContext.createBufferSource();
+    source.buffer = createRingtone();
+    source.loop = true;
+    source.connect(audioContext.destination);
+    
+    return { context: audioContext, source };
+  });
 
   useEffect(() => {
     const initUser = async () => {
@@ -65,17 +90,30 @@ export const IncomingCallNotification = () => {
           });
 
           // Play ringtone
-          ringtone.loop = true;
-          ringtone.play().catch(console.error);
+          try {
+            ringtone.source.start(0);
+          } catch (e) {
+            // Already started
+          }
 
-          // Show toast notification
-          toast.info(`Incoming ${session.call_type} call from ${callerProfile?.full_name || "Unknown"}`, {
+          // Show prominent toast notification
+          toast.error(`🔔 INCOMING ${session.call_type.toUpperCase()} CALL from ${callerProfile?.full_name || "Unknown"}`, {
             duration: 30000,
+            style: {
+              background: '#ef4444',
+              color: 'white',
+              fontSize: '16px',
+              fontWeight: 'bold',
+            },
           });
 
-          // Vibrate on mobile
+          // Continuous vibration on mobile
           if (navigator.vibrate) {
-            navigator.vibrate([1000, 500, 1000, 500, 1000]);
+            const vibratePattern = [300, 200, 300, 200, 300];
+            const vibrateInterval = setInterval(() => {
+              navigator.vibrate(vibratePattern);
+            }, 2000);
+            (window as any).callVibrateInterval = vibrateInterval;
           }
         }
       )
@@ -94,8 +132,14 @@ export const IncomingCallNotification = () => {
             session.status === "declined" ||
             session.status === "answered"
           ) {
-            ringtone.pause();
-            ringtone.currentTime = 0;
+            try {
+              ringtone.source.stop();
+            } catch (e) {
+              // Already stopped
+            }
+            if ((window as any).callVibrateInterval) {
+              clearInterval((window as any).callVibrateInterval);
+            }
             if (session.status !== "answered") {
               setIncomingCall(null);
               setShowCallDialog(false);
@@ -106,20 +150,39 @@ export const IncomingCallNotification = () => {
       .subscribe();
 
     return () => {
-      ringtone.pause();
+      try {
+        ringtone.source.stop();
+      } catch (e) {
+        // Already stopped
+      }
+      if ((window as any).callVibrateInterval) {
+        clearInterval((window as any).callVibrateInterval);
+      }
       supabase.removeChannel(channel);
     };
   }, [currentUserId]);
 
   const answerCall = () => {
-    ringtone.pause();
-    ringtone.currentTime = 0;
+    try {
+      ringtone.source.stop();
+    } catch (e) {
+      // Already stopped
+    }
+    if ((window as any).callVibrateInterval) {
+      clearInterval((window as any).callVibrateInterval);
+    }
     setShowCallDialog(true);
   };
 
   const declineCall = async () => {
-    ringtone.pause();
-    ringtone.currentTime = 0;
+    try {
+      ringtone.source.stop();
+    } catch (e) {
+      // Already stopped
+    }
+    if ((window as any).callVibrateInterval) {
+      clearInterval((window as any).callVibrateInterval);
+    }
     
     if (incomingCall) {
       await supabase
@@ -148,40 +211,53 @@ export const IncomingCallNotification = () => {
   return (
     <>
       {incomingCall && !showCallDialog && (
-        <div className="fixed top-4 right-4 z-50 bg-background border rounded-lg shadow-2xl p-4 animate-in slide-in-from-top">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-12 w-12">
-              <AvatarImage src={incomingCall.caller_avatar} />
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                {getInitials(incomingCall.caller_name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <p className="font-semibold">{incomingCall.caller_name}</p>
-              <p className="text-sm text-muted-foreground capitalize">
-                Incoming {incomingCall.call_type} call...
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={declineCall}
-                variant="destructive"
-                size="icon"
-                className="rounded-full"
-              >
-                <PhoneOff className="h-5 w-5" />
-              </Button>
-              <Button
-                onClick={answerCall}
-                variant="default"
-                size="icon"
-                className="rounded-full bg-green-500 hover:bg-green-600"
-              >
-                <Phone className="h-5 w-5" />
-              </Button>
+        <>
+          {/* Fullscreen overlay with blur */}
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in" />
+          
+          {/* Prominent call notification */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in zoom-in">
+            <div className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-2xl shadow-2xl p-8 max-w-md w-full border-4 border-white animate-pulse">
+              <div className="flex flex-col items-center gap-6">
+                {/* Large Avatar */}
+                <Avatar className="h-32 w-32 ring-4 ring-white">
+                  <AvatarImage src={incomingCall.caller_avatar} />
+                  <AvatarFallback className="bg-white/20 text-white text-4xl font-bold">
+                    {getInitials(incomingCall.caller_name)}
+                  </AvatarFallback>
+                </Avatar>
+                
+                {/* Caller Info */}
+                <div className="text-center">
+                  <p className="text-3xl font-bold mb-2">{incomingCall.caller_name}</p>
+                  <p className="text-xl capitalize flex items-center justify-center gap-2">
+                    <Phone className="h-6 w-6 animate-bounce" />
+                    Incoming {incomingCall.call_type} call...
+                  </p>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex gap-6 mt-4">
+                  <Button
+                    onClick={declineCall}
+                    variant="destructive"
+                    size="lg"
+                    className="rounded-full h-20 w-20 bg-red-700 hover:bg-red-800 shadow-lg"
+                  >
+                    <PhoneOff className="h-10 w-10" />
+                  </Button>
+                  <Button
+                    onClick={answerCall}
+                    size="lg"
+                    className="rounded-full h-20 w-20 bg-green-500 hover:bg-green-600 shadow-lg animate-bounce"
+                  >
+                    <Phone className="h-10 w-10" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {showCallDialog && incomingCall && (
