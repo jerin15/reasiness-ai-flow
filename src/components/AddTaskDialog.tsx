@@ -163,9 +163,14 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
             <Textarea
               id="description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+              }}
               placeholder="Add task details"
-              rows={3}
+              className="min-h-[60px] resize-none overflow-hidden"
+              style={{ height: 'auto' }}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">

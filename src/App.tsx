@@ -9,6 +9,7 @@ import { VoiceCallNotification } from "@/components/VoiceCallNotification";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { VoiceAnnouncementPlayer } from "@/components/VoiceAnnouncementPlayer";
 import { UrgentNotificationModal } from "@/components/UrgentNotificationModal";
+import { UserPresenceIndicator } from "@/components/UserPresenceIndicator";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 
@@ -37,6 +38,9 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <div className="fixed bottom-4 right-4 z-50 w-80">
+          <UserPresenceIndicator />
+        </div>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

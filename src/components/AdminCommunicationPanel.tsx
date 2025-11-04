@@ -232,16 +232,16 @@ export const AdminCommunicationPanel = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2">
           <Megaphone className="h-4 w-4" />
-          Smart Communication
+          ANNOUNCEMENT
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Megaphone className="h-5 w-5" />
-            Team Communication Tools
+            ANNOUNCEMENT Center
           </DialogTitle>
         </DialogHeader>
 

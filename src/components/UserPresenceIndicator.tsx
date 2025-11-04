@@ -12,7 +12,8 @@ import {
   SelectValue,
 } from './ui/select';
 import { Input } from './ui/input';
-import { Users, Circle } from 'lucide-react';
+import { Users, Circle, MessageCircle, X, Minimize2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface UserPresence {
   user_id: string;
@@ -39,6 +40,9 @@ export const UserPresenceIndicator = () => {
   const [myStatus, setMyStatus] = useState('available');
   const [customMessage, setCustomMessage] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [quickMessage, setQuickMessage] = useState('');
+  const [sendingTo, setSendingTo] = useState<string | null>(null);
 
   useEffect(() => {
     const initUser = async () => {
@@ -152,21 +156,59 @@ export const UserPresenceIndicator = () => {
       .eq('user_id', currentUserId);
   };
 
+  const sendQuickMessage = async (recipientId: string) => {
+    if (!quickMessage.trim() || !currentUserId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          sender_id: currentUserId,
+          recipient_id: recipientId,
+          message: quickMessage,
+          message_type: 'text'
+        });
+
+      if (error) throw error;
+      
+      toast.success('Message sent!');
+      setQuickMessage('');
+      setSendingTo(null);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     return STATUS_OPTIONS.find(s => s.value === status)?.color || 'bg-gray-500';
   };
 
   const displayedPresences = showAll ? presences : presences.slice(0, 5);
+  const onlineCount = presences.length;
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 shadow-lg">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
           <h3 className="font-semibold">Team Status</h3>
+          <Badge variant="secondary" className="ml-2">{onlineCount} online</Badge>
         </div>
-        <Badge variant="secondary">{presences.length} online</Badge>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => setIsMinimized(!isMinimized)}
+          >
+            {isMinimized ? <Users className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
+
+      {!isMinimized && (
+        <>
 
       {/* My Status */}
       <div className="mb-4 p-3 bg-secondary/50 rounded-lg">
@@ -202,29 +244,64 @@ export const UserPresenceIndicator = () => {
       {/* Team Presences */}
       <div className="space-y-2">
         {displayedPresences.map((presence) => (
-          <div
-            key={presence.user_id}
-            className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors"
-          >
-            <div className="relative">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={presence.profiles?.avatar_url || undefined} />
-                <AvatarFallback>
-                  {presence.profiles?.full_name?.charAt(0) || '?'}
-                </AvatarFallback>
-              </Avatar>
-              <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(presence.status)}`} />
+          <div key={presence.user_id}>
+            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors">
+              <div className="relative">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={presence.profiles?.avatar_url || undefined} />
+                  <AvatarFallback>
+                    {presence.profiles?.full_name?.charAt(0) || '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(presence.status)}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {presence.profiles?.full_name}
+                  {presence.user_id === currentUserId && ' (You)'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {STATUS_OPTIONS.find(s => s.value === presence.status)?.label || presence.status}
+                  {presence.custom_message && ` • ${presence.custom_message}`}
+                </p>
+              </div>
+              {presence.user_id !== currentUserId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setSendingTo(sendingTo === presence.user_id ? null : presence.user_id)}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {presence.profiles?.full_name}
-                {presence.user_id === currentUserId && ' (You)'}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {STATUS_OPTIONS.find(s => s.value === presence.status)?.label || presence.status}
-                {presence.custom_message && ` • ${presence.custom_message}`}
-              </p>
-            </div>
+            {sendingTo === presence.user_id && (
+              <div className="mt-2 ml-11 flex gap-2">
+                <Input
+                  placeholder="Quick message..."
+                  value={quickMessage}
+                  onChange={(e) => setQuickMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      sendQuickMessage(presence.user_id);
+                    }
+                  }}
+                  className="text-xs h-8"
+                />
+                <Button size="sm" className="h-8" onClick={() => sendQuickMessage(presence.user_id)}>
+                  Send
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 w-8 p-0" 
+                  onClick={() => setSendingTo(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -239,6 +316,9 @@ export const UserPresenceIndicator = () => {
           {showAll ? 'Show Less' : `Show ${presences.length - 5} More`}
         </Button>
       )}
+      </>
+      )}
+
     </Card>
   );
 };

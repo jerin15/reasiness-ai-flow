@@ -20,7 +20,6 @@ import { PersonalAnalytics } from "@/components/PersonalAnalytics";
 import { IncomingCallNotification } from "@/components/IncomingCallNotification";
 import { ProminentMessageNotification } from "@/components/ProminentMessageNotification";
 import { AdminCommunicationPanel } from "@/components/AdminCommunicationPanel";
-import { UserPresenceIndicator } from "@/components/UserPresenceIndicator";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -403,11 +402,6 @@ const Dashboard = () => {
           </header>
 
           <main className="container mx-auto px-4 py-6 relative">
-            {/* User Presence Indicator - Fixed position */}
-            <div className="fixed bottom-6 right-6 z-40 w-80 max-h-[500px] overflow-hidden">
-              <UserPresenceIndicator />
-            </div>
-
             {showPersonalAnalytics && userRole !== "admin" && (
               <div className="mb-6">
                 <PersonalAnalytics userId={currentUserId} userRole={userRole} />
