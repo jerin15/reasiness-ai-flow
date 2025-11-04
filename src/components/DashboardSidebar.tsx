@@ -58,9 +58,6 @@ export function DashboardSidebar({
   const { open } = useSidebar();
   const isAdminOrHead = userRole === "admin" || userRole === "technical_head";
   const isAdminOrEstimation = userRole === "admin" || userRole === "estimation";
-  
-  console.log("DashboardSidebar - userRole:", userRole);
-  console.log("DashboardSidebar - isAdminOrEstimation:", isAdminOrEstimation);
 
   return (
     <Sidebar collapsible="icon">
