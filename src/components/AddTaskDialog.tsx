@@ -143,11 +143,12 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create New Task</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 overflow-hidden">
+          <div className="space-y-4 overflow-y-auto pr-2 max-h-[calc(90vh-12rem)]">
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
             <Input
@@ -351,7 +352,8 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
               </Select>
             </div>
           </div>
-          <div className="flex justify-end gap-2">
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>

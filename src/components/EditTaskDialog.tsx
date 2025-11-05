@@ -196,11 +196,12 @@ export const EditTaskDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Edit Task</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 overflow-hidden">
+          <div className="space-y-4 overflow-y-auto pr-2 max-h-[calc(90vh-12rem)]">
           <div className="space-y-2">
             <Label htmlFor="edit-title">Title *</Label>
             <Input
@@ -397,7 +398,8 @@ export const EditTaskDialog = ({
               </SelectContent>
             </Select>
           </div>
-          <DialogFooter className="flex justify-between items-center">
+          </div>
+          <DialogFooter className="flex justify-between items-center pt-4 border-t">
             <div>
               {isAdmin && (
                 <Button 
