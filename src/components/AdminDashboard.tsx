@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ListTodo, Plus } from "lucide-react";
 import { AddTaskDialog } from "./AddTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
+import { PersonalAdminTasks } from "./PersonalAdminTasks";
 import { format } from "date-fns";
 
 interface Task {
@@ -217,6 +218,9 @@ export const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Personal Admin Tasks */}
+      <PersonalAdminTasks />
 
       {/* Admin Approval Pipeline */}
       <Card>

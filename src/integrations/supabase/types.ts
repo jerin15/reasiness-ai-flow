@@ -449,6 +449,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          is_personal_admin_task: boolean | null
           linked_task_id: string | null
           mockup_completed_by_designer: boolean | null
           my_status: Database["public"]["Enums"]["my_task_status"] | null
@@ -476,6 +477,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_personal_admin_task?: boolean | null
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
@@ -503,6 +505,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_personal_admin_task?: boolean | null
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
