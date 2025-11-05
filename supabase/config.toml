@@ -2,3 +2,6 @@ project_id = "pntujnoifxlzouoztscv"
 
 [functions.ai-assistant]
 verify_jwt = true
+
+[functions.ai-task-parser]
+verify_jwt = false

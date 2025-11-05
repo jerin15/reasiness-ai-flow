@@ -35,6 +35,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_task_suggestions: {
+        Row: {
+          created_at: string | null
+          feedback: string | null
+          id: string
+          parsed_data: Json
+          raw_input: string
+          user_id: string
+          was_accepted: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          feedback?: string | null
+          id?: string
+          parsed_data: Json
+          raw_input: string
+          user_id: string
+          was_accepted?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          feedback?: string | null
+          id?: string
+          parsed_data?: Json
+          raw_input?: string
+          user_id?: string
+          was_accepted?: boolean | null
+        }
+        Relationships: []
+      }
       call_sessions: {
         Row: {
           answer: string | null
@@ -439,6 +469,8 @@ export type Database = {
       }
       tasks: {
         Row: {
+          ai_confidence_score: number | null
+          ai_generated: boolean | null
           assigned_by: string | null
           assigned_to: string | null
           client_name: string | null
@@ -453,6 +485,7 @@ export type Database = {
           linked_task_id: string | null
           mockup_completed_by_designer: boolean | null
           my_status: Database["public"]["Enums"]["my_task_status"] | null
+          original_input: string | null
           position: number
           previous_status: Database["public"]["Enums"]["task_status"] | null
           priority: Database["public"]["Enums"]["task_priority"]
@@ -467,6 +500,8 @@ export type Database = {
           visible_to: string | null
         }
         Insert: {
+          ai_confidence_score?: number | null
+          ai_generated?: boolean | null
           assigned_by?: string | null
           assigned_to?: string | null
           client_name?: string | null
@@ -481,6 +516,7 @@ export type Database = {
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
+          original_input?: string | null
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
@@ -495,6 +531,8 @@ export type Database = {
           visible_to?: string | null
         }
         Update: {
+          ai_confidence_score?: number | null
+          ai_generated?: boolean | null
           assigned_by?: string | null
           assigned_to?: string | null
           client_name?: string | null
@@ -509,6 +547,7 @@ export type Database = {
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
+          original_input?: string | null
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
