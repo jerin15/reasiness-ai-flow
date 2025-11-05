@@ -119,7 +119,7 @@ export const AdminDashboard = () => {
         .eq('status', 'admin_approval' as any)
         .is('deleted_at', null);
 
-      // Get estimation users to count their production tasks (not operations)
+      // Get estimation users
       const { data: estimationUsers } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -127,11 +127,13 @@ export const AdminDashboard = () => {
 
       const estimationUserIds = estimationUsers?.map(u => u.user_id) || [];
 
+      // Count production tasks that are created by OR assigned to estimation users
+      // This matches what estimation users see in their panel
       const { count: productionCount } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'production')
-        .in('created_by', estimationUserIds)
+        .or(`created_by.in.(${estimationUserIds.join(',')}),assigned_to.in.(${estimationUserIds.join(',')})`)
         .is('deleted_at', null);
 
       setStats({
