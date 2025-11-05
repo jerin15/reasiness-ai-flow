@@ -107,6 +107,17 @@ export function DashboardSidebar({
           <SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Create Task - First and prominent */}
+              <SidebarMenuItem>
+                <Button 
+                  onClick={onCreateTaskClick}
+                  className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Create Task</span>
+                </Button>
+              </SidebarMenuItem>
+
               {/* Team Chat */}
               <SidebarMenuItem>
                 <SidebarMenuButton onClick={onChatClick}>
@@ -117,14 +128,6 @@ export function DashboardSidebar({
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </Badge>
                   )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Create Task */}
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={onCreateTaskClick}>
-                  <Plus className="h-4 w-4" />
-                  <span>Create Task</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
