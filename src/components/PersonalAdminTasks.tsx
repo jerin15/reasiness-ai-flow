@@ -27,6 +27,7 @@ export const PersonalAdminTasks = () => {
   useEffect(() => {
     fetchPersonalTasks();
 
+    // Subscribe to all task changes - we'll filter client-side
     const channel = supabase
       .channel('personal-admin-tasks')
       .on(
@@ -34,8 +35,7 @@ export const PersonalAdminTasks = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'tasks',
-          filter: 'is_personal_admin_task=eq.true'
+          table: 'tasks'
         },
         () => {
           fetchPersonalTasks();
@@ -53,12 +53,13 @@ export const PersonalAdminTasks = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Fetch all tasks where admin created for themselves
+      // This includes both personal tasks and any tasks assigned to self
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
         .eq('created_by', user.id)
         .eq('assigned_to', user.id)
-        .eq('is_personal_admin_task', true)
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
