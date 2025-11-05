@@ -119,19 +119,19 @@ export const AdminDashboard = () => {
         .eq('status', 'admin_approval' as any)
         .is('deleted_at', null);
 
-      // Get operations users to count only their production tasks
-      const { data: operationsUsers } = await supabase
+      // Get estimation users to count their production tasks (not operations)
+      const { data: estimationUsers } = await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'operations');
+        .in('role', ['estimation', 'admin']);
 
-      const operationsUserIds = operationsUsers?.map(u => u.user_id) || [];
+      const estimationUserIds = estimationUsers?.map(u => u.user_id) || [];
 
       const { count: productionCount } = await supabase
         .from('tasks')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'production')
-        .in('created_by', operationsUserIds)
+        .in('created_by', estimationUserIds)
         .is('deleted_at', null);
 
       setStats({
@@ -204,7 +204,7 @@ export const AdminDashboard = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Production (Operations)</CardTitle>
+            <CardTitle className="text-sm font-medium">Production (Estimation)</CardTitle>
             <ListTodo className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
