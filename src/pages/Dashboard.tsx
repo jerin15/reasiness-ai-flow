@@ -23,9 +23,8 @@ import { AdminCommunicationPanel } from "@/components/AdminCommunicationPanel";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Menu, MessageSquare } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { AddTaskDialog } from "@/components/AddTaskDialog";
 
 const Dashboard = () => {
@@ -272,21 +271,6 @@ const Dashboard = () => {
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowChatList(true)}
-                    className="relative bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-                  >
-                    <MessageSquare className="h-5 w-5" />
-                    <span>Team Chat</span>
-                    {unreadCount > 0 && (
-                      <Badge
-                        variant="destructive"
-                        className="absolute -top-2 -right-2 h-6 min-w-6 flex items-center justify-center p-1 text-xs font-bold animate-pulse"
-                      >
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </Badge>
-                    )}
-                  </button>
                 </div>
               </div>
             </header>
@@ -387,26 +371,9 @@ const Dashboard = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {(userRole === "admin" || userRole === "technical_head") && (
-                    <AdminCommunicationPanel />
-                  )}
-                  <button
-                    onClick={() => setShowChat(true)}
-                    className="relative bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-                  >
-                    <MessageSquare className="h-5 w-5" />
-                    <span>Team Chat</span>
-                    {unreadCount > 0 && (
-                      <Badge
-                        variant="destructive"
-                        className="absolute -top-2 -right-2 h-6 min-w-6 flex items-center justify-center p-1 text-xs font-bold animate-pulse"
-                      >
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </Badge>
-                    )}
-                  </button>
-                </div>
+                {(userRole === "admin" || userRole === "technical_head") && (
+                  <AdminCommunicationPanel />
+                )}
               </div>
             </div>
           </header>
