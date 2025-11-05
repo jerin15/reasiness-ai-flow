@@ -30,6 +30,7 @@ const STATUS_OPTIONS = [
   { value: 'available', label: 'Available', color: 'bg-green-500' },
   { value: 'busy', label: 'Busy', color: 'bg-red-500' },
   { value: 'away', label: 'Away', color: 'bg-yellow-500' },
+  { value: 'offline', label: 'Offline', color: 'bg-gray-500' },
   { value: 'in_meeting', label: 'In Meeting', color: 'bg-purple-500' },
   { value: 'at_desk', label: 'At Desk', color: 'bg-blue-500' },
 ];
@@ -122,11 +123,18 @@ export const UserPresenceIndicator = () => {
       .select('id, full_name, avatar_url')
       .in('id', userIds);
 
-    // Merge data
-    const data = presenceData.map(presence => ({
-      ...presence,
-      profiles: profiles?.find(p => p.id === presence.user_id) || null
-    }));
+    // Merge data and detect offline users
+    const now = new Date().getTime();
+    const data = presenceData.map(presence => {
+      const lastActive = new Date(presence.last_active).getTime();
+      const isOffline = (now - lastActive) > 120000; // 2 minutes = offline
+      
+      return {
+        ...presence,
+        status: isOffline && presence.status !== 'offline' ? 'offline' : presence.status,
+        profiles: profiles?.find(p => p.id === presence.user_id) || null
+      };
+    });
 
     if (data && !error) {
       setPresences(data as any);
@@ -185,7 +193,7 @@ export const UserPresenceIndicator = () => {
   };
 
   const displayedPresences = showAll ? presences : presences.slice(0, 5);
-  const onlineCount = presences.length;
+  const onlineCount = presences.filter(p => p.status !== 'offline').length;
 
   return (
     <Card className="p-4 shadow-lg">

@@ -62,6 +62,8 @@ export const IncomingCallNotification = () => {
   useEffect(() => {
     if (!currentUserId) return;
 
+    console.log('[IncomingCall] Setting up realtime subscription for user:', currentUserId);
+
     const channel = supabase
       .channel("incoming-calls")
       .on(
@@ -73,6 +75,7 @@ export const IncomingCallNotification = () => {
           filter: `callee_id=eq.${currentUserId}`,
         },
         async (payload) => {
+          console.log('[IncomingCall] New call received:', payload);
           const session = payload.new as any;
           
           // Fetch caller details
@@ -81,6 +84,8 @@ export const IncomingCallNotification = () => {
             .select("full_name, email, avatar_url")
             .eq("id", session.caller_id)
             .single();
+
+          console.log('[IncomingCall] Caller profile:', callerProfile);
 
           setIncomingCall({
             id: session.id,
@@ -92,9 +97,11 @@ export const IncomingCallNotification = () => {
 
           // Play ringtone
           try {
+            ringtone.context.resume(); // Resume audio context
             ringtone.source.start(0);
+            console.log('[IncomingCall] Ringtone started');
           } catch (e) {
-            // Already started
+            console.log('[IncomingCall] Ringtone already playing or error:', e);
           }
 
           // Show prominent toast notification
@@ -127,6 +134,7 @@ export const IncomingCallNotification = () => {
           filter: `callee_id=eq.${currentUserId}`,
         },
         (payload) => {
+          console.log('[IncomingCall] Call updated:', payload);
           const session = payload.new as any;
           if (
             session.status === "ended" ||
@@ -136,7 +144,7 @@ export const IncomingCallNotification = () => {
             try {
               ringtone.source.stop();
             } catch (e) {
-              // Already stopped
+              console.log('[IncomingCall] Error stopping ringtone:', e);
             }
             if ((window as any).callVibrateInterval) {
               clearInterval((window as any).callVibrateInterval);
@@ -148,9 +156,12 @@ export const IncomingCallNotification = () => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[IncomingCall] Subscription status:', status);
+      });
 
     return () => {
+      console.log('[IncomingCall] Cleaning up subscription');
       try {
         ringtone.source.stop();
       } catch (e) {

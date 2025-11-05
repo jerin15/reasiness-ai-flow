@@ -229,6 +229,7 @@ export const WebRTCCall = ({
 
   const createCall = async () => {
     try {
+      console.log('[WebRTC] Creating call to:', partnerId);
       const offer = await peerConnection.current!.createOffer();
       await peerConnection.current!.setLocalDescription(offer);
 
@@ -239,11 +240,17 @@ export const WebRTCCall = ({
           callee_id: partnerId,
           call_type: callType,
           offer: JSON.stringify(offer),
+          status: 'ringing'
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('[WebRTC] Error inserting call session:', error);
+        throw error;
+      }
+      
+      console.log('[WebRTC] Call session created:', data);
       setCallSessionId(data.id);
       setCallStatus("ringing");
     } catch (error: any) {
