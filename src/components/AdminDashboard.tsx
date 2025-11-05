@@ -177,15 +177,9 @@ export const AdminDashboard = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage tasks and approvals</p>
-        </div>
-        <Button onClick={() => setShowAddTask(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Create Task for Team Member
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <p className="text-muted-foreground">Manage tasks and approvals</p>
       </div>
 
       {/* Stats Cards */}
