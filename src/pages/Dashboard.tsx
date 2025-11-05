@@ -26,6 +26,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Menu, MessageSquare } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { AddTaskDialog } from "@/components/AddTaskDialog";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -53,6 +54,7 @@ const Dashboard = () => {
   const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false);
   const [hideSidebarOnScroll, setHideSidebarOnScroll] = useState(false);
+  const [showAddTask, setShowAddTask] = useState(false);
   const unreadCount = useUnreadMessageCount(currentUserId);
 
   useEffect(() => {
@@ -243,6 +245,7 @@ const Dashboard = () => {
             onAdminTaskReportClick={() => {}}
             onChatClick={() => setShowChatList(true)}
             onPersonalAnalyticsClick={() => {}}
+            onCreateTaskClick={() => setShowAddTask(true)}
             onSignOut={handleSignOut}
             getSelectedUserName={getSelectedUserName}
             formatRole={formatRole}
@@ -316,18 +319,24 @@ const Dashboard = () => {
           open={showTeamReport}
           onOpenChange={setShowTeamReport}
         />
-        <EstimationTeamReportDialog
-          open={showEstimationReport}
-          onOpenChange={setShowEstimationReport}
-        />
-        <PendingTasksDialog
-          open={showPendingTasks}
-          onOpenChange={setShowPendingTasks}
-          onConfirmSignOut={handleSignOut}
-        />
-        
-        <IncomingCallNotification />
-        <ProminentMessageNotification />
+      <EstimationTeamReportDialog
+        open={showEstimationReport}
+        onOpenChange={setShowEstimationReport}
+      />
+      <PendingTasksDialog
+        open={showPendingTasks}
+        onOpenChange={setShowPendingTasks}
+        onConfirmSignOut={handleSignOut}
+      />
+      <AddTaskDialog 
+        open={showAddTask} 
+        onOpenChange={setShowAddTask}
+        onTaskAdded={() => {}}
+        defaultAssignedTo={currentUserId}
+      />
+      
+      <IncomingCallNotification />
+      <ProminentMessageNotification />
       </SidebarProvider>
     );
   }
@@ -350,6 +359,7 @@ const Dashboard = () => {
           onAdminTaskReportClick={() => setShowAdminTaskReport(true)}
           onChatClick={() => setShowChat(true)}
           onPersonalAnalyticsClick={() => setShowPersonalAnalytics(!showPersonalAnalytics)}
+          onCreateTaskClick={() => setShowAddTask(true)}
           onSignOut={handleSignOut}
           showPersonalAnalytics={showPersonalAnalytics}
           getSelectedUserName={getSelectedUserName}
@@ -466,9 +476,15 @@ const Dashboard = () => {
           teamMembers={teamMembers}
         />
       )}
+      <AddTaskDialog 
+        open={showAddTask} 
+        onOpenChange={setShowAddTask}
+        onTaskAdded={() => {}}
+        defaultAssignedTo={currentUserId}
+      />
       
-        <IncomingCallNotification />
-        <ProminentMessageNotification />
+      <IncomingCallNotification />
+      <ProminentMessageNotification />
       </div>
     </SidebarProvider>
   );

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { StatusChangeNotification } from "./StatusChangeNotification";
@@ -30,6 +30,7 @@ interface DashboardSidebarProps {
   onAdminTaskReportClick: () => void;
   onChatClick: () => void;
   onPersonalAnalyticsClick: () => void;
+  onCreateTaskClick: () => void;
   onSignOut: () => void;
   showPersonalAnalytics?: boolean;
   getSelectedUserName: () => string;
@@ -50,6 +51,7 @@ export function DashboardSidebar({
   onAdminTaskReportClick,
   onChatClick,
   onPersonalAnalyticsClick,
+  onCreateTaskClick,
   onSignOut,
   showPersonalAnalytics,
   getSelectedUserName,
@@ -100,9 +102,38 @@ export function DashboardSidebar({
           </SidebarGroup>
         )}
 
-        {/* Main Actions */}
+        {/* Quick Actions */}
         <SidebarGroup>
-          <SidebarGroupLabel>Actions</SidebarGroupLabel>
+          <SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {/* Team Chat */}
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={onChatClick}>
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Team Chat</span>
+                  {unreadCount > 0 && (
+                    <Badge variant="destructive" className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </Badge>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              {/* Create Task */}
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={onCreateTaskClick}>
+                  <Plus className="h-4 w-4" />
+                  <span>Create Task</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Reports & Analytics */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Reports & Analytics</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {/* Analytics */}
