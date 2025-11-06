@@ -110,11 +110,13 @@ export const AdminKanbanBoard = () => {
       }
 
       // Fetch tasks from designer's done pipeline for production
+      // Exclude tasks hidden from admin view
       const { data: designerDoneTasks, error: designerDoneError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'done')
         .is('deleted_at', null)
+        .or(`visible_to.is.null,visible_to.neq.${user.id}`)
         .order('created_at', { ascending: false });
 
       // Filter for tasks where creator or assignee is designer
@@ -415,6 +417,31 @@ export const AdminKanbanBoard = () => {
     setEditingTask(null);
   };
 
+  const handleDeleteFromProduction = async (taskId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Instead of deleting, hide from admin's FOR PRODUCTION view
+      // This doesn't affect designer's DONE pipeline
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          visible_to: user.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast.success("Task removed from FOR PRODUCTION (still in designer's pipeline)");
+      await fetchTasks();
+    } catch (error) {
+      console.error('Error hiding task:', error);
+      toast.error('Failed to remove task');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -450,10 +477,12 @@ export const AdminKanbanBoard = () => {
                   key={task.id}
                   task={task}
                   onEdit={handleEditTask}
+                  onDelete={handleDeleteFromProduction}
                   isAdminView={true}
                   onTaskUpdated={fetchTasks}
                   userRole="admin"
                   isAdminOwnPanel={true}
+                  showFullCrud={true}
                 />
               ))
             }

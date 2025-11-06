@@ -39,13 +39,15 @@ type TaskCardProps = {
   task: Task;
   isDragging?: boolean;
   onEdit?: (task: Task) => void;
+  onDelete?: (taskId: string) => void;
   isAdminView?: boolean;
   onTaskUpdated?: () => void;
   userRole?: string;
   isAdminOwnPanel?: boolean;
+  showFullCrud?: boolean;
 };
 
-export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel }: TaskCardProps) => {
+export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel, showFullCrud }: TaskCardProps) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
 
@@ -321,42 +323,39 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                     className="h-5 px-1.5 text-[10px] bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium shrink-0"
                     onClick={async (e) => {
                       e.stopPropagation();
+                      
+                      const loadingToast = toast.loading("Sending task to production...");
+                      
                       try {
                         console.log('🚀 Sending task to production:', task.id, task.title);
                         
-                        // Find estimation and operations users
-                        const { data: estimationUsers } = await supabase
-                          .from('user_roles')
-                          .select('user_id')
-                          .eq('role', 'estimation')
-                          .limit(1);
-                        
-                        const { data: operationsUsers } = await supabase
-                          .from('user_roles')
-                          .select('user_id')
-                          .eq('role', 'operations')
-                          .limit(1);
+                        // Batch fetch both users in parallel
+                        const [estimationResult, operationsResult] = await Promise.all([
+                          supabase.from('user_roles').select('user_id').eq('role', 'estimation').limit(1),
+                          supabase.from('user_roles').select('user_id').eq('role', 'operations').limit(1)
+                        ]);
+
+                        const estimationUsers = estimationResult.data;
+                        const operationsUsers = operationsResult.data;
 
                         if (!estimationUsers || estimationUsers.length === 0) {
-                          toast.error("No estimation user found");
+                          toast.error("No estimation user found", { id: loadingToast });
                           return;
                         }
 
                         console.log('👤 Estimation user:', estimationUsers[0].user_id);
                         console.log('👤 Operations user:', operationsUsers?.[0]?.user_id);
 
+                        const now = new Date().toISOString();
+                        
                         // Update main task for estimation's production pipeline
-                        const { error: updateError } = await supabase
-                          .from("tasks")
-                          .update({
-                            status: 'production',
-                            previous_status: 'done',
-                            came_from_designer_done: true,
-                            assigned_to: estimationUsers[0].user_id,
-                            status_changed_at: new Date().toISOString(),
-                            updated_at: new Date().toISOString(),
-                          })
-                          .eq("id", task.id);
+                        const { error: updateError } = await supabase.from("tasks").update({
+                          status: "production" as any,
+                          came_from_designer_done: true,
+                          assigned_to: estimationUsers[0].user_id,
+                          status_changed_at: now,
+                          updated_at: now,
+                        }).eq("id", task.id);
 
                         if (updateError) {
                           console.error('❌ Update error:', updateError);
@@ -365,39 +364,38 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
 
                         console.log('✅ Task updated successfully');
 
-                        // Create linked task for operations' production pipeline if operations user exists
+                        // Create operations task in parallel (non-blocking)
                         if (operationsUsers && operationsUsers.length > 0) {
-                          const { error: insertError } = await supabase
-                            .from('tasks')
-                            .insert([{
-                              title: task.title,
-                              description: task.description,
-                              status: 'production' as any,
-                              priority: task.priority as any,
-                              due_date: task.due_date,
-                              type: task.type as any,
-                              client_name: task.client_name,
-                              supplier_name: task.supplier_name,
-                              created_by: operationsUsers[0].user_id,
-                              assigned_to: null,
-                              linked_task_id: task.id,
-                              came_from_designer_done: true,
-                              previous_status: 'done' as any,
-                            }]);
-
-                          if (insertError) {
-                            console.error('❌ Insert error:', insertError);
-                            throw insertError;
-                          }
-                          
-                          console.log('✅ Operations task created');
+                          supabase.from("tasks").insert([{
+                            title: task.title,
+                            description: task.description,
+                            status: 'production' as any,
+                            priority: task.priority as any,
+                            due_date: task.due_date,
+                            type: task.type as any,
+                            client_name: task.client_name,
+                            supplier_name: task.supplier_name,
+                            created_by: operationsUsers[0].user_id,
+                            assigned_to: null,
+                            linked_task_id: task.id,
+                            position: task.position,
+                            status_changed_at: now,
+                            came_from_designer_done: true,
+                            previous_status: 'done' as any,
+                          }]).then(({ error: insertError }) => {
+                            if (insertError) {
+                              console.error('❌ Insert error:', insertError);
+                            } else {
+                              console.log('✅ Operations task created');
+                            }
+                          });
                         }
-
-                        toast.success("Task sent to Estimation & Operations production!");
+                        
+                        toast.success("Task sent to Estimation & Operations production!", { id: loadingToast });
                         onTaskUpdated?.();
                       } catch (error) {
-                        console.error('Error sending to production:', error);
-                        toast.error('Failed to send task to production');
+                        console.error("Error sending to production:", error);
+                        toast.error("Failed to send task to production", { id: loadingToast });
                       }
                     }}
                     disabled={isMoving}
@@ -445,6 +443,22 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                     }}
                   >
                     <Edit2 className="h-3 w-3" />
+                  </Button>
+                )}
+                {/* Remove button for FOR PRODUCTION pipeline */}
+                {showFullCrud && onDelete && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm('Remove this task from FOR PRODUCTION? (It will remain in designer\'s pipeline)')) {
+                        onDelete(task.id);
+                      }
+                    }}
+                  >
+                    ✕
                   </Button>
                 )}
               </div>
