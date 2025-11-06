@@ -312,6 +312,21 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
             <div className="flex items-start justify-between gap-2 mb-2">
               <h4 className="font-medium text-sm line-clamp-2 flex-1">{task.title}</h4>
               <div className="flex gap-1">
+                {/* Show Send to Designer button for estimation users */}
+                {userRole === 'estimation' && task.status !== 'mockup' && !task.sent_to_designer_mockup && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs hover:bg-accent bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await handleMoveTask('send_to_designer_mockup');
+                    }}
+                    disabled={isMoving}
+                  >
+                    🎨 Designer
+                  </Button>
+                )}
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
