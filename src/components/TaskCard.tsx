@@ -226,6 +226,31 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
         console.log('✅ Sending task to designer mockup');
       }
       
+      // Handle designer sending completed task to estimation's final invoice
+      if (newStatus === 'send_to_final_invoice') {
+        // Get estimation user
+        const { data: estimationUsers } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'estimation')
+          .limit(1);
+        
+        if (!estimationUsers || estimationUsers.length === 0) {
+          toast.error('No estimation user found');
+          setIsMoving(false);
+          return;
+        }
+
+        updateData = {
+          status: 'final_invoice',
+          assigned_to: estimationUsers[0].user_id,
+          came_from_designer_done: true,
+          previous_status: task.status,
+          status_changed_at: new Date().toISOString(),
+        };
+        console.log('✅ Sending designer done task to final invoice');
+      }
+      
       // Handle returning task from designer to estimation
       if (newStatus === 'return_to_estimation') {
         // Find the original estimation user from audit log
@@ -271,6 +296,8 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
         successMessage = "Task approved! Moved to Quotation Bill in estimation's panel";
       } else if (newStatus === 'send_to_designer_mockup') {
         successMessage = "Task sent to designer's mockup pipeline";
+      } else if (newStatus === 'send_to_final_invoice') {
+        successMessage = "Task sent to estimation's Final Invoice pipeline!";
       } else if (newStatus === 'return_to_estimation') {
         successMessage = "Task returned to estimation with mockup completed";
       } else if (newStatus === 'approved_designer' && task.status === 'with_client') {
@@ -312,19 +339,19 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
             <div className="flex items-start justify-between gap-2 mb-2">
               <h4 className="font-medium text-sm line-clamp-2 flex-1">{task.title}</h4>
               <div className="flex gap-1">
-                {/* Show Send to Designer button for estimation users */}
-                {userRole === 'estimation' && task.status !== 'mockup' && !task.sent_to_designer_mockup && (
+                {/* Show Send to Estimation button for designer users in done pipeline */}
+                {userRole === 'designer' && task.status === 'done' && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 px-2 text-xs hover:bg-accent bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+                    className="h-6 px-2 text-xs hover:bg-accent bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
                     onClick={async (e) => {
                       e.stopPropagation();
-                      await handleMoveTask('send_to_designer_mockup');
+                      await handleMoveTask('send_to_final_invoice');
                     }}
                     disabled={isMoving}
                   >
-                    🎨 Designer
+                    📋 Final Invoice
                   </Button>
                 )}
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>

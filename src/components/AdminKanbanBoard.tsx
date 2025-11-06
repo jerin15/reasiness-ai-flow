@@ -42,7 +42,6 @@ const ADMIN_COLUMNS: Column[] = [
   { id: "quotation_approve", title: "Approve (Estimation)", status: "approved" },
   { id: "with_client", title: "With Client (Designer)", status: "with_client" },
   { id: "approved_designer", title: "Approved (Designer)", status: "approved_designer" },
-  { id: "designer_done", title: "Designer Done → Final Invoice", status: "designer_done" },
 ];
 
 export const AdminKanbanBoard = () => {
@@ -368,45 +367,6 @@ export const AdminKanbanBoard = () => {
           toast.success("Task approved (offline - will sync when online)");
         } else {
           toast.success("Task approved! Moved to Production File in designer's panel");
-        }
-      }
-      // Handle designer done to final invoice flow
-      else if (task.status === 'designer_done' && newStatus === 'designer_done') {
-        console.log('✅ Admin sending designer done task to final invoice');
-        
-        // Find estimation user to assign to
-        const { data: estimationUsers } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('role', 'estimation')
-          .limit(1);
-        
-        if (!estimationUsers || estimationUsers.length === 0) {
-          toast.error('No estimation user found');
-          return;
-        }
-        
-        const updates = {
-          status: 'final_invoice' as any,
-          previous_status: 'done' as any,
-          assigned_to: estimationUsers[0].user_id,
-          came_from_designer_done: true,
-          updated_at: new Date().toISOString(),
-          status_changed_at: new Date().toISOString()
-        };
-        
-        const { error } = await updateTaskOffline(taskId, updates);
-
-        if (error) throw error;
-        
-        await fetchTasks();
-        
-        console.log('✅ Designer done task sent to Final Invoice');
-        
-        if (!navigator.onLine) {
-          toast.success("Task sent (offline - will sync when online)");
-        } else {
-          toast.success("Task sent to estimation's Final Invoice pipeline!");
         }
       } else {
         // Regular status update
