@@ -317,16 +317,19 @@ const Analytics = () => {
           userStats.in_progress_tasks++;
         }
 
-        // Calculate time in each stage for this user
-        const taskHistory = allHistory?.filter(h => h.task_id === task.id) || [];
-        const { timeInEachStage } = calculateTaskTimings(task, taskHistory);
-        Object.entries(timeInEachStage).forEach(([stage, time]) => {
-          if (!userStats.stageTimes[stage]) {
-            userStats.stageTimes[stage] = { total: 0, count: 0 };
-          }
-          userStats.stageTimes[stage].total += time;
-          userStats.stageTimes[stage].count++;
-        });
+        // Calculate time in each stage for this user (only for specific task types)
+        const trackableTypes = ['quotation', 'invoice', 'design', 'production'];
+        if (task.type && trackableTypes.includes(task.type.toLowerCase())) {
+          const taskHistory = allHistory?.filter(h => h.task_id === task.id) || [];
+          const { timeInEachStage } = calculateTaskTimings(task, taskHistory);
+          Object.entries(timeInEachStage).forEach(([stage, time]) => {
+            if (!userStats.stageTimes[stage]) {
+              userStats.stageTimes[stage] = { total: 0, count: 0 };
+            }
+            userStats.stageTimes[stage].total += time;
+            userStats.stageTimes[stage].count++;
+          });
+        }
       });
 
       const teamMemberEfficiency: TeamMemberEfficiency[] = Array.from(userEfficiencyMap.values()).map(stats => {
@@ -713,32 +716,12 @@ const Analytics = () => {
               {stats.teamMemberEfficiency
                 .sort((a, b) => b.on_time_completion_rate - a.on_time_completion_rate)
                 .map((member) => {
-                  const completionRate = member.total_tasks > 0 
-                    ? (member.completed_tasks / member.total_tasks) * 100 
-                    : 0;
-                  
-                  const performanceLevel = 
-                    member.on_time_completion_rate >= 80 && member.overdue_tasks === 0 ? "excellent" :
-                    member.on_time_completion_rate >= 60 && member.overdue_tasks <= 2 ? "good" :
-                    member.on_time_completion_rate >= 40 ? "warning" : "concerning";
-
                   return (
                     <div key={member.user_id} className="border rounded-lg p-4 space-y-4">
-                      {/* Header with name and status */}
+                      {/* Header with name */}
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                        <div>
                           <h3 className="font-semibold text-lg">{member.user_name}</h3>
-                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            performanceLevel === "excellent" ? "bg-success/20 text-success" :
-                            performanceLevel === "good" ? "bg-primary/20 text-primary" :
-                            performanceLevel === "warning" ? "bg-orange-500/20 text-orange-600" :
-                            "bg-destructive/20 text-destructive"
-                          }`}>
-                            {performanceLevel === "excellent" ? "⭐ Excellent" :
-                             performanceLevel === "good" ? "✓ Good" :
-                             performanceLevel === "warning" ? "⚠ Needs Attention" :
-                             "🔴 Concerning"}
-                          </div>
                         </div>
                         <div className="text-right">
                           <div className="text-2xl font-bold">{member.total_tasks}</div>
