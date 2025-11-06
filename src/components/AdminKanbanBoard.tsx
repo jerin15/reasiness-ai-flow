@@ -370,32 +370,7 @@ export const AdminKanbanBoard = () => {
           toast.success("Task approved! Moved to Production File in designer's panel");
         }
       }
-      // Handle FOR PRODUCTION flow: Send to both estimation and operations production pipeline
-      else if (task.status === 'designer_done_production' && newStatus === 'approved') {
-        console.log('✅ Admin sending designer done task to production pipelines');
-        
-        // Update original task back to production status
-        const updates = {
-          status: 'production' as any,
-          previous_status: 'done' as any,
-          updated_at: new Date().toISOString(),
-          status_changed_at: new Date().toISOString()
-        };
-        
-        const { error } = await updateTaskOffline(taskId, updates);
-
-        if (error) throw error;
-        
-        await fetchTasks();
-        
-        console.log('✅ Task sent to production pipelines');
-        
-        if (!navigator.onLine) {
-          toast.success("Task sent to production (offline - will sync when online)");
-        } else {
-          toast.success("Task sent to estimation & operations production pipeline!");
-        }
-      } else {
+      else {
         // Regular status update
         const updates = {
           status: newStatus as any,

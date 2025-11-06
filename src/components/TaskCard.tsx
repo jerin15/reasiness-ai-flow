@@ -296,7 +296,8 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
         "cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md",
         (isDragging || isSortableDragging) && "opacity-50 shadow-lg",
         task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20",
-        task.came_from_designer_done && "border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 shadow-lg shadow-purple-500/50"
+        task.came_from_designer_done && task.status === 'production' && "border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 shadow-lg shadow-purple-500/50",
+        task.status === 'designer_done_production' && "border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-lg shadow-blue-500/50"
       )}
     >
       <CardContent className="p-3">
@@ -312,6 +313,39 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
             <div className="flex items-start justify-between gap-2 mb-2">
               <h4 className="font-medium text-sm line-clamp-2 flex-1">{task.title}</h4>
               <div className="flex gap-1">
+                {/* Show Send to Production button for admin in FOR PRODUCTION pipeline */}
+                {userRole === 'admin' && task.status === 'designer_done_production' && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-6 px-2 text-xs bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        const { error } = await supabase
+                          .from("tasks")
+                          .update({
+                            status: 'production',
+                            previous_status: 'done',
+                            came_from_designer_done: true,
+                            status_changed_at: new Date().toISOString(),
+                          })
+                          .eq("id", task.id);
+
+                        if (error) throw error;
+
+                        toast.success("Task sent to Production pipeline!");
+                        onTaskUpdated?.();
+                      } catch (error) {
+                        console.error('Error sending to production:', error);
+                        toast.error('Failed to send task to production');
+                      }
+                    }}
+                    disabled={isMoving}
+                  >
+                    🚀 Send to Production
+                  </Button>
+                )}
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -382,12 +416,20 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                   ✓ Mockup Ready
                 </Badge>
               )}
-              {task.came_from_designer_done && (
+              {task.came_from_designer_done && task.status === 'production' && (
                 <Badge
                   variant="secondary"
                   className="text-xs bg-gradient-to-r from-purple-500 to-violet-500 text-white hover:from-purple-600 hover:to-violet-600 animate-pulse"
                 >
-                  🎨 From Designer
+                  🎨 From Designer Done
+                </Badge>
+              )}
+              {task.status === 'designer_done_production' && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 animate-pulse"
+                >
+                  🎨 Ready for Production
                 </Badge>
               )}
               {task.assigned_by && (
