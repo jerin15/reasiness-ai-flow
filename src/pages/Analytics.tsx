@@ -14,9 +14,43 @@ type TaskStats = {
   completed: number;
   inProgress: number;
   urgent: number;
-  byStatus: Record<string, number>;
-  byPriority: Record<string, number>;
-  avgTimeByStatus: Record<string, number>; // Average time in minutes
+  byStatus: Record<string, { count: number; tasks: TaskWithDetails[] }>;
+  byPriority: Record<string, { count: number; tasks: TaskWithDetails[] }>;
+  avgTimeByStatus: Record<string, number>;
+  avgCompletionTime: number;
+  teamMemberEfficiency: TeamMemberEfficiency[];
+  pipelineTransitions: PipelineTransition[];
+};
+
+type TaskWithDetails = {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  created_at: string;
+  completed_at: string | null;
+  assigned_to: string | null;
+  created_by: string;
+  assignee_name?: string;
+  creator_name?: string;
+  is_personal_admin_task: boolean;
+};
+
+type TeamMemberEfficiency = {
+  user_id: string;
+  user_name: string;
+  total_tasks: number;
+  completed_tasks: number;
+  avg_completion_time_hours: number;
+  pending_tasks: number;
+  in_progress_tasks: number;
+};
+
+type PipelineTransition = {
+  from_status: string;
+  to_status: string;
+  avg_time_hours: number;
+  count: number;
 };
 
 type TaskWithTiming = {
@@ -27,8 +61,8 @@ type TaskWithTiming = {
   created_at: string;
   completed_at: string | null;
   profiles?: { full_name: string; email: string };
-  timeInEachStage: Record<string, number>; // Time in minutes
-  totalTime: number; // Total time in minutes
+  timeInEachStage: Record<string, number>;
+  totalTime: number;
 };
 
 const Analytics = () => {
@@ -42,6 +76,9 @@ const Analytics = () => {
     byStatus: {},
     byPriority: {},
     avgTimeByStatus: {},
+    avgCompletionTime: 0,
+    teamMemberEfficiency: [],
+    pipelineTransitions: [],
   });
   const [selectedUser, setSelectedUser] = useState<string>("all");
   const [users, setUsers] = useState<any[]>([]);
@@ -145,10 +182,31 @@ const Analytics = () => {
 
   const fetchStats = async () => {
     try {
-      let query = supabase.from("tasks").select("*").is("deleted_at", null);
+      let query = supabase
+        .from("tasks")
+        .select(`
+          *,
+          assignee:profiles!tasks_assigned_to_fkey(full_name, email),
+          creator:profiles!tasks_created_by_fkey(full_name, email)
+        `)
+        .is("deleted_at", null);
 
+      // If a specific user is selected
       if (selectedUser !== "all") {
-        query = query.or(`created_by.eq.${selectedUser},assigned_to.eq.${selectedUser}`);
+        // Check if selected user is an admin
+        const { data: userRoles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", selectedUser)
+          .single();
+
+        if (userRoles?.role === "admin") {
+          // For admins, show only personal tasks
+          query = query.eq("is_personal_admin_task", true).eq("created_by", selectedUser);
+        } else {
+          // For non-admins, show tasks they created or are assigned to
+          query = query.or(`created_by.eq.${selectedUser},assigned_to.eq.${selectedUser}`);
+        }
       }
 
       const { data: tasks, error } = await query;
@@ -180,20 +238,146 @@ const Analytics = () => {
         avgTimeByStatus[status] = times.reduce((sum, t) => sum + t, 0) / times.length;
       });
 
+      // Calculate average completion time for completed tasks
+      const completedTasks = tasks?.filter(t => t.status === "done" && t.completed_at) || [];
+      const avgCompletionTime = completedTasks.length > 0
+        ? completedTasks.reduce((sum, task) => {
+            const created = new Date(task.created_at).getTime();
+            const completed = new Date(task.completed_at!).getTime();
+            return sum + (completed - created) / (1000 * 60); // minutes
+          }, 0) / completedTasks.length
+        : 0;
+
+      // Calculate team member efficiency
+      const userEfficiencyMap = new Map<string, any>();
+      tasks?.forEach((task) => {
+        const userId = task.assigned_to || task.created_by;
+        const userName = task.assignee?.full_name || task.assignee?.email || task.creator?.full_name || task.creator?.email || "Unknown";
+        
+        if (!userEfficiencyMap.has(userId)) {
+          userEfficiencyMap.set(userId, {
+            user_id: userId,
+            user_name: userName,
+            total_tasks: 0,
+            completed_tasks: 0,
+            total_completion_time: 0,
+            pending_tasks: 0,
+            in_progress_tasks: 0,
+          });
+        }
+
+        const userStats = userEfficiencyMap.get(userId);
+        userStats.total_tasks++;
+
+        if (task.status === "done") {
+          userStats.completed_tasks++;
+          if (task.completed_at) {
+            const created = new Date(task.created_at).getTime();
+            const completed = new Date(task.completed_at).getTime();
+            userStats.total_completion_time += (completed - created) / (1000 * 60 * 60); // hours
+          }
+        } else if (task.status === "todo" || task.status === "admin_approval") {
+          userStats.pending_tasks++;
+        } else {
+          userStats.in_progress_tasks++;
+        }
+      });
+
+      const teamMemberEfficiency: TeamMemberEfficiency[] = Array.from(userEfficiencyMap.values()).map(stats => ({
+        user_id: stats.user_id,
+        user_name: stats.user_name,
+        total_tasks: stats.total_tasks,
+        completed_tasks: stats.completed_tasks,
+        avg_completion_time_hours: stats.completed_tasks > 0 ? stats.total_completion_time / stats.completed_tasks : 0,
+        pending_tasks: stats.pending_tasks,
+        in_progress_tasks: stats.in_progress_tasks,
+      }));
+
+      // Calculate pipeline transitions
+      const transitionMap = new Map<string, { total_time: number; count: number }>();
+      
+      allHistory?.forEach((entry) => {
+        if (entry.old_status && entry.new_status) {
+          const key = `${entry.old_status}->${entry.new_status}`;
+          const task = tasks?.find(t => t.id === entry.task_id);
+          
+          if (task) {
+            const taskHistory = allHistory.filter(h => h.task_id === task.id);
+            const sortedHistory = [...taskHistory].sort((a, b) => 
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+
+            // Find the time between this status change
+            const currentIndex = sortedHistory.findIndex(h => h.id === entry.id);
+            if (currentIndex > 0) {
+              const prevEntry = sortedHistory[currentIndex - 1];
+              const timeDiff = (new Date(entry.created_at).getTime() - new Date(prevEntry.created_at).getTime()) / (1000 * 60 * 60); // hours
+              
+              if (!transitionMap.has(key)) {
+                transitionMap.set(key, { total_time: 0, count: 0 });
+              }
+              const transition = transitionMap.get(key)!;
+              transition.total_time += timeDiff;
+              transition.count++;
+            }
+          }
+        }
+      });
+
+      const pipelineTransitions: PipelineTransition[] = Array.from(transitionMap.entries()).map(([key, data]) => {
+        const [from_status, to_status] = key.split("->>");
+        return {
+          from_status,
+          to_status,
+          avg_time_hours: data.count > 0 ? data.total_time / data.count : 0,
+          count: data.count,
+        };
+      });
+
+      // Build byStatus and byPriority with task details
+      const byStatus: Record<string, { count: number; tasks: TaskWithDetails[] }> = {};
+      const byPriority: Record<string, { count: number; tasks: TaskWithDetails[] }> = {};
+
+      tasks?.forEach((task) => {
+        const taskDetail: TaskWithDetails = {
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          priority: task.priority,
+          created_at: task.created_at,
+          completed_at: task.completed_at,
+          assigned_to: task.assigned_to,
+          created_by: task.created_by,
+          assignee_name: task.assignee?.full_name || task.assignee?.email,
+          creator_name: task.creator?.full_name || task.creator?.email,
+          is_personal_admin_task: task.is_personal_admin_task || false,
+        };
+
+        if (!byStatus[task.status]) {
+          byStatus[task.status] = { count: 0, tasks: [] };
+        }
+        byStatus[task.status].count++;
+        byStatus[task.status].tasks.push(taskDetail);
+
+        if (!byPriority[task.priority]) {
+          byPriority[task.priority] = { count: 0, tasks: [] };
+        }
+        byPriority[task.priority].count++;
+        byPriority[task.priority].tasks.push(taskDetail);
+      });
+
       const taskStats: TaskStats = {
         total: tasks?.length || 0,
         completed: tasks?.filter((t) => t.status === "done").length || 0,
         inProgress: tasks?.filter((t) => t.status !== "done").length || 0,
         urgent: tasks?.filter((t) => t.priority === "urgent").length || 0,
-        byStatus: {},
-        byPriority: {},
+        byStatus,
+        byPriority,
         avgTimeByStatus,
+        avgCompletionTime,
+        teamMemberEfficiency,
+        pipelineTransitions,
       };
-
-      tasks?.forEach((task) => {
-        taskStats.byStatus[task.status] = (taskStats.byStatus[task.status] || 0) + 1;
-        taskStats.byPriority[task.priority] = (taskStats.byPriority[task.priority] || 0) + 1;
-      });
 
       setStats(taskStats);
     } catch (error) {
@@ -466,7 +650,7 @@ const Analytics = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {Object.entries(stats.byStatus).map(([status, count]) => (
+                {Object.entries(stats.byStatus).map(([status, data]) => (
                   <div key={status} className="flex items-center justify-between">
                     <span className="text-sm capitalize">{status.replace(/_/g, " ")}</span>
                     <div className="flex items-center gap-2">
@@ -474,11 +658,11 @@ const Analytics = () => {
                         <div
                           className="bg-primary h-full"
                           style={{
-                            width: `${stats.total > 0 ? (count / stats.total) * 100 : 0}%`,
+                            width: `${stats.total > 0 ? (data.count / stats.total) * 100 : 0}%`,
                           }}
                         />
                       </div>
-                      <span className="text-sm font-medium w-8 text-right">{count}</span>
+                      <span className="text-sm font-medium w-8 text-right">{data.count}</span>
                     </div>
                   </div>
                 ))}
@@ -501,7 +685,7 @@ const Analytics = () => {
                     const orderB = priorityOrder[priorityB.toLowerCase()] || 0;
                     return orderB - orderA;
                   })
-                  .map(([priority, count]) => (
+                  .map(([priority, data]) => (
                   <div key={priority} className="flex items-center justify-between">
                     <span className="text-sm capitalize">{priority}</span>
                     <div className="flex items-center gap-2">
@@ -509,11 +693,11 @@ const Analytics = () => {
                         <div
                           className="bg-accent h-full"
                           style={{
-                            width: `${stats.total > 0 ? (count / stats.total) * 100 : 0}%`,
+                            width: `${stats.total > 0 ? (data.count / stats.total) * 100 : 0}%`,
                           }}
                         />
                       </div>
-                      <span className="text-sm font-medium w-8 text-right">{count}</span>
+                      <span className="text-sm font-medium w-8 text-right">{data.count}</span>
                     </div>
                   </div>
                 ))}
