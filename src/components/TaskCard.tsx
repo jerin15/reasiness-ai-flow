@@ -343,7 +343,7 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                     }}
                     disabled={isMoving}
                   >
-                    🚀 Send to Production
+                    Send to Production
                   </Button>
                 )}
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
