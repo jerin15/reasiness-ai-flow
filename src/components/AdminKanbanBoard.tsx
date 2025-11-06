@@ -42,7 +42,6 @@ const ADMIN_COLUMNS: Column[] = [
   { id: "quotation_approve", title: "Approve (Estimation)", status: "approved" },
   { id: "with_client", title: "With Client (Designer)", status: "with_client" },
   { id: "approved_designer", title: "Approved (Designer)", status: "approved_designer" },
-  { id: "for_production", title: "FOR PRODUCTION", status: "designer_done_production" },
 ];
 
 export const AdminKanbanBoard = () => {
@@ -425,16 +424,56 @@ export const AdminKanbanBoard = () => {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col gap-6">
       <StatusChangeNotification />
       
-      <div className="flex justify-center w-full">
-        <DndContext
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex gap-4 overflow-x-auto pb-4 px-2 max-w-[1600px] w-full">
+      {/* FOR PRODUCTION Section - Separate from regular Kanban */}
+      {tasks.filter(t => t.status === 'designer_done_production').length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-lg border-2 border-blue-300 dark:border-blue-700 p-4 shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
+                <span className="text-white text-lg">🎨</span>
+              </div>
+              <h2 className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                FOR PRODUCTION
+              </h2>
+              <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                {tasks.filter(t => t.status === 'designer_done_production').length}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">Tasks completed by designer ready for production</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto">
+            {tasks
+              .filter(t => t.status === 'designer_done_production')
+              .map(task => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onEdit={handleEditTask}
+                  isAdminView={true}
+                  onTaskUpdated={fetchTasks}
+                  userRole="admin"
+                  isAdminOwnPanel={true}
+                />
+              ))
+            }
+          </div>
+        </div>
+      )}
+      
+      {/* Regular Admin Approval Kanban Board */}
+      <div className="flex-1">
+        <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-2">Admin Approval Pipeline</h3>
+        <div className="flex justify-center w-full">
+          <DndContext
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-4 overflow-x-auto pb-4 px-2 max-w-[1600px] w-full">
             <SortableContext
               items={ADMIN_COLUMNS.map((col) => col.id)}
               strategy={horizontalListSortingStrategy}
@@ -473,6 +512,7 @@ export const AdminKanbanBoard = () => {
             ) : null}
           </DragOverlay>
         </DndContext>
+      </div>
       </div>
 
       <EditTaskDialog

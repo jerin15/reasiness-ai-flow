@@ -318,7 +318,7 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                   <Button
                     variant="default"
                     size="sm"
-                    className="h-6 px-2 text-xs bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium"
+                    className="h-5 px-1.5 text-[10px] bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium shrink-0"
                     onClick={async (e) => {
                       e.stopPropagation();
                       try {
@@ -343,7 +343,7 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                     }}
                     disabled={isMoving}
                   >
-                    Send to Production
+                    Send
                   </Button>
                 )}
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
