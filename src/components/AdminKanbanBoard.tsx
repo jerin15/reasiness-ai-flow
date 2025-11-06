@@ -28,6 +28,7 @@ type Task = {
   my_status: string;
   supplier_name: string | null;
   type: string;
+  came_from_designer_done?: boolean;
 };
 
 type Column = {
@@ -41,6 +42,7 @@ const ADMIN_COLUMNS: Column[] = [
   { id: "quotation_approve", title: "Approve (Estimation)", status: "approved" },
   { id: "with_client", title: "With Client (Designer)", status: "with_client" },
   { id: "approved_designer", title: "Approved (Designer)", status: "approved_designer" },
+  { id: "designer_done", title: "Designer Done → Final Invoice", status: "designer_done" },
 ];
 
 export const AdminKanbanBoard = () => {
@@ -108,6 +110,24 @@ export const AdminKanbanBoard = () => {
         throw withClientError;
       }
 
+      // Fetch tasks from designer's done pipeline that need to go to final invoice
+      const { data: designerDoneTasks, error: designerDoneError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'done')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false });
+
+      // Filter for tasks created by designer (check if creator is designer role)
+      const designerDoneFiltered = designerDoneTasks?.filter(task => {
+        return rolesMap[task.created_by] === 'designer' || rolesMap[task.assigned_to || ''] === 'designer';
+      }) || [];
+
+      console.log('🎨 Designer Done tasks:', designerDoneFiltered.length, designerDoneFiltered);
+      if (designerDoneError) {
+        console.error('❌ Error fetching designer done tasks:', designerDoneError);
+      }
+
       // Also fetch quotation_bill tasks to check for misassignments
       const { data: quotationBillTasks } = await supabase
         .from('tasks')
@@ -115,7 +135,14 @@ export const AdminKanbanBoard = () => {
         .eq('status', 'quotation_bill')
         .is('deleted_at', null);
 
-      const allTasks = [...(approvalTasks || []), ...(withClientTasks || []), ...(quotationBillTasks || [])];
+      // Map designer done tasks to special status for admin view
+      const designerDoneWithStatus = designerDoneFiltered.map(task => ({
+        ...task,
+        status: 'designer_done', // Temporary status for admin board display
+        original_status: 'done',
+      }));
+
+      const allTasks = [...(approvalTasks || []), ...(withClientTasks || []), ...(quotationBillTasks || []), ...designerDoneWithStatus];
       console.log('📦 Total tasks in admin panel:', allTasks.length);
       
       // Auto-fix: Check for quotation_bill tasks assigned to admins instead of estimation users
@@ -341,6 +368,45 @@ export const AdminKanbanBoard = () => {
           toast.success("Task approved (offline - will sync when online)");
         } else {
           toast.success("Task approved! Moved to Production File in designer's panel");
+        }
+      }
+      // Handle designer done to final invoice flow
+      else if (task.status === 'designer_done' && newStatus === 'designer_done') {
+        console.log('✅ Admin sending designer done task to final invoice');
+        
+        // Find estimation user to assign to
+        const { data: estimationUsers } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'estimation')
+          .limit(1);
+        
+        if (!estimationUsers || estimationUsers.length === 0) {
+          toast.error('No estimation user found');
+          return;
+        }
+        
+        const updates = {
+          status: 'final_invoice' as any,
+          previous_status: 'done' as any,
+          assigned_to: estimationUsers[0].user_id,
+          came_from_designer_done: true,
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString()
+        };
+        
+        const { error } = await updateTaskOffline(taskId, updates);
+
+        if (error) throw error;
+        
+        await fetchTasks();
+        
+        console.log('✅ Designer done task sent to Final Invoice');
+        
+        if (!navigator.onLine) {
+          toast.success("Task sent (offline - will sync when online)");
+        } else {
+          toast.success("Task sent to estimation's Final Invoice pipeline!");
         }
       } else {
         // Regular status update

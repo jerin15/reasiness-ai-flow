@@ -32,6 +32,7 @@ type Task = {
   assigned_user_role?: string | null;
   sent_to_designer_mockup?: boolean;
   mockup_completed_by_designer?: boolean;
+  came_from_designer_done?: boolean;
 };
 
 type TaskCardProps = {
@@ -294,7 +295,8 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
       className={cn(
         "cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md",
         (isDragging || isSortableDragging) && "opacity-50 shadow-lg",
-        task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20"
+        task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20",
+        task.came_from_designer_done && "border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 shadow-lg shadow-purple-500/50"
       )}
     >
       <CardContent className="p-3">
@@ -378,6 +380,14 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                   className="text-xs bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 animate-pulse"
                 >
                   ✓ Mockup Ready
+                </Badge>
+              )}
+              {task.came_from_designer_done && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs bg-gradient-to-r from-purple-500 to-violet-500 text-white hover:from-purple-600 hover:to-violet-600 animate-pulse"
+                >
+                  🎨 From Designer
                 </Badge>
               )}
               {task.assigned_by && (

@@ -21,6 +21,7 @@ type Task = {
   supplier_name: string | null;
   my_status: string;
   type: string;
+  came_from_designer_done?: boolean;
 };
 
 type EditTaskDialogProps = {

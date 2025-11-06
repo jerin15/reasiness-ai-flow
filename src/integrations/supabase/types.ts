@@ -473,6 +473,7 @@ export type Database = {
           ai_generated: boolean | null
           assigned_by: string | null
           assigned_to: string | null
+          came_from_designer_done: boolean | null
           client_name: string | null
           completed_at: string | null
           created_at: string | null
@@ -504,6 +505,7 @@ export type Database = {
           ai_generated?: boolean | null
           assigned_by?: string | null
           assigned_to?: string | null
+          came_from_designer_done?: boolean | null
           client_name?: string | null
           completed_at?: string | null
           created_at?: string | null
@@ -535,6 +537,7 @@ export type Database = {
           ai_generated?: boolean | null
           assigned_by?: string | null
           assigned_to?: string | null
+          came_from_designer_done?: boolean | null
           client_name?: string | null
           completed_at?: string | null
           created_at?: string | null
