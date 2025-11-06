@@ -44,6 +44,11 @@ type TeamMemberEfficiency = {
   avg_completion_time_hours: number;
   pending_tasks: number;
   in_progress_tasks: number;
+  overdue_tasks: number;
+  on_time_completion_rate: number;
+  byStatus: Record<string, number>;
+  byPriority: Record<string, number>;
+  avgTimeByStage: Record<string, number>;
 };
 
 type PipelineTransition = {
@@ -248,7 +253,7 @@ const Analytics = () => {
           }, 0) / completedTasks.length
         : 0;
 
-      // Calculate team member efficiency
+      // Calculate team member efficiency with detailed breakdown
       const userEfficiencyMap = new Map<string, any>();
       tasks?.forEach((task) => {
         const userId = task.assigned_to || task.created_by;
@@ -263,11 +268,31 @@ const Analytics = () => {
             total_completion_time: 0,
             pending_tasks: 0,
             in_progress_tasks: 0,
+            overdue_tasks: 0,
+            on_time_completions: 0,
+            byStatus: {},
+            byPriority: {},
+            stageTimes: {},
           });
         }
 
         const userStats = userEfficiencyMap.get(userId);
         userStats.total_tasks++;
+
+        // Count by status
+        userStats.byStatus[task.status] = (userStats.byStatus[task.status] || 0) + 1;
+        
+        // Count by priority
+        userStats.byPriority[task.priority] = (userStats.byPriority[task.priority] || 0) + 1;
+
+        // Check if overdue
+        if (task.due_date && task.status !== "done") {
+          const now = new Date().getTime();
+          const dueDate = new Date(task.due_date).getTime();
+          if (now > dueDate) {
+            userStats.overdue_tasks++;
+          }
+        }
 
         if (task.status === "done") {
           userStats.completed_tasks++;
@@ -275,23 +300,56 @@ const Analytics = () => {
             const created = new Date(task.created_at).getTime();
             const completed = new Date(task.completed_at).getTime();
             userStats.total_completion_time += (completed - created) / (1000 * 60 * 60); // hours
+            
+            // Check if completed on time
+            if (task.due_date) {
+              const dueDate = new Date(task.due_date).getTime();
+              if (completed <= dueDate) {
+                userStats.on_time_completions++;
+              }
+            } else {
+              userStats.on_time_completions++; // No due date = on time
+            }
           }
         } else if (task.status === "todo" || task.status === "admin_approval") {
           userStats.pending_tasks++;
         } else {
           userStats.in_progress_tasks++;
         }
+
+        // Calculate time in each stage for this user
+        const taskHistory = allHistory?.filter(h => h.task_id === task.id) || [];
+        const { timeInEachStage } = calculateTaskTimings(task, taskHistory);
+        Object.entries(timeInEachStage).forEach(([stage, time]) => {
+          if (!userStats.stageTimes[stage]) {
+            userStats.stageTimes[stage] = { total: 0, count: 0 };
+          }
+          userStats.stageTimes[stage].total += time;
+          userStats.stageTimes[stage].count++;
+        });
       });
 
-      const teamMemberEfficiency: TeamMemberEfficiency[] = Array.from(userEfficiencyMap.values()).map(stats => ({
-        user_id: stats.user_id,
-        user_name: stats.user_name,
-        total_tasks: stats.total_tasks,
-        completed_tasks: stats.completed_tasks,
-        avg_completion_time_hours: stats.completed_tasks > 0 ? stats.total_completion_time / stats.completed_tasks : 0,
-        pending_tasks: stats.pending_tasks,
-        in_progress_tasks: stats.in_progress_tasks,
-      }));
+      const teamMemberEfficiency: TeamMemberEfficiency[] = Array.from(userEfficiencyMap.values()).map(stats => {
+        const avgTimeByStage: Record<string, number> = {};
+        Object.entries(stats.stageTimes).forEach(([stage, data]: [string, any]) => {
+          avgTimeByStage[stage] = data.count > 0 ? (data.total / data.count) / 60 : 0; // Convert to hours
+        });
+
+        return {
+          user_id: stats.user_id,
+          user_name: stats.user_name,
+          total_tasks: stats.total_tasks,
+          completed_tasks: stats.completed_tasks,
+          avg_completion_time_hours: stats.completed_tasks > 0 ? stats.total_completion_time / stats.completed_tasks : 0,
+          pending_tasks: stats.pending_tasks,
+          in_progress_tasks: stats.in_progress_tasks,
+          overdue_tasks: stats.overdue_tasks,
+          on_time_completion_rate: stats.completed_tasks > 0 ? (stats.on_time_completions / stats.completed_tasks) * 100 : 0,
+          byStatus: stats.byStatus,
+          byPriority: stats.byPriority,
+          avgTimeByStage,
+        };
+      });
 
       // Calculate pipeline transitions
       const transitionMap = new Map<string, { total_time: number; count: number }>();
@@ -641,6 +699,141 @@ const Analytics = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Team Member Detailed Breakdown */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Team Member Performance Overview</CardTitle>
+            <CardDescription>
+              Comprehensive breakdown showing who's efficient, who needs attention
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {stats.teamMemberEfficiency
+                .sort((a, b) => b.on_time_completion_rate - a.on_time_completion_rate)
+                .map((member) => {
+                  const completionRate = member.total_tasks > 0 
+                    ? (member.completed_tasks / member.total_tasks) * 100 
+                    : 0;
+                  
+                  const performanceLevel = 
+                    member.on_time_completion_rate >= 80 && member.overdue_tasks === 0 ? "excellent" :
+                    member.on_time_completion_rate >= 60 && member.overdue_tasks <= 2 ? "good" :
+                    member.on_time_completion_rate >= 40 ? "warning" : "concerning";
+
+                  return (
+                    <div key={member.user_id} className="border rounded-lg p-4 space-y-4">
+                      {/* Header with name and status */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-lg">{member.user_name}</h3>
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            performanceLevel === "excellent" ? "bg-success/20 text-success" :
+                            performanceLevel === "good" ? "bg-primary/20 text-primary" :
+                            performanceLevel === "warning" ? "bg-orange-500/20 text-orange-600" :
+                            "bg-destructive/20 text-destructive"
+                          }`}>
+                            {performanceLevel === "excellent" ? "⭐ Excellent" :
+                             performanceLevel === "good" ? "✓ Good" :
+                             performanceLevel === "warning" ? "⚠ Needs Attention" :
+                             "🔴 Concerning"}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold">{member.total_tasks}</div>
+                          <div className="text-xs text-muted-foreground">Total Tasks</div>
+                        </div>
+                      </div>
+
+                      {/* Key metrics grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="text-center p-2 bg-success/10 rounded">
+                          <div className="text-lg font-bold text-success">{member.completed_tasks}</div>
+                          <div className="text-xs text-muted-foreground">Completed</div>
+                        </div>
+                        <div className="text-center p-2 bg-primary/10 rounded">
+                          <div className="text-lg font-bold text-primary">{member.in_progress_tasks}</div>
+                          <div className="text-xs text-muted-foreground">In Progress</div>
+                        </div>
+                        <div className="text-center p-2 bg-muted rounded">
+                          <div className="text-lg font-bold">{member.pending_tasks}</div>
+                          <div className="text-xs text-muted-foreground">Pending</div>
+                        </div>
+                        <div className={`text-center p-2 rounded ${member.overdue_tasks > 0 ? "bg-destructive/10" : "bg-muted"}`}>
+                          <div className={`text-lg font-bold ${member.overdue_tasks > 0 ? "text-destructive" : ""}`}>
+                            {member.overdue_tasks}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Overdue</div>
+                        </div>
+                        <div className="text-center p-2 bg-muted rounded">
+                          <div className="text-lg font-bold">{member.on_time_completion_rate.toFixed(0)}%</div>
+                          <div className="text-xs text-muted-foreground">On-Time Rate</div>
+                        </div>
+                      </div>
+
+                      {/* Tasks by Status breakdown */}
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Tasks by Status</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {Object.entries(member.byStatus).map(([status, count]) => (
+                            <div key={status} className="flex items-center justify-between text-xs p-2 bg-muted/50 rounded">
+                              <span className="capitalize">{status.replace(/_/g, " ")}</span>
+                              <span className="font-bold">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Tasks by Priority breakdown */}
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Tasks by Priority</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {Object.entries(member.byPriority).map(([priority, count]) => (
+                            <div key={priority} className={`flex items-center justify-between text-xs p-2 rounded ${
+                              priority === "urgent" ? "bg-destructive/10 text-destructive" :
+                              priority === "high" ? "bg-orange-500/10 text-orange-600" :
+                              priority === "medium" ? "bg-yellow-500/10 text-yellow-600" :
+                              "bg-muted/50"
+                            }`}>
+                              <span className="capitalize">{priority}</span>
+                              <span className="font-bold">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Average time by stage */}
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">Average Time per Stage</h4>
+                        <div className="space-y-1">
+                          {Object.entries(member.avgTimeByStage).map(([stage, hours]) => (
+                            <div key={stage} className="flex items-center justify-between text-xs">
+                              <span className="capitalize text-muted-foreground">{stage.replace(/_/g, " ")}</span>
+                              <span className="font-medium">{hours.toFixed(1)}h</span>
+                            </div>
+                          ))}
+                          {Object.keys(member.avgTimeByStage).length === 0 && (
+                            <div className="text-xs text-muted-foreground text-center py-2">No stage data yet</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Completion time */}
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <span className="text-sm text-muted-foreground">Avg Completion Time</span>
+                        <span className="text-sm font-bold">
+                          {member.avg_completion_time_hours > 0 
+                            ? `${member.avg_completion_time_hours.toFixed(1)} hours` 
+                            : "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <Card>
