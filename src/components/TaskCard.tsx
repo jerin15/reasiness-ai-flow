@@ -322,19 +322,62 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                     onClick={async (e) => {
                       e.stopPropagation();
                       try {
-                        const { error } = await supabase
+                        // Find estimation and operations users
+                        const { data: estimationUsers } = await supabase
+                          .from('user_roles')
+                          .select('user_id')
+                          .eq('role', 'estimation')
+                          .limit(1);
+                        
+                        const { data: operationsUsers } = await supabase
+                          .from('user_roles')
+                          .select('user_id')
+                          .eq('role', 'operations')
+                          .limit(1);
+
+                        if (!estimationUsers || estimationUsers.length === 0) {
+                          toast.error("No estimation user found");
+                          return;
+                        }
+
+                        // Update main task for estimation's production pipeline
+                        const { error: updateError } = await supabase
                           .from("tasks")
                           .update({
                             status: 'production',
                             previous_status: 'done',
                             came_from_designer_done: true,
+                            assigned_to: estimationUsers[0].user_id,
                             status_changed_at: new Date().toISOString(),
                           })
                           .eq("id", task.id);
 
-                        if (error) throw error;
+                        if (updateError) throw updateError;
 
-                        toast.success("Task sent to Production pipeline!");
+                        // Create linked task for operations' production pipeline if operations user exists
+                        if (operationsUsers && operationsUsers.length > 0) {
+                          const { error: insertError } = await supabase
+                            .from('tasks')
+                            .insert([{
+                              title: task.title,
+                              description: task.description,
+                              status: 'production' as any,
+                              priority: task.priority as any,
+                              due_date: task.due_date,
+                              type: task.type as any,
+                              client_name: task.client_name,
+                              supplier_name: task.supplier_name,
+                              created_by: operationsUsers[0].user_id,
+                              assigned_to: null,
+                              linked_task_id: task.id,
+                              came_from_designer_done: true,
+                              previous_status: 'done' as any,
+                            }]);
+
+                          if (insertError) throw insertError;
+                        }
+
+                        toast.success("Task sent to Estimation & Operations production!");
                         onTaskUpdated?.();
                       } catch (error) {
                         console.error('Error sending to production:', error);
