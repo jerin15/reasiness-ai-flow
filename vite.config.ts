@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
@@ -11,8 +10,7 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   plugins: [
-    react(), 
-    mode === "development" && componentTagger(),
+    react(),
     VitePWA({
       registerType: 'prompt',
       includeAssets: ['favicon.ico', 'robots.txt'],
@@ -21,10 +19,10 @@ export default defineConfig(({ mode }) => ({
         type: 'module'
       },
       manifest: {
-        name: 'reassist',
-        short_name: 'reassist',
-        description: 'Task Management System',
-        theme_color: '#ffffff',
+        name: 'REASSIST by REA Advertising',
+        short_name: 'REASSIST',
+        description: 'Professional Task Management System by REA Advertising',
+        theme_color: '#000000',
         icons: [
           {
             src: '/rea-logo-icon.png',

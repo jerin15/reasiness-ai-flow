@@ -1,13 +1,15 @@
 {
-  "name": "REASSIST",
+  "name": "REASSIST by REA Advertising",
   "short_name": "REASSIST",
-  "description": "Team task management and communication platform",
+  "description": "Professional task management and workflow automation system by REA Advertising",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#000000",
   "scope": "/",
+  "categories": ["business", "productivity"],
+  "lang": "en-US",
   "icons": [
     {
       "src": "/rea-logo-icon.png",
