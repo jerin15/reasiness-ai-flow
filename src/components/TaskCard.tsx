@@ -322,6 +322,8 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                     onClick={async (e) => {
                       e.stopPropagation();
                       try {
+                        console.log('🚀 Sending task to production:', task.id, task.title);
+                        
                         // Find estimation and operations users
                         const { data: estimationUsers } = await supabase
                           .from('user_roles')
@@ -340,6 +342,9 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                           return;
                         }
 
+                        console.log('👤 Estimation user:', estimationUsers[0].user_id);
+                        console.log('👤 Operations user:', operationsUsers?.[0]?.user_id);
+
                         // Update main task for estimation's production pipeline
                         const { error: updateError } = await supabase
                           .from("tasks")
@@ -349,10 +354,16 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                             came_from_designer_done: true,
                             assigned_to: estimationUsers[0].user_id,
                             status_changed_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
                           })
                           .eq("id", task.id);
 
-                        if (updateError) throw updateError;
+                        if (updateError) {
+                          console.error('❌ Update error:', updateError);
+                          throw updateError;
+                        }
+
+                        console.log('✅ Task updated successfully');
 
                         // Create linked task for operations' production pipeline if operations user exists
                         if (operationsUsers && operationsUsers.length > 0) {
@@ -374,7 +385,12 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                               previous_status: 'done' as any,
                             }]);
 
-                          if (insertError) throw insertError;
+                          if (insertError) {
+                            console.error('❌ Insert error:', insertError);
+                            throw insertError;
+                          }
+                          
+                          console.log('✅ Operations task created');
                         }
 
                         toast.success("Task sent to Estimation & Operations production!");
