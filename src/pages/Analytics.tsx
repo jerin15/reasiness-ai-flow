@@ -42,7 +42,6 @@ type TeamMemberEfficiency = {
   total_tasks: number;
   completed_tasks: number;
   avg_completion_time_hours: number;
-  pending_tasks: number;
   in_progress_tasks: number;
   overdue_tasks: number;
   on_time_completion_rate: number;
@@ -266,7 +265,6 @@ const Analytics = () => {
             total_tasks: 0,
             completed_tasks: 0,
             total_completion_time: 0,
-            pending_tasks: 0,
             in_progress_tasks: 0,
             overdue_tasks: 0,
             on_time_completions: 0,
@@ -311,9 +309,8 @@ const Analytics = () => {
               userStats.on_time_completions++; // No due date = on time
             }
           }
-        } else if (task.status === "todo" || task.status === "admin_approval") {
-          userStats.pending_tasks++;
         } else {
+          // Any task not in "done" is in progress
           userStats.in_progress_tasks++;
         }
 
@@ -344,7 +341,6 @@ const Analytics = () => {
           total_tasks: stats.total_tasks,
           completed_tasks: stats.completed_tasks,
           avg_completion_time_hours: stats.completed_tasks > 0 ? stats.total_completion_time / stats.completed_tasks : 0,
-          pending_tasks: stats.pending_tasks,
           in_progress_tasks: stats.in_progress_tasks,
           overdue_tasks: stats.overdue_tasks,
           on_time_completion_rate: stats.completed_tasks > 0 ? (stats.on_time_completions / stats.completed_tasks) * 100 : 0,
@@ -730,7 +726,7 @@ const Analytics = () => {
                       </div>
 
                       {/* Key metrics grid */}
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="text-center p-2 bg-success/10 rounded">
                           <div className="text-lg font-bold text-success">{member.completed_tasks}</div>
                           <div className="text-xs text-muted-foreground">Completed</div>
@@ -738,10 +734,6 @@ const Analytics = () => {
                         <div className="text-center p-2 bg-primary/10 rounded">
                           <div className="text-lg font-bold text-primary">{member.in_progress_tasks}</div>
                           <div className="text-xs text-muted-foreground">In Progress</div>
-                        </div>
-                        <div className="text-center p-2 bg-muted rounded">
-                          <div className="text-lg font-bold">{member.pending_tasks}</div>
-                          <div className="text-xs text-muted-foreground">Pending</div>
                         </div>
                         <div className={`text-center p-2 rounded ${member.overdue_tasks > 0 ? "bg-destructive/10" : "bg-muted"}`}>
                           <div className={`text-lg font-bold ${member.overdue_tasks > 0 ? "text-destructive" : ""}`}>
