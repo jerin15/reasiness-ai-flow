@@ -409,6 +409,11 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
                 <span>{formatDistanceToNow(new Date(task.status_changed_at), { addSuffix: true })}</span>
               </div>
             </div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
+              <Badge variant="outline" className="text-xs font-normal">
+                Created: {format(new Date(task.created_at), "MMM d, yyyy 'at' h:mm a")}
+              </Badge>
+            </div>
           </div>
         </div>
       </CardContent>
