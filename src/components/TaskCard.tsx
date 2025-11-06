@@ -123,15 +123,13 @@ export const TaskCard = ({ task, isDragging, onEdit, isAdminView, onTaskUpdated,
       case "designer":
         allPipelines = [
           { value: "todo", label: "To-Do List" },
-          { value: "design", label: "Design" },
           { value: "mockup", label: "MOCKUP" },
-          { value: "client_approval", label: "Client Approval" },
-          { value: "production_file", label: "PRODUCTION FILE" },
           { value: "with_client", label: "With Client" },
+          { value: "production_file", label: "PRODUCTION FILE" },
           { value: "done", label: "Done" },
         ];
         // Add option to send mockup back to estimation if task was sent from estimation
-        if (task.sent_to_designer_mockup && task.status === "mockup") {
+        if (task.sent_to_designer_mockup) {
           allPipelines.push({ value: "return_to_estimation", label: "→ Return to Estimation (Mockup Done)" });
         }
         break;

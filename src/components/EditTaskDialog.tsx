@@ -16,6 +16,7 @@ type Task = {
   due_date: string | null;
   status: string;
   assigned_by: string | null;
+  assigned_to: string | null;
   client_name: string | null;
   supplier_name: string | null;
   my_status: string;
@@ -140,6 +141,39 @@ export const EditTaskDialog = ({
           status_changed_at: new Date().toISOString(),
         };
       }
+
+      // Handle returning task from designer to estimation
+      if (status === 'return_to_estimation') {
+        // Find the original estimation user from audit log
+        const { data: auditLog } = await supabase
+          .from('task_audit_log')
+          .select('old_values')
+          .eq('task_id', task.id)
+          .eq('action', 'status_changed')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        // Find the last assigned_to before it was sent to designer
+        let originalAssignedTo = task.assigned_to;
+        if (auditLog && auditLog.length > 0) {
+          for (const log of auditLog) {
+            const oldValues = log.old_values as any;
+            if (oldValues?.status !== 'mockup' && oldValues?.status !== 'designer_mockup' && oldValues?.assigned_to) {
+              originalAssignedTo = oldValues.assigned_to;
+              break;
+            }
+          }
+        }
+
+        updateData = {
+          ...updateData,
+          status: 'todo',
+          assigned_to: originalAssignedTo,
+          mockup_completed_by_designer: true,
+          previous_status: task.status,
+          status_changed_at: new Date().toISOString(),
+        };
+      }
       
       const { error } = await supabase
         .from("tasks")
@@ -150,6 +184,8 @@ export const EditTaskDialog = ({
 
       if (status === 'send_to_designer_mockup') {
         toast.success("Task sent to designer's mockup pipeline");
+      } else if (status === 'return_to_estimation') {
+        toast.success("Task returned to estimation with mockup completed");
       } else if (statusChanged) {
         toast.success("Task updated and moved to new pipeline");
       } else {
@@ -345,6 +381,7 @@ export const EditTaskDialog = ({
                         <SelectItem value="with_client">With Client</SelectItem>
                         <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
                         <SelectItem value="done">Done</SelectItem>
+                        <SelectItem value="return_to_estimation">→ Return to Estimation (Mockup Done)</SelectItem>
                       </>
                     );
                   } else if (roleToUse === 'operations') {
