@@ -78,7 +78,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           { id: "admin_approval", title: "Admin Cost Approval", status: "admin_approval" },
           { id: "quotation_bill", title: "Quotation Bill", status: "quotation_bill" },
           { id: "production", title: "Production", status: "production" },
-          { id: "final_invoice", title: "Final Invoice", status: "final_invoice" },
+          { id: "final_invoice", title: "PENDING INVOICES", status: "final_invoice" },
           { id: "done", title: "Done", status: "done" },
         ];
       case "designer":

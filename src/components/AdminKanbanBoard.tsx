@@ -42,6 +42,7 @@ const ADMIN_COLUMNS: Column[] = [
   { id: "quotation_approve", title: "Approve (Estimation)", status: "approved" },
   { id: "with_client", title: "With Client (Designer)", status: "with_client" },
   { id: "approved_designer", title: "Approved (Designer)", status: "approved_designer" },
+  { id: "for_production", title: "FOR PRODUCTION", status: "designer_done_production" },
 ];
 
 export const AdminKanbanBoard = () => {
@@ -109,7 +110,7 @@ export const AdminKanbanBoard = () => {
         throw withClientError;
       }
 
-      // Fetch tasks from designer's done pipeline that need to go to final invoice
+      // Fetch tasks from designer's done pipeline for production
       const { data: designerDoneTasks, error: designerDoneError } = await supabase
         .from('tasks')
         .select('*')
@@ -117,12 +118,12 @@ export const AdminKanbanBoard = () => {
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      // Filter for tasks created by designer (check if creator is designer role)
+      // Filter for tasks where creator or assignee is designer
       const designerDoneFiltered = designerDoneTasks?.filter(task => {
         return rolesMap[task.created_by] === 'designer' || rolesMap[task.assigned_to || ''] === 'designer';
       }) || [];
 
-      console.log('🎨 Designer Done tasks:', designerDoneFiltered.length, designerDoneFiltered);
+      console.log('🎨 Designer Done for Production tasks:', designerDoneFiltered.length, designerDoneFiltered);
       if (designerDoneError) {
         console.error('❌ Error fetching designer done tasks:', designerDoneError);
       }
@@ -137,7 +138,7 @@ export const AdminKanbanBoard = () => {
       // Map designer done tasks to special status for admin view
       const designerDoneWithStatus = designerDoneFiltered.map(task => ({
         ...task,
-        status: 'designer_done', // Temporary status for admin board display
+        status: 'designer_done_production',
         original_status: 'done',
       }));
 
@@ -368,6 +369,32 @@ export const AdminKanbanBoard = () => {
         } else {
           toast.success("Task approved! Moved to Production File in designer's panel");
         }
+      }
+      // Handle FOR PRODUCTION flow: Send to both estimation and operations production pipeline
+      else if (task.status === 'designer_done_production' && newStatus === 'approved') {
+        console.log('✅ Admin sending designer done task to production pipelines');
+        
+        // Update original task back to production status
+        const updates = {
+          status: 'production' as any,
+          previous_status: 'done' as any,
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString()
+        };
+        
+        const { error } = await updateTaskOffline(taskId, updates);
+
+        if (error) throw error;
+        
+        await fetchTasks();
+        
+        console.log('✅ Task sent to production pipelines');
+        
+        if (!navigator.onLine) {
+          toast.success("Task sent to production (offline - will sync when online)");
+        } else {
+          toast.success("Task sent to estimation & operations production pipeline!");
+        }
       } else {
         // Regular status update
         const updates = {
@@ -439,7 +466,7 @@ export const AdminKanbanBoard = () => {
             >
               {ADMIN_COLUMNS.map((column) => {
                 // For "Approved" columns, don't show any tasks (they're just drop zones)
-                const columnTasks = (column.status === 'approved' || column.status === 'approved_designer')
+                const columnTasks = column.status === 'approved' || column.status === 'approved_designer'
                   ? [] 
                   : tasks.filter((task) => task.status === column.status);
                 return (
