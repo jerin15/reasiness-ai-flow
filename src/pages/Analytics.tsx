@@ -427,7 +427,7 @@ const Analytics = () => {
         total: tasks?.length || 0,
         completed: tasks?.filter((t) => t.status === "done").length || 0,
         inProgress: tasks?.filter((t) => t.status !== "done").length || 0,
-        urgent: tasks?.filter((t) => t.priority === "urgent").length || 0,
+        urgent: tasks?.filter((t) => t.priority === "urgent" && t.status !== "done").length || 0,
         byStatus,
         byPriority,
         avgTimeByStatus,
