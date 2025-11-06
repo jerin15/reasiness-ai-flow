@@ -432,9 +432,6 @@ export const AdminKanbanBoard = () => {
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-lg border-2 border-blue-300 dark:border-blue-700 p-4 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
-                <span className="text-white text-lg">🎨</span>
-              </div>
               <h2 className="text-lg font-bold text-blue-900 dark:text-blue-100">
                 FOR PRODUCTION
               </h2>
