@@ -56,7 +56,7 @@ export const DueRemindersDialog = ({ open, onOpenChange }: DueRemindersDialogPro
         .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
         .not("due_date", "is", null)
         .lte("due_date", today.toISOString())
-        .not("status", "in", `(done,pending_invoices,quotation_bill)`)
+        .not("status", "in", `(done,quotation,pending_invoices,quotation_bill)`)
         .is("deleted_at", null);
 
       if (tasks) {

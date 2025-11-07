@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
         .from('tasks')
         .select('id, title, type, priority, due_date, client_name')
         .eq('assigned_to', userId)
-        .not('status', 'in', '(done,pending_invoices,quotation_bill)')
+        .not('status', 'in', '(done,quotation,pending_invoices,quotation_bill)')
         .is('deleted_at', null);
 
       if (tasksError) {
