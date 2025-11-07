@@ -297,7 +297,8 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
       className={cn(
         "cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md",
         (isDragging || isSortableDragging) && "opacity-50 shadow-lg",
-        task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20",
+        task.sent_to_designer_mockup && task.status === 'mockup' && "border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/20 shadow-lg shadow-amber-500/50 animate-pulse",
+        task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20 shadow-lg shadow-green-500/50",
         task.came_from_designer_done && task.status === 'production' && "border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 shadow-lg shadow-purple-500/50",
         task.status === 'designer_done_production' && "border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-lg shadow-blue-500/50"
       )}
@@ -313,7 +314,19 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h4 className="font-medium text-sm line-clamp-2 flex-1">{task.title}</h4>
+              <div className="flex-1">
+                <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
+                {task.sent_to_designer_mockup && task.status === 'mockup' && (
+                  <Badge className="mt-1 bg-amber-500 text-white animate-pulse">
+                    🎨 Mockup Pipeline
+                  </Badge>
+                )}
+                {task.mockup_completed_by_designer && (
+                  <Badge className="mt-1 bg-green-500 text-white">
+                    ✓ Mockup Completed
+                  </Badge>
+                )}
+              </div>
               <div className="flex gap-1">
                 {/* Show Send to Production button for admin in FOR PRODUCTION pipeline */}
                 {userRole === 'admin' && task.status === 'designer_done_production' && (

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -22,6 +23,8 @@ type Task = {
   my_status: string;
   type: string;
   came_from_designer_done?: boolean;
+  sent_to_designer_mockup?: boolean;
+  mockup_completed_by_designer?: boolean;
 };
 
 type EditTaskDialogProps = {
@@ -235,7 +238,19 @@ export const EditTaskDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Edit Task</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            Edit Task
+            {task.sent_to_designer_mockup && task.status === 'mockup' && (
+              <Badge className="bg-amber-500 text-white animate-pulse">
+                🎨 Mockup Pipeline
+              </Badge>
+            )}
+            {task.mockup_completed_by_designer && (
+              <Badge className="bg-green-500 text-white">
+                ✓ Mockup Done
+              </Badge>
+            )}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 overflow-hidden">
           <div className="space-y-4 overflow-y-auto pr-2 max-h-[calc(90vh-12rem)]">
