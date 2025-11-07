@@ -80,7 +80,7 @@ export const DueDateReminderDialog = ({ open, onOpenChange, userId }: DueDateRem
         .select("*")
         .or(`assigned_to.eq.${userId},created_by.eq.${userId}`)
         .lte("due_date", new Date().toISOString())
-        .neq("status", "done")
+        .not("status", "in", `(done,pending_invoices,quotation_bill)`)
         .is("deleted_at", null)
         .eq("reminder_sent", false)
         .order("due_date", { ascending: true });
