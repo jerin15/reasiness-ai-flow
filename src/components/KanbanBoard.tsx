@@ -72,7 +72,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     switch (roleToUse) {
       case "estimation":
         return [
-          { id: "todo", title: "To-Do List", status: "todo" },
+          { id: "rfq_todo", title: "RFQ", status: "todo" },
+          { id: "general_todo", title: "GENERAL", status: "todo" },
           { id: "supplier_quotes", title: "Supplier Quotes", status: "supplier_quotes" },
           { id: "client_approval", title: "Client Approval", status: "client_approval" },
           { id: "admin_approval", title: "Admin Cost Approval", status: "admin_approval" },
@@ -86,7 +87,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           { id: "todo", title: "To-Do List", status: "todo" },
           { id: "mockup", title: "MOCKUP", status: "mockup" },
           { id: "with_client", title: "With Client", status: "with_client" },
-          { id: "production_file", title: "PRODUCTION FILE", status: "production_file" },
+          { id: "production", title: "PRODUCTION", status: "production" },
           { id: "done", title: "Done", status: "done" },
         ];
       case "operations":
@@ -461,19 +462,30 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
               items={columns.map((col) => col.id)}
               strategy={horizontalListSortingStrategy}
             >
-              {columns.map((column) => (
-                <KanbanColumn
-                  key={column.id}
-                  id={column.id}
-                  title={column.title}
-                  tasks={filteredTasks.filter((task) => task.status === column.status)}
-                  onEditTask={handleEditTask}
-                  isAdminView={isAdmin && !!viewingUserId}
-                  onTaskUpdated={fetchTasks}
-                  userRole={(isAdmin && viewingUserRole) ? viewingUserRole : userRole}
-                  isAdminOwnPanel={isAdmin && (!viewingUserId || viewingUserId === currentUserId)}
-                />
-              ))}
+              {columns.map((column) => {
+                // For estimation role, filter tasks by type for RFQ and GENERAL columns
+                let columnTasks = filteredTasks.filter((task) => task.status === column.status);
+                
+                if (column.id === 'rfq_todo') {
+                  columnTasks = columnTasks.filter((task) => task.type?.toLowerCase() === 'quotation');
+                } else if (column.id === 'general_todo') {
+                  columnTasks = columnTasks.filter((task) => task.type?.toLowerCase() !== 'quotation');
+                }
+                
+                return (
+                  <KanbanColumn
+                    key={column.id}
+                    id={column.id}
+                    title={column.title}
+                    tasks={columnTasks}
+                    onEditTask={handleEditTask}
+                    isAdminView={isAdmin && !!viewingUserId}
+                    onTaskUpdated={fetchTasks}
+                    userRole={(isAdmin && viewingUserRole) ? viewingUserRole : userRole}
+                    isAdminOwnPanel={isAdmin && (!viewingUserId || viewingUserId === currentUserId)}
+                  />
+                );
+              })}
             </SortableContext>
           </div>
 

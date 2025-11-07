@@ -326,14 +326,14 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                             <SelectItem value="todo">To-Do List</SelectItem>
                             <SelectItem value="mockup">MOCKUP</SelectItem>
                             <SelectItem value="with_client">With Client</SelectItem>
-                            <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
+                            <SelectItem value="production">PRODUCTION</SelectItem>
                             <SelectItem value="done">Done</SelectItem>
                           </>
                         );
                       } else if (memberRole === 'estimation') {
                         return (
                           <>
-                            <SelectItem value="todo">To-Do List</SelectItem>
+                            <SelectItem value="todo">To-Do (RFQ/GENERAL)</SelectItem>
                             <SelectItem value="supplier_quotes">Supplier Quotes</SelectItem>
                             <SelectItem value="client_approval">Client Approval</SelectItem>
                             <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>

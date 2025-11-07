@@ -327,9 +327,9 @@ export const AdminKanbanBoard = () => {
           toast.success("Task approved! Moved to Quotation Bill in estimation's panel");
         }
       } 
-      // Handle designer approval flow: with_client → approved_designer → production_file
+      // Handle designer approval flow: with_client → approved_designer → production (NOT production_file)
       else if (task.status === 'with_client' && newStatus === 'approved_designer') {
-        console.log('✅ Admin approving designer task - moving to production_file');
+        console.log('✅ Admin approving designer task - moving to production');
         
         // Find designer user to assign back to
         const assignedUserRole = task.assigned_to ? userRoles[task.assigned_to] : null;
@@ -350,7 +350,7 @@ export const AdminKanbanBoard = () => {
         }
         
         const updates = {
-          status: 'production_file' as any,
+          status: 'production' as any,
           previous_status: 'with_client' as any,
           assigned_to: assignTo,
           updated_at: new Date().toISOString(),
@@ -363,12 +363,12 @@ export const AdminKanbanBoard = () => {
         
         await fetchTasks();
         
-        console.log('✅ Designer task approved and moved to Production File');
+        console.log('✅ Designer task approved and moved to Production');
         
         if (!navigator.onLine) {
           toast.success("Task approved (offline - will sync when online)");
         } else {
-          toast.success("Task approved! Moved to Production File in designer's panel");
+          toast.success("Task approved! Moved to Production in designer's panel");
         }
       }
       else {

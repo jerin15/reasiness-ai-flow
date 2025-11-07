@@ -380,7 +380,7 @@ export const EditTaskDialog = ({
                         <SelectItem value="todo">To-Do List</SelectItem>
                         <SelectItem value="mockup">MOCKUP</SelectItem>
                         <SelectItem value="with_client">With Client</SelectItem>
-                        <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
+                        <SelectItem value="production">PRODUCTION</SelectItem>
                         <SelectItem value="done">Done</SelectItem>
                         <SelectItem value="return_to_estimation">→ Return to Estimation (Mockup Done)</SelectItem>
                       </>
@@ -419,7 +419,6 @@ export const EditTaskDialog = ({
                         <SelectItem value="production">Production</SelectItem>
                         <SelectItem value="final_invoice">Final Invoice</SelectItem>
                         <SelectItem value="mockup">MOCKUP</SelectItem>
-                        <SelectItem value="production_file">PRODUCTION FILE</SelectItem>
                         <SelectItem value="with_client">With Client</SelectItem>
                         <SelectItem value="approval">Approval</SelectItem>
                         <SelectItem value="delivery">Delivery</SelectItem>

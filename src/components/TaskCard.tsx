@@ -128,7 +128,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
           { value: "todo", label: "To-Do List" },
           { value: "mockup", label: "MOCKUP" },
           { value: "with_client", label: "With Client" },
-          { value: "production_file", label: "PRODUCTION FILE" },
+          { value: "production", label: "PRODUCTION" },
           { value: "done", label: "Done" },
         ];
         // Add option to send mockup back to estimation if task was sent from estimation
@@ -197,9 +197,9 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
       
       // Handle designer approval from with_client
       if (newStatus === 'approved_designer' && task.status === 'with_client') {
-        finalStatus = 'done';
+        finalStatus = 'production';
         updateData.status = finalStatus;
-        console.log('✅ Designer approved: Moving task to done');
+        console.log('✅ Designer approved: Moving task to production');
       }
       
       // Handle sending task to designer mockup
