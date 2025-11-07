@@ -75,12 +75,24 @@ export const DueDateReminderDialog = ({ open, onOpenChange, userId }: DueDateRem
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // Check user role
+      const { data: userRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .single();
+
+      // For estimation users, exclude all final pipeline stages
+      const excludedStatuses = userRole?.role === 'estimation'
+        ? '(done,quotation,pending_invoices,quotation_bill,production)'
+        : '(done)';
+
       const { data, error } = await supabase
         .from("tasks")
         .select("*")
         .or(`assigned_to.eq.${userId},created_by.eq.${userId}`)
         .lte("due_date", new Date().toISOString())
-        .not("status", "in", `(done,quotation,pending_invoices,quotation_bill)`)
+        .not("status", "in", excludedStatuses)
         .is("deleted_at", null)
         .eq("reminder_sent", false)
         .order("due_date", { ascending: true });

@@ -34,7 +34,7 @@ export const DueRemindersDialog = ({ open, onOpenChange }: DueRemindersDialogPro
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Check if user is admin
+      // Check if user is admin or estimation
       const { data: userRole } = await supabase
         .from("user_roles")
         .select("role")
@@ -50,13 +50,18 @@ export const DueRemindersDialog = ({ open, onOpenChange }: DueRemindersDialogPro
       const today = new Date();
       today.setHours(23, 59, 59, 999);
 
+      // For estimation users, exclude all final pipeline stages
+      const excludedStatuses = userRole?.role === 'estimation'
+        ? '(done,quotation,pending_invoices,quotation_bill,production)'
+        : '(done)';
+
       const { data: tasks } = await supabase
         .from("tasks")
         .select("id, title, status, priority, due_date")
         .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
         .not("due_date", "is", null)
         .lte("due_date", today.toISOString())
-        .not("status", "in", `(done,quotation,pending_invoices,quotation_bill)`)
+        .not("status", "in", excludedStatuses)
         .is("deleted_at", null);
 
       if (tasks) {
