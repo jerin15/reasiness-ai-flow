@@ -72,14 +72,28 @@ export const ReminderNotification = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Check user role to apply filtering
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
       const now = new Date().toISOString();
       
-      const { data: reminders, error } = await supabase
+      let query = supabase
         .from("task_reminders")
         .select("*, tasks(title, status)")
         .eq("user_id", user.id)
         .eq("is_dismissed", false)
-        .lte("reminder_time", now)
+        .lte("reminder_time", now);
+
+      // For estimation users, only show reminders from supplier_quotes and client_approval
+      if (roleData?.role === 'estimation') {
+        query = query.in("tasks.status", ["supplier_quotes", "client_approval"]);
+      }
+
+      const { data: reminders, error } = await query
         .order("reminder_time", { ascending: true })
         .limit(1);
 
