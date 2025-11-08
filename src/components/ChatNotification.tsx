@@ -120,7 +120,7 @@ export const ChatNotification = () => {
             });
 
             // Show browser notification INSTANTLY
-            if (Notification.permission === 'granted') {
+            if ('Notification' in window && Notification.permission === 'granted') {
               const notificationOptions = {
                 body: newMsg.message,
                 icon: '/rea-logo-icon.png',
@@ -147,7 +147,7 @@ export const ChatNotification = () => {
                   icon: '/rea-logo-icon.png'
                 });
               }
-            } else if (Notification.permission === 'default') {
+            } else if ('Notification' in window && Notification.permission === 'default') {
               Notification.requestPermission();
             }
           }, 50); // Minimal delay to prevent race condition
@@ -158,7 +158,7 @@ export const ChatNotification = () => {
       });
 
     // Request notification permission on mount
-    if (Notification.permission === 'default') {
+    if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
