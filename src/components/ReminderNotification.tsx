@@ -101,6 +101,17 @@ export const ReminderNotification = () => {
 
       if (reminders && reminders.length > 0) {
         const reminder = reminders[0] as Reminder;
+        
+        // If the task was deleted, auto-dismiss the reminder
+        if (!reminder.tasks) {
+          await supabase
+            .from("task_reminders")
+            .update({ is_dismissed: true })
+            .eq("id", reminder.id);
+          console.log("Auto-dismissed reminder for deleted task");
+          return;
+        }
+        
         setActiveReminder(reminder);
       }
     } catch (error) {
@@ -195,8 +206,8 @@ export const ReminderNotification = () => {
     }
   };
 
-  // Don't show reminder dialog for admins
-  if (!activeReminder || isAdmin) return null;
+  // Don't show reminder dialog for admins or if task data is missing
+  if (!activeReminder || isAdmin || !activeReminder.tasks) return null;
 
   return (
     <>
