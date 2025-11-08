@@ -152,7 +152,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           assigned_profile:profiles!tasks_assigned_to_fkey(
             id,
             full_name,
-            user_roles!inner(role)
+            user_roles(role)
           )
         `)
         .is("deleted_at", null);
