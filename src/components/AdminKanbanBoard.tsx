@@ -229,14 +229,8 @@ export const AdminKanbanBoard = () => {
         }
       });
 
-    // Aggressive polling as backup (every 3 seconds)
-    const pollInterval = setInterval(() => {
-      fetchTasks();
-    }, 3000);
-
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(pollInterval);
     };
   }, []);
 

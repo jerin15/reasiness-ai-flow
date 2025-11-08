@@ -285,14 +285,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         }
       });
 
-    // Aggressive polling as backup (every 3 seconds)
-    const pollInterval = setInterval(() => {
-      fetchTasks();
-    }, 3000);
-
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(pollInterval);
     };
   }, [viewingUserId, isAdmin]);
 
