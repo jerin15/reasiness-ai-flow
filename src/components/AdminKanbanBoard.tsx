@@ -9,6 +9,8 @@ import { EditTaskDialog } from "./EditTaskDialog";
 import { StatusChangeNotification } from "./StatusChangeNotification";
 import { updateTaskOffline } from "@/lib/offlineTaskOperations";
 import { getLocalTasks, saveTasksLocally } from "@/lib/offlineStorage";
+import { ArrowRight } from "lucide-react";
+import { Button } from "./ui/button";
 
 type Task = {
   id: string;
@@ -414,6 +416,30 @@ export const AdminKanbanBoard = () => {
     setEditingTask(null);
   };
 
+  const handleSendToProduction = async (taskId: string) => {
+    try {
+      // Move task from designer's done to production pipeline
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: 'production',
+          previous_status: 'done',
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString(),
+          came_from_designer_done: true
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast.success("Task sent to Production pipeline for estimation and operations teams");
+      await fetchTasks();
+    } catch (error) {
+      console.error('Error sending task to production:', error);
+      toast.error('Failed to send task to production');
+    }
+  };
+
   const handleDeleteFromProduction = async (taskId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -470,17 +496,26 @@ export const AdminKanbanBoard = () => {
             {tasks
               .filter(t => t.status === 'designer_done_production')
               .map(task => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onEdit={handleEditTask}
-                  onDelete={handleDeleteFromProduction}
-                  isAdminView={true}
-                  onTaskUpdated={fetchTasks}
-                  userRole="admin"
-                  isAdminOwnPanel={true}
-                  showFullCrud={true}
-                />
+                <div key={task.id} className="relative group">
+                  <TaskCard
+                    task={task}
+                    onEdit={handleEditTask}
+                    onDelete={handleDeleteFromProduction}
+                    isAdminView={true}
+                    onTaskUpdated={fetchTasks}
+                    userRole="admin"
+                    isAdminOwnPanel={true}
+                    showFullCrud={true}
+                  />
+                  <Button
+                    onClick={() => handleSendToProduction(task.id)}
+                    className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg z-10 gap-2"
+                    size="sm"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                    Send to Production
+                  </Button>
+                </div>
               ))
             }
           </div>
