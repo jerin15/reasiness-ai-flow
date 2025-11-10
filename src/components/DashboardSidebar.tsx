@@ -177,15 +177,6 @@ export function DashboardSidebar({
                 </SidebarMenuItem>
               )}
 
-              {/* Member Reports */}
-              {isAdminOrHead && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={onAdminTaskReportClick}>
-                    <FileText className="h-4 w-4" />
-                    <span>Member Reports</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
 
               {/* Estimation Report */}
               {isAdminOrHead && (

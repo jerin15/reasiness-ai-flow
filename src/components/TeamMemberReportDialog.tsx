@@ -8,8 +8,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Download } from "lucide-react";
+import { Loader2, Download, Filter } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -17,22 +18,6 @@ import autoTable from "jspdf-autotable";
 interface TeamMemberReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-interface TeamMember {
-  id: string;
-  full_name: string;
-}
-
-interface TaskStats {
-  todo: number;
-  inProgress: number;
-  clientApproval: number;
-  costApproval: number;
-  done: number;
-  total: number;
-  completionRate: number;
-  pendingTasks: number;
 }
 
 interface TaskDetail {
@@ -43,212 +28,313 @@ interface TaskDetail {
   due_date: string | null;
   created_at: string;
   client_name: string | null;
+  assigned_to: string | null;
+  assigned_name: string | null;
+  type: string;
 }
 
+const statusPipelines = {
+  todo: "Initial",
+  production: "Production",
+  production_pending: "Production",
+  client_approval: "Client Review",
+  with_client: "Client Review",
+  approval: "Approval",
+  admin_approval: "Cost Approval",
+  supplier_quotes: "Cost Approval",
+  quotation_bill: "Cost Approval",
+};
+
 export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportDialogProps) {
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [selectedMember, setSelectedMember] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState<TaskStats | null>(null);
-  const [taskDetails, setTaskDetails] = useState<TaskDetail[]>([]);
+  const [tasks, setTasks] = useState<TaskDetail[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<TaskDetail[]>([]);
+  
+  // Filters
+  const [selectedPipeline, setSelectedPipeline] = useState<string>("all");
+  const [selectedClient, setSelectedClient] = useState<string>("all");
+  const [timeSpan, setTimeSpan] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     if (open) {
-      fetchTeamMembers();
+      fetchAllPendingTasks();
     }
   }, [open]);
 
   useEffect(() => {
-    if (selectedMember) {
-      fetchMemberStats();
-    }
-  }, [selectedMember]);
+    applyFilters();
+  }, [tasks, selectedPipeline, selectedClient, timeSpan, searchTerm]);
 
-  const fetchTeamMembers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .order("full_name");
-
-      if (error) throw error;
-      setTeamMembers(data || []);
-    } catch (error) {
-      console.error("Error fetching team members:", error);
-      toast.error("Failed to load team members");
-    }
-  };
-
-  const fetchMemberStats = async () => {
-    if (!selectedMember) return;
-    
+  const fetchAllPendingTasks = async () => {
     setLoading(true);
     try {
-      const { data: tasks, error } = await supabase
+      // Fetch all tasks that are not done
+      const { data: tasksData, error: tasksError } = await supabase
         .from("tasks")
-        .select("*")
-        .or(`created_by.eq.${selectedMember},assigned_to.eq.${selectedMember}`)
-        .is("deleted_at", null);
+        .select(`
+          id,
+          title,
+          status,
+          priority,
+          due_date,
+          created_at,
+          client_name,
+          assigned_to,
+          type
+        `)
+        .neq("status", "done")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (tasksError) throw tasksError;
 
-      const taskList = tasks || [];
-      const todo = taskList.filter(t => t.status === "todo").length;
-      const inProgress = taskList.filter(t => t.status === "production" || t.status === "production_pending").length;
-      const clientApproval = taskList.filter(t => t.status === "client_approval" || t.status === "with_client" || t.status === "approval").length;
-      const costApproval = taskList.filter(t => t.status === "admin_approval" || t.status === "supplier_quotes" || t.status === "quotation_bill").length;
-      const done = taskList.filter(t => t.status === "done").length;
-      const total = taskList.length;
-      const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
-      const pendingTasks = total - done;
+      // Fetch all profiles to get assigned names
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, full_name");
 
-      setStats({
-        todo,
-        inProgress,
-        clientApproval,
-        costApproval,
-        done,
-        total,
-        completionRate,
-        pendingTasks,
-      });
+      if (profilesError) throw profilesError;
 
-      setTaskDetails(taskList.map(task => ({
-        id: task.id,
-        title: task.title,
-        status: task.status,
-        priority: task.priority,
-        due_date: task.due_date,
-        created_at: task.created_at,
-        client_name: task.client_name,
-      })));
+      const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+
+      const enrichedTasks = (tasksData || []).map(task => ({
+        ...task,
+        assigned_name: task.assigned_to ? profileMap.get(task.assigned_to) || "Unassigned" : "Unassigned"
+      }));
+
+      setTasks(enrichedTasks);
     } catch (error) {
-      console.error("Error fetching stats:", error);
-      toast.error("Failed to load statistics");
+      console.error("Error fetching tasks:", error);
+      toast.error("Failed to load tasks");
     } finally {
       setLoading(false);
     }
   };
 
-  const exportToCSV = () => {
-    if (!stats || !selectedMember) return;
+  const applyFilters = () => {
+    let filtered = [...tasks];
 
-    const memberName = teamMembers.find(m => m.id === selectedMember)?.full_name || "Unknown";
+    // Pipeline filter
+    if (selectedPipeline !== "all") {
+      filtered = filtered.filter(task => {
+        const pipeline = statusPipelines[task.status as keyof typeof statusPipelines];
+        return pipeline === selectedPipeline;
+      });
+    }
+
+    // Client filter
+    if (selectedClient !== "all") {
+      filtered = filtered.filter(task => task.client_name === selectedClient);
+    }
+
+    // Time span filter
+    if (timeSpan !== "all") {
+      const now = new Date();
+      const startDate = new Date();
+      
+      if (timeSpan === "weekly") {
+        startDate.setDate(now.getDate() - 7);
+      } else if (timeSpan === "monthly") {
+        startDate.setMonth(now.getMonth() - 1);
+      }
+
+      filtered = filtered.filter(task => new Date(task.created_at) >= startDate);
+    }
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(task => 
+        task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        task.assigned_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    setFilteredTasks(filtered);
+  };
+
+  const uniqueClients = Array.from(new Set(tasks.map(t => t.client_name).filter(Boolean)));
+  const uniquePipelines = Array.from(new Set(Object.values(statusPipelines)));
+
+  const getTasksByPipeline = () => {
+    const pipelineGroups: { [key: string]: number } = {};
+    filteredTasks.forEach(task => {
+      const pipeline = statusPipelines[task.status as keyof typeof statusPipelines] || "Other";
+      pipelineGroups[pipeline] = (pipelineGroups[pipeline] || 0) + 1;
+    });
+    return pipelineGroups;
+  };
+
+  const getTasksByMember = () => {
+    const memberGroups: { [key: string]: number } = {};
+    filteredTasks.forEach(task => {
+      const member = task.assigned_name || "Unassigned";
+      memberGroups[member] = (memberGroups[member] || 0) + 1;
+    });
+    return memberGroups;
+  };
+
+  const exportToCSV = () => {
     const timestamp = new Date().toLocaleString();
     
-    let csv = `Team Member Daily Report\n`;
+    let csv = `Team Pending Tasks Report\n`;
     csv += `Generated: ${timestamp}\n`;
-    csv += `Team Member: ${memberName}\n\n`;
+    csv += `Total Pending Tasks: ${filteredTasks.length}\n\n`;
     
-    csv += `Summary Statistics\n`;
-    csv += `Total Tasks,${stats.total}\n`;
-    csv += `Completed Tasks,${stats.done}\n`;
-    csv += `Pending Tasks,${stats.pendingTasks}\n`;
-    csv += `Completion Rate,${stats.completionRate}%\n`;
-    csv += `To Do,${stats.todo}\n`;
-    csv += `In Progress,${stats.inProgress}\n`;
-    csv += `Client Approval,${stats.clientApproval}\n`;
-    csv += `Cost Approval,${stats.costApproval}\n\n`;
+    csv += `Task Details\n`;
+    csv += `Title,Assigned To,Pipeline,Status,Priority,Client Name,Type,Due Date,Created At\n`;
     
-    csv += `\nDetailed Task List\n`;
-    csv += `Title,Status,Priority,Client Name,Due Date,Created At\n`;
-    
-    taskDetails.forEach(task => {
-      csv += `"${task.title}","${task.status}","${task.priority}","${task.client_name || 'N/A'}","${task.due_date ? new Date(task.due_date).toLocaleDateString() : 'N/A'}","${new Date(task.created_at).toLocaleDateString()}"\n`;
+    filteredTasks.forEach(task => {
+      const pipeline = statusPipelines[task.status as keyof typeof statusPipelines] || "Other";
+      csv += `"${task.title}","${task.assigned_name}","${pipeline}","${task.status}","${task.priority}","${task.client_name || 'N/A'}","${task.type}","${task.due_date ? new Date(task.due_date).toLocaleDateString() : 'N/A'}","${new Date(task.created_at).toLocaleDateString()}"\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${memberName}_report_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `team_pending_tasks_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     toast.success("Report exported as CSV");
   };
 
   const exportToPDF = () => {
-    if (!stats || !selectedMember) return;
-
-    const memberName = teamMembers.find(m => m.id === selectedMember)?.full_name || "Unknown";
     const timestamp = new Date().toLocaleString();
-    
     const doc = new jsPDF();
     
     doc.setFontSize(18);
-    doc.text("Team Member Daily Report", 14, 20);
+    doc.text("Team Pending Tasks Report", 14, 20);
     
     doc.setFontSize(10);
     doc.text(`Generated: ${timestamp}`, 14, 30);
-    doc.text(`Team Member: ${memberName}`, 14, 36);
+    doc.text(`Total Pending Tasks: ${filteredTasks.length}`, 14, 36);
     
+    // Pipeline breakdown
     doc.setFontSize(14);
-    doc.text("Summary Statistics", 14, 50);
+    doc.text("Tasks by Pipeline", 14, 50);
     
-    const summaryData = [
-      ["Total Tasks", stats.total.toString()],
-      ["Completed Tasks", stats.done.toString()],
-      ["Pending Tasks", stats.pendingTasks.toString()],
-      ["Completion Rate", `${stats.completionRate}%`],
-      ["To Do", stats.todo.toString()],
-      ["In Progress", stats.inProgress.toString()],
-      ["Client Approval", stats.clientApproval.toString()],
-      ["Cost Approval", stats.costApproval.toString()],
-    ];
-
-    autoTable(doc, {
-      startY: 55,
-      head: [["Metric", "Value"]],
-      body: summaryData,
-      theme: "striped",
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY || 55;
-    
-    doc.setFontSize(14);
-    doc.text("Detailed Task List", 14, finalY + 15);
-
-    const taskData = taskDetails.map(task => [
-      task.title,
-      task.status,
-      task.priority,
-      task.client_name || "N/A",
-      task.due_date ? new Date(task.due_date).toLocaleDateString() : "N/A",
+    const pipelineData = Object.entries(getTasksByPipeline()).map(([pipeline, count]) => [
+      pipeline,
+      count.toString()
     ]);
 
     autoTable(doc, {
-      startY: finalY + 20,
-      head: [["Title", "Status", "Priority", "Client", "Due Date"]],
-      body: taskData,
+      startY: 55,
+      head: [["Pipeline", "Count"]],
+      body: pipelineData,
       theme: "striped",
-      styles: { fontSize: 8 },
     });
 
-    doc.save(`${memberName}_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    const finalY1 = (doc as any).lastAutoTable.finalY || 55;
+    
+    // Member breakdown
+    doc.setFontSize(14);
+    doc.text("Tasks by Team Member", 14, finalY1 + 15);
+
+    const memberData = Object.entries(getTasksByMember()).map(([member, count]) => [
+      member,
+      count.toString()
+    ]);
+
+    autoTable(doc, {
+      startY: finalY1 + 20,
+      head: [["Team Member", "Pending Tasks"]],
+      body: memberData,
+      theme: "striped",
+    });
+
+    const finalY2 = (doc as any).lastAutoTable.finalY || 55;
+    
+    // Task details
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.text("Task Details", 14, 20);
+
+    const taskData = filteredTasks.slice(0, 50).map(task => [
+      task.title.substring(0, 30),
+      task.assigned_name || "N/A",
+      statusPipelines[task.status as keyof typeof statusPipelines] || "Other",
+      task.priority,
+      task.client_name?.substring(0, 20) || "N/A",
+    ]);
+
+    autoTable(doc, {
+      startY: 25,
+      head: [["Title", "Assigned", "Pipeline", "Priority", "Client"]],
+      body: taskData,
+      theme: "striped",
+      styles: { fontSize: 7 },
+    });
+
+    doc.save(`team_pending_tasks_${new Date().toISOString().split('T')[0]}.pdf`);
     toast.success("Report exported as PDF");
   };
 
+  const pipelineGroups = getTasksByPipeline();
+  const memberGroups = getTasksByMember();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Team Member Daily Report</DialogTitle>
+          <DialogTitle>Team Pending Tasks Report</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Select Team Member</label>
-            <Select value={selectedMember} onValueChange={setSelectedMember}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a team member" />
-              </SelectTrigger>
-              <SelectContent>
-                {teamMembers.map((member) => (
-                  <SelectItem key={member.id} value={member.id}>
-                    {member.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Pipeline</label>
+              <Select value={selectedPipeline} onValueChange={setSelectedPipeline}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Pipelines" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Pipelines</SelectItem>
+                  {uniquePipelines.map(pipeline => (
+                    <SelectItem key={pipeline} value={pipeline}>{pipeline}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Client</label>
+              <Select value={selectedClient} onValueChange={setSelectedClient}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Clients" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  {uniqueClients.map(client => (
+                    <SelectItem key={client} value={client || ""}>{client}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Time Span</label>
+              <Select value={timeSpan} onValueChange={setTimeSpan}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="weekly">Last 7 Days</SelectItem>
+                  <SelectItem value="monthly">Last 30 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Search</label>
+              <Input 
+                placeholder="Search tasks or members..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
 
           {loading && (
@@ -257,77 +343,77 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
             </div>
           )}
 
-          {!loading && stats && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {!loading && (
+            <>
+              {/* Summary Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 bg-card rounded-lg border">
-                  <div className="text-2xl font-bold">{stats.total}</div>
-                  <div className="text-sm text-muted-foreground">Total Tasks</div>
+                  <div className="text-3xl font-bold text-orange-600">{filteredTasks.length}</div>
+                  <div className="text-sm text-muted-foreground">Total Pending Tasks</div>
                 </div>
                 <div className="p-4 bg-card rounded-lg border">
-                  <div className="text-2xl font-bold text-green-600">{stats.done}</div>
-                  <div className="text-sm text-muted-foreground">Completed</div>
+                  <div className="text-3xl font-bold text-blue-600">{Object.keys(pipelineGroups).length}</div>
+                  <div className="text-sm text-muted-foreground">Active Pipelines</div>
                 </div>
                 <div className="p-4 bg-card rounded-lg border">
-                  <div className="text-2xl font-bold text-orange-600">{stats.pendingTasks}</div>
-                  <div className="text-sm text-muted-foreground">Pending</div>
-                </div>
-                <div className="p-4 bg-card rounded-lg border">
-                  <div className="text-2xl font-bold text-blue-600">{stats.completionRate}%</div>
-                  <div className="text-sm text-muted-foreground">Completion Rate</div>
+                  <div className="text-3xl font-bold text-purple-600">{Object.keys(memberGroups).length}</div>
+                  <div className="text-sm text-muted-foreground">Team Members</div>
                 </div>
               </div>
 
+              {/* Tasks by Pipeline */}
               <div className="border rounded-lg p-4">
-                <h3 className="font-semibold mb-4">Task Breakdown by Status</h3>
+                <h3 className="font-semibold mb-4">Tasks by Pipeline</h3>
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">To Do</span>
-                    <span className="font-semibold">{stats.todo}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">In Progress</span>
-                    <span className="font-semibold">{stats.inProgress}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Client Approval</span>
-                    <span className="font-semibold">{stats.clientApproval}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Cost Approval</span>
-                    <span className="font-semibold">{stats.costApproval}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Done</span>
-                    <span className="font-semibold">{stats.done}</span>
-                  </div>
+                  {Object.entries(pipelineGroups).map(([pipeline, count]) => (
+                    <div key={pipeline} className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                      <span className="text-sm font-medium">{pipeline}</span>
+                      <span className="font-bold text-primary">{count}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
+              {/* Tasks by Team Member */}
               <div className="border rounded-lg p-4">
-                <h3 className="font-semibold mb-4">Efficiency Insights</h3>
-                <div className="space-y-3 text-sm">
-                  <p>
-                    📊 <strong>Performance:</strong> {stats.completionRate >= 70 ? "Excellent" : stats.completionRate >= 50 ? "Good" : "Needs Improvement"}
-                  </p>
-                  <p>
-                    ⏳ <strong>Pending Tasks:</strong> {stats.pendingTasks} tasks awaiting completion
-                  </p>
-                  <p>
-                    ✅ <strong>Approval Status:</strong> {stats.clientApproval + stats.costApproval} tasks in approval stages
-                  </p>
-                  <p>
-                    🎯 <strong>Active Work:</strong> {stats.inProgress} tasks currently in progress
-                  </p>
+                <h3 className="font-semibold mb-4">Tasks by Team Member</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {Object.entries(memberGroups).map(([member, count]) => (
+                    <div key={member} className="flex justify-between items-center p-2 bg-muted/50 rounded">
+                      <span className="text-sm">{member}</span>
+                      <span className="font-semibold">{count}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          )}
 
-          {!loading && !stats && selectedMember && (
-            <div className="text-center py-8 text-muted-foreground">
-              No data available for this team member
-            </div>
+              {/* Task List */}
+              <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
+                <h3 className="font-semibold mb-4">Task Details ({filteredTasks.length})</h3>
+                <div className="space-y-2">
+                  {filteredTasks.map(task => (
+                    <div key={task.id} className="p-3 bg-muted/30 rounded border-l-4 border-primary">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-medium text-sm">{task.title}</span>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                          task.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {task.priority}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span>👤 {task.assigned_name}</span>
+                        <span>📍 {statusPipelines[task.status as keyof typeof statusPipelines] || task.status}</span>
+                        {task.client_name && <span>🏢 {task.client_name}</span>}
+                        <span>📅 {new Date(task.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -335,7 +421,7 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          {stats && (
+          {filteredTasks.length > 0 && (
             <>
               <Button variant="outline" onClick={exportToCSV}>
                 <Download className="h-4 w-4 mr-2" />
