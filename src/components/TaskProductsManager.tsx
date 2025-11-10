@@ -278,16 +278,16 @@ export function TaskProductsManager({
           if (designerUsers && designerUsers.length > 0) {
             targetUserId = designerUsers[0].user_id;
           }
-        } else if (taskData.status === 'quotation_bill') {
-          // Get an operations user
-          const { data: operationsUsers } = await supabase
+        } else if (taskData.status === 'admin_cost_approval') {
+          // Get an estimation user for admin cost approval
+          const { data: estimationUsers } = await supabase
             .from('user_roles')
             .select('user_id')
-            .eq('role', 'operations')
+            .eq('role', 'estimation')
             .limit(1);
           
-          if (operationsUsers && operationsUsers.length > 0) {
-            targetUserId = operationsUsers[0].user_id;
+          if (estimationUsers && estimationUsers.length > 0) {
+            targetUserId = estimationUsers[0].user_id;
           }
         }
 
