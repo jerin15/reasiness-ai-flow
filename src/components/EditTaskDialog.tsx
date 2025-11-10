@@ -341,8 +341,6 @@ export const EditTaskDialog = ({
               taskId={task.id} 
               isAdmin={isAdmin || currentUserRole === 'admin' || currentUserRole === 'technical_head'}
               userRole={viewingUserRole || currentUserRole}
-              taskStatus={status}
-              onTaskUpdated={onTaskUpdated}
               readOnly={false}
             />
           </div>

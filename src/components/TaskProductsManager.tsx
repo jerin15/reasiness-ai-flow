@@ -30,8 +30,6 @@ interface TaskProductsManagerProps {
   onProductsChange?: (products: Product[]) => void;
   readOnly?: boolean;
   userRole?: string;
-  taskStatus?: string;
-  onTaskUpdated?: () => void;
 }
 
 export function TaskProductsManager({ 
@@ -39,9 +37,7 @@ export function TaskProductsManager({
   isAdmin = false, 
   onProductsChange,
   readOnly = false,
-  userRole,
-  taskStatus,
-  onTaskUpdated
+  userRole 
 }: TaskProductsManagerProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -223,59 +219,6 @@ export function TaskProductsManager({
     await handleUpdateProduct(productId, updates);
   };
 
-  const handleApproveAllAndAdvance = async () => {
-    if (!taskId || !canApprove) return;
-
-    const pendingProducts = products.filter(p => p.approval_status !== 'approved');
-    
-    if (pendingProducts.length === 0) {
-      toast.error('All products are already approved');
-      return;
-    }
-
-    const confirm = window.confirm(
-      `This will approve all ${pendingProducts.length} pending product(s) and advance the task. Continue?`
-    );
-
-    if (!confirm) return;
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Approve all pending products
-      const updates = pendingProducts.map(product => ({
-        id: product.id,
-        approval_status: 'approved',
-        approved_by: user?.id,
-        approved_at: new Date().toISOString()
-      }));
-
-      for (const update of updates) {
-        const { error } = await supabase
-          .from('task_products')
-          .update({
-            approval_status: update.approval_status,
-            approved_by: update.approved_by,
-            approved_at: update.approved_at
-          })
-          .eq('id', update.id!);
-
-        if (error) {
-          console.error('Error approving product:', error);
-          toast.error('Failed to approve some products');
-          return;
-        }
-      }
-
-      toast.success('All products approved! Task will auto-advance.');
-      await fetchProducts();
-      onTaskUpdated?.();
-    } catch (error) {
-      console.error('Error in bulk approval:', error);
-      toast.error('Failed to approve products');
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; label: string }> = {
       pending: { variant: 'secondary', label: 'Pending' },
@@ -288,41 +231,21 @@ export function TaskProductsManager({
     return <Badge variant={variant}>{label}</Badge>;
   };
 
-  // Check if we should show bulk approval button
-  const showBulkApproval = canApprove && 
-    taskId && 
-    (taskStatus === 'admin_cost_approval' || taskStatus === 'with_client') &&
-    products.some(p => p.approval_status !== 'approved');
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Products</h3>
-        <div className="flex gap-2">
-          {showBulkApproval && (
-            <Button 
-              type="button"
-              onClick={handleApproveAllAndAdvance}
-              size="sm"
-              variant="default"
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Check className="h-4 w-4 mr-2" />
-              Approve All & Advance
-            </Button>
-          )}
-          {canEdit && (
-            <Button 
-              type="button"
-              onClick={() => setShowAddForm(!showAddForm)} 
-              size="sm"
-              variant="outline"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
-            </Button>
-          )}
-        </div>
+        {canEdit && (
+          <Button 
+            type="button"
+            onClick={() => setShowAddForm(!showAddForm)} 
+            size="sm"
+            variant="outline"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        )}
       </div>
 
       {showAddForm && (
@@ -499,24 +422,6 @@ export function TaskProductsManager({
               {products.filter(p => p.approval_status === 'rejected').length}
             </span>
           </div>
-          
-          {/* Approval Progress Bar */}
-          {(taskStatus === 'admin_cost_approval' || taskStatus === 'with_client') && products.length > 0 && (
-            <div className="mt-3">
-              <div className="flex justify-between text-xs mb-1">
-                <span>Approval Progress</span>
-                <span>{Math.round((products.filter(p => p.approval_status === 'approved').length / products.length) * 100)}%</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                  style={{ 
-                    width: `${(products.filter(p => p.approval_status === 'approved').length / products.length) * 100}%` 
-                  }}
-                />
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>
