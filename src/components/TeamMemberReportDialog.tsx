@@ -45,12 +45,21 @@ const statusPipelines = {
   quotation_bill: "Cost Approval",
 };
 
+interface TeamMember {
+  id: string;
+  full_name: string;
+}
+
 export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportDialogProps) {
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState<TaskDetail[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<TaskDetail[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   
-  // Filters
+  // Primary filter - Team Member
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("");
+  
+  // Secondary filters
   const [selectedPipeline, setSelectedPipeline] = useState<string>("all");
   const [selectedClient, setSelectedClient] = useState<string>("all");
   const [timeSpan, setTimeSpan] = useState<string>("all");
@@ -58,18 +67,45 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
 
   useEffect(() => {
     if (open) {
-      fetchAllPendingTasks();
+      fetchTeamMembers();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (selectedMemberId) {
+      fetchMemberTasks();
+    } else {
+      setTasks([]);
+      setFilteredTasks([]);
+    }
+  }, [selectedMemberId]);
 
   useEffect(() => {
     applyFilters();
   }, [tasks, selectedPipeline, selectedClient, timeSpan, searchTerm]);
 
-  const fetchAllPendingTasks = async () => {
+  const fetchTeamMembers = async () => {
+    try {
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .order("full_name");
+
+      if (error) throw error;
+
+      setTeamMembers(profiles || []);
+    } catch (error) {
+      console.error("Error fetching team members:", error);
+      toast.error("Failed to load team members");
+    }
+  };
+
+  const fetchMemberTasks = async () => {
+    if (!selectedMemberId) return;
+    
     setLoading(true);
     try {
-      // Fetch all tasks that are not done
+      // Fetch all tasks for the selected member (excluding done status)
       const { data: tasksData, error: tasksError } = await supabase
         .from("tasks")
         .select(`
@@ -83,30 +119,23 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
           assigned_to,
           type
         `)
+        .eq("assigned_to", selectedMemberId)
         .neq("status", "done")
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
 
       if (tasksError) throw tasksError;
 
-      // Fetch all profiles to get assigned names
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, full_name");
-
-      if (profilesError) throw profilesError;
-
-      const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
-
+      const selectedMember = teamMembers.find(m => m.id === selectedMemberId);
       const enrichedTasks = (tasksData || []).map(task => ({
         ...task,
-        assigned_name: task.assigned_to ? profileMap.get(task.assigned_to) || "Unassigned" : "Unassigned"
+        assigned_name: selectedMember?.full_name || "Unknown"
       }));
 
       setTasks(enrichedTasks);
     } catch (error) {
-      console.error("Error fetching tasks:", error);
-      toast.error("Failed to load tasks");
+      console.error("Error fetching member tasks:", error);
+      toast.error("Failed to load member tasks");
     } finally {
       setLoading(false);
     }
@@ -176,8 +205,9 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
 
   const exportToCSV = () => {
     const timestamp = new Date().toLocaleString();
+    const selectedMember = teamMembers.find(m => m.id === selectedMemberId);
     
-    let csv = `Team Pending Tasks Report\n`;
+    let csv = `Team Member Report - ${selectedMember?.full_name || 'Unknown'}\n`;
     csv += `Generated: ${timestamp}\n`;
     csv += `Total Pending Tasks: ${filteredTasks.length}\n\n`;
     
@@ -200,18 +230,22 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
 
   const exportToPDF = () => {
     const timestamp = new Date().toLocaleString();
+    const selectedMember = teamMembers.find(m => m.id === selectedMemberId);
     const doc = new jsPDF();
     
     doc.setFontSize(18);
-    doc.text("Team Pending Tasks Report", 14, 20);
+    doc.text(`Team Member Report`, 14, 20);
+    
+    doc.setFontSize(12);
+    doc.text(`Member: ${selectedMember?.full_name || 'Unknown'}`, 14, 30);
     
     doc.setFontSize(10);
-    doc.text(`Generated: ${timestamp}`, 14, 30);
-    doc.text(`Total Pending Tasks: ${filteredTasks.length}`, 14, 36);
+    doc.text(`Generated: ${timestamp}`, 14, 38);
+    doc.text(`Total Pending Tasks: ${filteredTasks.length}`, 14, 44);
     
     // Pipeline breakdown
     doc.setFontSize(14);
-    doc.text("Tasks by Pipeline", 14, 50);
+    doc.text("Tasks by Pipeline", 14, 56);
     
     const pipelineData = Object.entries(getTasksByPipeline()).map(([pipeline, count]) => [
       pipeline,
@@ -219,31 +253,13 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
     ]);
 
     autoTable(doc, {
-      startY: 55,
+      startY: 61,
       head: [["Pipeline", "Count"]],
       body: pipelineData,
       theme: "striped",
     });
 
-    const finalY1 = (doc as any).lastAutoTable.finalY || 55;
-    
-    // Member breakdown
-    doc.setFontSize(14);
-    doc.text("Tasks by Team Member", 14, finalY1 + 15);
-
-    const memberData = Object.entries(getTasksByMember()).map(([member, count]) => [
-      member,
-      count.toString()
-    ]);
-
-    autoTable(doc, {
-      startY: finalY1 + 20,
-      head: [["Team Member", "Pending Tasks"]],
-      body: memberData,
-      theme: "striped",
-    });
-
-    const finalY2 = (doc as any).lastAutoTable.finalY || 55;
+    const finalY1 = (doc as any).lastAutoTable.finalY || 61;
     
     // Task details
     doc.addPage();
@@ -266,25 +282,45 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
       styles: { fontSize: 7 },
     });
 
-    doc.save(`team_pending_tasks_${new Date().toISOString().split('T')[0]}.pdf`);
+    const memberName = selectedMember?.full_name?.replace(/\s+/g, '_') || 'unknown';
+    doc.save(`${memberName}_report_${new Date().toISOString().split('T')[0]}.pdf`);
     toast.success("Report exported as PDF");
   };
 
   const pipelineGroups = getTasksByPipeline();
-  const memberGroups = getTasksByMember();
+  const selectedMember = teamMembers.find(m => m.id === selectedMemberId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Team Pending Tasks Report</DialogTitle>
+          <DialogTitle>Team Member Report</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Pipeline</label>
+          {/* Primary Filter - Select Team Member */}
+          <div className="p-4 bg-primary/10 rounded-lg border-2 border-primary/20">
+            <label className="text-sm font-medium mb-2 block">Select Team Member *</label>
+            <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+              <SelectTrigger className="bg-background">
+                <SelectValue placeholder="Choose a team member to view report" />
+              </SelectTrigger>
+              <SelectContent>
+                {teamMembers.map(member => (
+                  <SelectItem key={member.id} value={member.id}>
+                    {member.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedMemberId && (
+            <>
+              {/* Secondary Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Pipeline</label>
               <Select value={selectedPipeline} onValueChange={setSelectedPipeline}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Pipelines" />
@@ -334,85 +370,93 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-            </div>
-          </div>
-
-          {loading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          )}
-
-          {!loading && (
-            <>
-              {/* Summary Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-card rounded-lg border">
-                  <div className="text-3xl font-bold text-orange-600">{filteredTasks.length}</div>
-                  <div className="text-sm text-muted-foreground">Total Pending Tasks</div>
-                </div>
-                <div className="p-4 bg-card rounded-lg border">
-                  <div className="text-3xl font-bold text-blue-600">{Object.keys(pipelineGroups).length}</div>
-                  <div className="text-sm text-muted-foreground">Active Pipelines</div>
-                </div>
-                <div className="p-4 bg-card rounded-lg border">
-                  <div className="text-3xl font-bold text-purple-600">{Object.keys(memberGroups).length}</div>
-                  <div className="text-sm text-muted-foreground">Team Members</div>
                 </div>
               </div>
 
-              {/* Tasks by Pipeline */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold mb-4">Tasks by Pipeline</h3>
-                <div className="space-y-2">
-                  {Object.entries(pipelineGroups).map(([pipeline, count]) => (
-                    <div key={pipeline} className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                      <span className="text-sm font-medium">{pipeline}</span>
-                      <span className="font-bold text-primary">{count}</span>
-                    </div>
-                  ))}
+              {loading && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              </div>
+              )}
 
-              {/* Tasks by Team Member */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold mb-4">Tasks by Team Member</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {Object.entries(memberGroups).map(([member, count]) => (
-                    <div key={member} className="flex justify-between items-center p-2 bg-muted/50 rounded">
-                      <span className="text-sm">{member}</span>
-                      <span className="font-semibold">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Task List */}
-              <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
-                <h3 className="font-semibold mb-4">Task Details ({filteredTasks.length})</h3>
-                <div className="space-y-2">
-                  {filteredTasks.map(task => (
-                    <div key={task.id} className="p-3 bg-muted/30 rounded border-l-4 border-primary">
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-medium text-sm">{task.title}</span>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
-                          task.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {task.priority}
-                        </span>
+              {!loading && (
+                <>
+                  {/* Member Info Banner */}
+                  <div className="p-4 bg-gradient-to-r from-primary/20 to-primary/10 rounded-lg border border-primary/30">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold">{selectedMember?.full_name}</h3>
+                        <p className="text-sm text-muted-foreground">Member Task Report</p>
                       </div>
-                      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                        <span>👤 {task.assigned_name}</span>
-                        <span>📍 {statusPipelines[task.status as keyof typeof statusPipelines] || task.status}</span>
-                        {task.client_name && <span>🏢 {task.client_name}</span>}
-                        <span>📅 {new Date(task.created_at).toLocaleDateString()}</span>
+                      <div className="text-right">
+                        <div className="text-3xl font-bold text-primary">{filteredTasks.length}</div>
+                        <div className="text-xs text-muted-foreground">Pending Tasks</div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-card rounded-lg border">
+                      <div className="text-2xl font-bold text-blue-600">{Object.keys(pipelineGroups).length}</div>
+                      <div className="text-sm text-muted-foreground">Active Pipelines</div>
+                    </div>
+                    <div className="p-4 bg-card rounded-lg border">
+                      <div className="text-2xl font-bold text-green-600">{tasks.length}</div>
+                      <div className="text-sm text-muted-foreground">Total Tasks (Before Filters)</div>
+                    </div>
+                  </div>
+
+                  {/* Tasks by Pipeline */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-4">Tasks Distribution by Pipeline</h3>
+                    <div className="space-y-2">
+                      {Object.keys(pipelineGroups).length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No tasks found</p>
+                      ) : (
+                        Object.entries(pipelineGroups).map(([pipeline, count]) => (
+                          <div key={pipeline} className="flex justify-between items-center p-3 bg-muted/50 rounded-md hover:bg-muted/70 transition-colors">
+                            <span className="text-sm font-medium">{pipeline}</span>
+                            <span className="font-bold text-primary text-lg">{count}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Task List */}
+                  <div className="border rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <h3 className="font-semibold mb-4">Detailed Task List ({filteredTasks.length})</h3>
+                    <div className="space-y-2">
+                      {filteredTasks.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-8">No tasks found matching the filters</p>
+                      ) : (
+                        filteredTasks.map(task => (
+                          <div key={task.id} className="p-3 bg-muted/30 rounded border-l-4 border-primary hover:bg-muted/50 transition-colors">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="font-medium text-sm">{task.title}</span>
+                              <span className={`text-xs px-2 py-1 rounded ${
+                                task.priority === 'urgent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100' :
+                                task.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100' :
+                                'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100'
+                              }`}>
+                                {task.priority}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                              <span>📍 {statusPipelines[task.status as keyof typeof statusPipelines] || task.status}</span>
+                              {task.client_name && <span>🏢 {task.client_name}</span>}
+                              <span>🏷️ {task.type}</span>
+                              <span>📅 Created: {new Date(task.created_at).toLocaleDateString()}</span>
+                              {task.due_date && <span>⏰ Due: {new Date(task.due_date).toLocaleDateString()}</span>}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
@@ -421,7 +465,7 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          {filteredTasks.length > 0 && (
+          {selectedMemberId && filteredTasks.length > 0 && (
             <>
               <Button variant="outline" onClick={exportToCSV}>
                 <Download className="h-4 w-4 mr-2" />
