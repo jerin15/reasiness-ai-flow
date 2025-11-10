@@ -43,7 +43,7 @@ export const DailyPendingTasksDialog = ({ open, onOpenChange }: DailyPendingTask
         .neq("status", "done")
         .is("deleted_at", null)
         .order("priority", { ascending: false })
-        .order("due_date", { ascending: true });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setPendingTasks(data || []);

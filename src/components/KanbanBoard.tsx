@@ -181,7 +181,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           error = result.error;
           data = null;
         } else {
-          // Custom client-side sorting for estimation: type order, then priority (urgent first), then position
+          // Custom client-side sorting for estimation: type order, then priority (urgent first), then newest first
           const typeOrder: Record<string, number> = { 
             quotation: 1, 
             invoice: 2, 
@@ -200,13 +200,16 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
             const priorityB = priorityOrder[b.priority?.toLowerCase()] || 0;
             if (priorityA !== priorityB) return priorityB - priorityA;
             
-            return a.position - b.position;
+            // Within same priority, newest first (by created_at)
+            const dateA = new Date(a.created_at).getTime();
+            const dateB = new Date(b.created_at).getTime();
+            return dateB - dateA;
           });
         }
       } else {
         const result = await query
           .order("priority", { ascending: false })
-          .order("position", { ascending: true });
+          .order("created_at", { ascending: false });
         data = result.data;
         error = result.error;
       }

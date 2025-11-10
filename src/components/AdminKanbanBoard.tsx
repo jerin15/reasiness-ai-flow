@@ -86,6 +86,7 @@ export const AdminKanbanBoard = () => {
         .select('*')
         .eq('status', 'admin_approval')
         .is('deleted_at', null)
+        .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
       console.log('📋 Admin Cost Approval tasks found:', approvalTasks?.length, 'Status filter: admin_approval');
@@ -101,6 +102,7 @@ export const AdminKanbanBoard = () => {
         .select('*')
         .eq('status', 'with_client')
         .is('deleted_at', null)
+        .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
       console.log('👥 With Client tasks:', withClientTasks?.length, withClientTasks);
@@ -117,6 +119,7 @@ export const AdminKanbanBoard = () => {
         .eq('status', 'done')
         .is('deleted_at', null)
         .or(`visible_to.is.null,visible_to.neq.${user.id}`)
+        .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
       // Filter for tasks where creator or assignee is designer
