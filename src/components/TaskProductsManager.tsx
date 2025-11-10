@@ -207,16 +207,148 @@ export function TaskProductsManager({
     status: 'approved' | 'rejected' | 'needs_revision',
     notes?: string
   ) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!taskId) return;
     
-    const updates = {
-      approval_status: status,
-      approval_notes: notes,
-      approved_by: user?.id,
-      approved_at: new Date().toISOString()
-    };
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('User not authenticated');
+        return;
+      }
+      
+      // Update the product approval status
+      const { error: updateError } = await supabase
+        .from('task_products')
+        .update({
+          approval_status: status,
+          approval_notes: notes,
+          approved_by: user.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', productId);
 
-    await handleUpdateProduct(productId, updates);
+      if (updateError) {
+        console.error('Product approval error:', updateError);
+        toast.error('Failed to update product approval status');
+        return;
+      }
+
+      // If approved, create a new task with this product
+      if (status === 'approved') {
+        // Get the current task details
+        const { data: taskData, error: taskError } = await supabase
+          .from('tasks')
+          .select('*, task_products(*)')
+          .eq('id', taskId)
+          .single();
+
+        if (taskError || !taskData) {
+          console.error('Error fetching task:', taskError);
+          toast.error('Failed to fetch task details');
+          await fetchProducts();
+          return;
+        }
+
+        // Get the approved product details
+        const { data: productData, error: productError } = await supabase
+          .from('task_products')
+          .select('*')
+          .eq('id', productId)
+          .single();
+
+        if (productError || !productData) {
+          console.error('Error fetching product:', productError);
+          toast.error('Failed to fetch product details');
+          await fetchProducts();
+          return;
+        }
+
+        // Determine target user based on current task status
+        let targetUserId: string | null = null;
+        let targetStatus: any = 'production';
+
+        if (taskData.status === 'with_client') {
+          // Get a designer user
+          const { data: designerUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', 'designer')
+            .limit(1);
+          
+          if (designerUsers && designerUsers.length > 0) {
+            targetUserId = designerUsers[0].user_id;
+          }
+        } else if (taskData.status === 'quotation_bill') {
+          // Get an operations user
+          const { data: operationsUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', 'operations')
+            .limit(1);
+          
+          if (operationsUsers && operationsUsers.length > 0) {
+            targetUserId = operationsUsers[0].user_id;
+          }
+        }
+
+        // Create new task with the approved product
+        const { data: newTaskData, error: newTaskError } = await supabase
+          .from('tasks')
+          .insert({
+            title: `${taskData.title} - ${productData.product_name}`,
+            description: `Approved product from task: ${taskData.title}\n\nProduct: ${productData.product_name}\n${productData.description || ''}`,
+            status: targetStatus,
+            priority: taskData.priority,
+            type: taskData.type,
+            client_name: taskData.client_name,
+            supplier_name: taskData.supplier_name,
+            created_by: user.id,
+            assigned_to: targetUserId,
+            due_date: taskData.due_date
+          })
+          .select();
+
+        const newTask = newTaskData?.[0];
+
+        if (newTaskError || !newTask) {
+          console.error('Error creating task:', newTaskError);
+          toast.error('Product approved but failed to create new task');
+          await fetchProducts();
+          return;
+        }
+
+        // Add the approved product to the new task
+        const { error: newProductError } = await supabase
+          .from('task_products')
+          .insert({
+            task_id: newTask.id,
+            product_name: productData.product_name,
+            description: productData.description,
+            quantity: productData.quantity,
+            unit: productData.unit,
+            estimated_price: productData.estimated_price,
+            final_price: productData.final_price,
+            approval_status: 'approved',
+            approved_by: user.id,
+            approved_at: new Date().toISOString(),
+            position: 0
+          });
+
+        if (newProductError) {
+          console.error('Error adding product to new task:', newProductError);
+          toast.error('Task created but failed to add product');
+        } else {
+          toast.success(`Product approved and sent to ${targetStatus} pipeline`);
+        }
+      } else {
+        toast.success(`Product ${status === 'rejected' ? 'rejected' : 'marked for revision'}`);
+      }
+
+      await fetchProducts();
+    } catch (error) {
+      console.error('Approval error:', error);
+      toast.error('Failed to process approval');
+    }
   };
 
   const getStatusBadge = (status: string) => {
