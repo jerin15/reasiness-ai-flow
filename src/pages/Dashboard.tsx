@@ -226,7 +226,7 @@ const Dashboard = () => {
           />
 
           <div className="flex-1 flex flex-col">
-            <header className="border-b bg-card shadow-sm sticky top-0 z-10">
+            <header className="border-b bg-card shadow-sm sticky top-0 z-[5]">
               <div className="container mx-auto px-4 py-3">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
@@ -324,7 +324,7 @@ const Dashboard = () => {
         />
 
         <div className="flex-1 flex flex-col">
-          <header className="border-b bg-card shadow-sm sticky top-0 z-10">
+          <header className="border-b bg-card shadow-sm sticky top-0 z-[5]">
             <div className="container mx-auto px-4 py-3">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
