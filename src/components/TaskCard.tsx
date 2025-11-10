@@ -3,13 +3,13 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Calendar, GripVertical, Edit2, Clock, ArrowRight } from "lucide-react";
+import { Calendar, GripVertical, Edit2, Clock, ArrowRight, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Task = {
   id: string;
@@ -50,6 +50,25 @@ type TaskCardProps = {
 export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel, showFullCrud }: TaskCardProps) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
+  const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
+
+  useEffect(() => {
+    fetchProductStats();
+  }, [task.id]);
+
+  const fetchProductStats = async () => {
+    const { data } = await supabase
+      .from('task_products')
+      .select('approval_status')
+      .eq('task_id', task.id);
+
+    if (data && data.length > 0) {
+      setProductsStats({
+        total: data.length,
+        approved: data.filter((p: any) => p.approval_status === 'approved').length
+      });
+    }
+  };
 
   const {
     attributes,
@@ -532,6 +551,20 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                   className="text-xs bg-blue-500 text-white hover:bg-blue-600"
                 >
                   Supplier: {task.supplier_name}
+                </Badge>
+              )}
+              {productsStats && productsStats.total > 0 && (
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "text-xs flex items-center gap-1",
+                    productsStats.approved === productsStats.total
+                      ? "bg-green-500 text-white hover:bg-green-600"
+                      : "bg-amber-500 text-white hover:bg-amber-600"
+                  )}
+                >
+                  <Package className="h-3 w-3" />
+                  {productsStats.approved}/{productsStats.total} Approved
                 </Badge>
               )}
               {task.due_date && (

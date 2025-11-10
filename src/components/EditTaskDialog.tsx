@@ -8,6 +8,7 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { TaskProductsManager } from "./TaskProductsManager";
 
 type Task = {
   id: string;
@@ -333,6 +334,16 @@ export const EditTaskDialog = ({
               placeholder="Supplier name"
             />
           </div>
+
+          {/* Products Manager */}
+          <div className="border-t pt-4 mt-4">
+            <TaskProductsManager 
+              taskId={task.id} 
+              isAdmin={isAdmin}
+              readOnly={!isAdmin && !['estimation', 'admin'].includes(currentUserRole)}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-myStatus">My Status</Label>

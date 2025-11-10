@@ -426,6 +426,68 @@ export type Database = {
           },
         ]
       }
+      task_products: {
+        Row: {
+          approval_notes: string | null
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          description: string | null
+          estimated_price: number | null
+          final_price: number | null
+          id: string
+          position: number
+          product_name: string
+          quantity: number | null
+          task_id: string
+          unit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approval_notes?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          description?: string | null
+          estimated_price?: number | null
+          final_price?: number | null
+          id?: string
+          position?: number
+          product_name: string
+          quantity?: number | null
+          task_id: string
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approval_notes?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          description?: string | null
+          estimated_price?: number | null
+          final_price?: number | null
+          id?: string
+          position?: number
+          product_name?: string
+          quantity?: number | null
+          task_id?: string
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_products_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_reminders: {
         Row: {
           created_at: string | null
