@@ -41,6 +41,25 @@ export const UrgentNotificationModal = () => {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     setAudioContext(ctx);
 
+    // Request notification permission immediately for urgent notifications
+    const requestNotificationPermission = async () => {
+      if ('Notification' in window && Notification.permission === 'default') {
+        console.log('🔔 Requesting notification permission for urgent alerts...');
+        const permission = await Notification.requestPermission();
+        console.log('🔔 Notification permission:', permission);
+        
+        if (permission === 'granted') {
+          console.log('✅ Urgent notifications enabled!');
+        } else {
+          console.warn('⚠️ Notification permission denied. Urgent alerts will only show when app is active.');
+        }
+      } else if (Notification.permission === 'granted') {
+        console.log('✅ Notification permission already granted');
+      }
+    };
+    
+    requestNotificationPermission();
+
     return () => {
       ctx.close();
     };
@@ -113,14 +132,38 @@ export const UrgentNotificationModal = () => {
         navigator.vibrate([200, 100, 200, 100, 200]);
       }
 
-      // Show browser notification if permission granted
+      // Show browser notification ALWAYS (works even when tab is in background)
       if (Notification.permission === 'granted') {
-        new Notification('🚨 URGENT: ' + data.title, {
+        console.log('🚨 Showing urgent browser notification:', data.title);
+        const notification = new Notification('🚨 URGENT: ' + data.title, {
           body: data.message,
-          tag: 'urgent-notification',
+          tag: 'urgent-notification-' + notificationId,
           requireInteraction: true,
           icon: '/rea-logo-icon.png',
+          badge: '/rea-logo-icon.png',
+          silent: false,
         });
+
+        // When user clicks notification, focus the window
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+      } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        // Fallback: Try to show via service worker
+        console.log('🚨 Attempting notification via service worker');
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification('🚨 URGENT: ' + data.title, {
+            body: data.message,
+            tag: 'urgent-notification-' + notificationId,
+            requireInteraction: true,
+            icon: '/rea-logo-icon.png',
+            badge: '/rea-logo-icon.png',
+            silent: false,
+          });
+        });
+      } else {
+        console.warn('⚠️ Cannot show browser notification - permission not granted or service worker not available');
       }
     }
   };
