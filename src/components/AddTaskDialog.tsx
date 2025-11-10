@@ -119,13 +119,10 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Ensure priority is lowercase before sending to database
-      const normalizedPriority = priority.toLowerCase() as "low" | "medium" | "high" | "urgent";
-      
       const taskData: any = {
         title,
         description: description || null,
-        priority: normalizedPriority,
+        priority: priority as "low" | "medium" | "high" | "urgent",
         due_date: dueDate || null,
         created_by: user.id,
         status: (currentUserRole === 'admin' || currentUserRole === 'technical_head') 
