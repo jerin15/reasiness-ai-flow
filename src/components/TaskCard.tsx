@@ -390,15 +390,15 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                         }).eq("id", task.id);
 
                         if (updateError) {
-                          console.error('❌ Update error:', updateError);
+                          console.error('❌ Estimation task update error:', updateError);
                           throw updateError;
                         }
 
-                        console.log('✅ Task updated successfully');
+                        console.log('✅ Estimation task updated successfully');
 
-                        // Create operations task in parallel (non-blocking)
+                        // Create operations task (await to ensure it completes)
                         if (operationsUsers && operationsUsers.length > 0) {
-                          supabase.from("tasks").insert([{
+                          const { error: insertError } = await supabase.from("tasks").insert([{
                             title: task.title,
                             description: task.description,
                             status: 'production' as any,
@@ -414,13 +414,14 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                             status_changed_at: now,
                             came_from_designer_done: true,
                             previous_status: 'done' as any,
-                          }]).then(({ error: insertError }) => {
-                            if (insertError) {
-                              console.error('❌ Insert error:', insertError);
-                            } else {
-                              console.log('✅ Operations task created');
-                            }
-                          });
+                          }]);
+
+                          if (insertError) {
+                            console.error('❌ Operations task insert error:', insertError);
+                            throw insertError;
+                          }
+
+                          console.log('✅ Operations task created successfully');
                         }
                         
                         toast.success("Task sent to Estimation & Operations production!", { id: loadingToast });
