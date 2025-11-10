@@ -52,7 +52,6 @@ const Dashboard = () => {
   const [chatRecipientName, setChatRecipientName] = useState("");
   const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false);
-  const [hideSidebarOnScroll, setHideSidebarOnScroll] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const unreadCount = useUnreadMessageCount(currentUserId);
 
@@ -60,29 +59,6 @@ const Dashboard = () => {
     checkAuth();
   }, []);
 
-  // Detect horizontal scroll and hide/show sidebar
-  useEffect(() => {
-    const handleScroll = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (target && target.scrollLeft > 50) {
-        setHideSidebarOnScroll(true);
-      } else {
-        setHideSidebarOnScroll(false);
-      }
-    };
-
-    // Add scroll listener to main content areas
-    const mainElements = document.querySelectorAll('main, .overflow-x-auto');
-    mainElements.forEach(el => {
-      el.addEventListener('scroll', handleScroll);
-    });
-
-    return () => {
-      mainElements.forEach(el => {
-        el.removeEventListener('scroll', handleScroll);
-      });
-    };
-  }, []);
 
   // Show reminders for all users
   useEffect(() => {
@@ -229,8 +205,7 @@ const Dashboard = () => {
     return (
       <SidebarProvider>
         <div className="min-h-screen flex w-full bg-background">
-          <div className={`transition-all duration-300 ease-in-out ${hideSidebarOnScroll ? '-translate-x-full opacity-0 w-0' : 'translate-x-0 opacity-100'}`}>
-            <DashboardSidebar
+          <DashboardSidebar
             userRole={userRole}
             currentUserId={currentUserId}
             selectedUserId={selectedUserId}
@@ -249,7 +224,6 @@ const Dashboard = () => {
             getSelectedUserName={getSelectedUserName}
             formatRole={formatRole}
           />
-          </div>
 
           <div className="flex-1 flex flex-col">
             <header className="border-b bg-card shadow-sm sticky top-0 z-10">
@@ -257,9 +231,9 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <SidebarTrigger className="lg:hidden">
-                    <Menu className="h-5 w-5" />
-                  </SidebarTrigger>
-                  <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto" />
+                      <Menu className="h-5 w-5" />
+                    </SidebarTrigger>
+                    <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto" />
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={userAvatar} alt={userName} />
@@ -328,8 +302,7 @@ const Dashboard = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
-        <div className={`transition-all duration-300 ease-in-out ${hideSidebarOnScroll ? '-translate-x-full opacity-0 w-0' : 'translate-x-0 opacity-100'}`}>
-          <DashboardSidebar
+        <DashboardSidebar
           userRole={userRole}
           currentUserId={currentUserId}
           selectedUserId={selectedUserId}
@@ -349,7 +322,6 @@ const Dashboard = () => {
           getSelectedUserName={getSelectedUserName}
           formatRole={formatRole}
         />
-        </div>
 
         <div className="flex-1 flex flex-col">
           <header className="border-b bg-card shadow-sm sticky top-0 z-10">
