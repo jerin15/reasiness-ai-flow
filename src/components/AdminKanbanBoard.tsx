@@ -419,11 +419,13 @@ export const AdminKanbanBoard = () => {
   const handleSendToProduction = async (taskId: string) => {
     try {
       // Move task from designer's done to production pipeline
+      // Unassign from designer so estimation/operations can see it
       const { error } = await supabase
         .from('tasks')
         .update({ 
           status: 'production',
           previous_status: 'done',
+          assigned_to: null,  // Unassign from designer
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString(),
           came_from_designer_done: true
