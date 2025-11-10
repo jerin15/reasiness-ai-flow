@@ -9,16 +9,7 @@ export const AppUpdateNotifier = () => {
 
       wb.addEventListener('installed', (event) => {
         if (event.isUpdate) {
-          console.log('🔄 New version detected! Auto-updating...');
-          toast.info('New version available! Updating...', {
-            duration: 2000,
-          });
-          
-          // Auto-reload after 2 seconds
-          setTimeout(() => {
-            wb.messageSkipWaiting();
-            window.location.reload();
-          }, 2000);
+          console.log('🔄 New version detected');
         } else {
           console.log('✅ Service Worker installed for the first time');
         }
@@ -37,12 +28,6 @@ export const AppUpdateNotifier = () => {
 
       wb.register().then((registration) => {
         console.log('✅ Service Worker registered successfully');
-        
-        // Check for updates every 60 seconds
-        setInterval(() => {
-          console.log('🔍 Checking for updates...');
-          registration?.update();
-        }, 60000);
       }).catch((error) => {
         console.error('❌ Service Worker registration error:', error);
       });

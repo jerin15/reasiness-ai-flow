@@ -27,6 +27,13 @@ export const useVersionCheck = () => {
         if (data.version !== APP_VERSION) {
           console.log(`🔄 Version mismatch! Current: ${APP_VERSION}, Available: ${data.version}`);
           
+          // Show update notification without auto-reload
+          if (!hasCheckedRef.current) {
+            console.log('⏭️ Skipping reload on first check to prevent infinite loop');
+            hasCheckedRef.current = true;
+            return;
+          }
+          
           // Clear all caches before reload
           if ('caches' in window) {
             const cacheNames = await caches.keys();
@@ -38,17 +45,16 @@ export const useVersionCheck = () => {
           window.location.reload();
         } else {
           console.log('✅ App version is up to date:', APP_VERSION);
+          hasCheckedRef.current = true;
         }
       } catch (error) {
         console.error('❌ Version check error:', error);
+        hasCheckedRef.current = true;
       }
     };
 
-    // Check immediately on mount (but only once)
-    if (!hasCheckedRef.current) {
-      hasCheckedRef.current = true;
-      checkVersion();
-    }
+    // Check immediately on mount
+    checkVersion();
 
     // Then check every 2 minutes
     const interval = setInterval(checkVersion, 120000);
