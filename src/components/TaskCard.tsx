@@ -391,7 +391,8 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
 
                         if (updateError) {
                           console.error('❌ Estimation task update error:', updateError);
-                          throw updateError;
+                          toast.error("Failed to send task to production", { id: loadingToast });
+                          return;
                         }
 
                         console.log('✅ Estimation task updated successfully');
@@ -418,18 +419,22 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
 
                           if (insertError) {
                             console.error('❌ Operations task insert error:', insertError);
-                            throw insertError;
+                            toast.error("Failed to create operations task", { id: loadingToast });
+                            return;
                           }
 
                           console.log('✅ Operations task created successfully');
                         }
                         
                         toast.success("Task sent to Estimation & Operations production!", { id: loadingToast });
-                        onTaskUpdated?.();
                       } catch (error) {
                         console.error("Error sending to production:", error);
                         toast.error("Failed to send task to production", { id: loadingToast });
+                        return;
                       }
+                      
+                      // Call onTaskUpdated outside try-catch to avoid showing error toast on success
+                      onTaskUpdated?.();
                     }}
                     disabled={isMoving}
                   >
