@@ -322,7 +322,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
             <div className="border-t pt-4 mt-4">
               <TaskProductsManager 
                 isAdmin={currentUserRole === 'admin' || currentUserRole === 'technical_head'}
-                userRole={currentUserRole || viewingUserRole}
+                userRole={currentUserRole}
                 onProductsChange={(products) => setTempProducts(products)}
                 readOnly={false}
               />
