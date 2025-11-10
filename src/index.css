@@ -67,6 +67,16 @@ All colors MUST be HSL.
     --column-done: 142 71% 97%;
     --column-pending: 38 92% 97%;
 
+    /* Sidebar colors */
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 217 91% 60%;
+
     /* Priority colors */
     --priority-low: 142 71% 45%;
     --priority-medium: 38 92% 50%;
