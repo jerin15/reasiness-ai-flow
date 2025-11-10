@@ -182,14 +182,10 @@ export const UrgentNotificationModal = () => {
       oscillator.type = 'sine';
 
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
 
       oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-
-      // Play 3 short beeps
-      setTimeout(() => playAlertSound(), 600);
-      setTimeout(() => playAlertSound(), 1200);
+      oscillator.stop(audioContext.currentTime + 0.2);
     } catch (error) {
       console.error('Error playing alert sound:', error);
     }
