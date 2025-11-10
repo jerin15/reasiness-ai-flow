@@ -237,6 +237,7 @@ export function TaskProductsManager({
         <h3 className="text-lg font-semibold">Products</h3>
         {canEdit && (
           <Button 
+            type="button"
             onClick={() => setShowAddForm(!showAddForm)} 
             size="sm"
             variant="outline"
@@ -308,10 +309,10 @@ export function TaskProductsManager({
             </div>
           </div>
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowAddForm(false)}>
+            <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddProduct}>
+            <Button type="button" onClick={handleAddProduct}>
               Add Product
             </Button>
           </div>
@@ -352,6 +353,7 @@ export function TaskProductsManager({
                 {canApprove && product.approval_status === 'pending' && (
                   <>
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       className="text-green-600"
@@ -360,6 +362,7 @@ export function TaskProductsManager({
                       <Check className="h-4 w-4" />
                     </Button>
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       className="text-red-600"
@@ -375,6 +378,7 @@ export function TaskProductsManager({
                 
                 {canEdit && !canApprove && (
                   <Button
+                    type="button"
                     size="sm"
                     variant="ghost"
                     onClick={() => handleDeleteProduct(product.id!)}
