@@ -196,31 +196,33 @@ export const UserPresenceIndicator = () => {
   const onlineCount = presences.filter(p => p.status !== 'offline').length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <Card className="p-4 shadow-lg">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-primary" />
-          <h3 className="font-semibold text-sm">Team Status</h3>
-          <Badge variant="secondary" className="text-xs">{onlineCount} online</Badge>
+          <Users className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Team Status</h3>
+          <Badge variant="secondary" className="ml-2">{onlineCount} online</Badge>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0"
-          onClick={() => setIsMinimized(!isMinimized)}
-        >
-          {isMinimized ? <Users className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => setIsMinimized(!isMinimized)}
+          >
+            {isMinimized ? <Users className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
 
       {!isMinimized && (
         <>
       {/* My Status */}
-      <div className="p-2 bg-secondary/50 rounded-lg">
+      <div className="mb-4 p-3 bg-secondary/50 rounded-lg">
         <p className="text-xs font-medium mb-2">Your Status</p>
         <div className="flex gap-2 mb-2">
           <Select value={myStatus} onValueChange={updateMyStatus}>
-            <SelectTrigger className="flex-1 h-8 text-xs">
+            <SelectTrigger className="flex-1">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -240,32 +242,32 @@ export const UserPresenceIndicator = () => {
             placeholder="Custom message..."
             value={customMessage}
             onChange={(e) => setCustomMessage(e.target.value)}
-            className="text-xs h-8"
+            className="text-xs"
           />
-          <Button size="sm" className="h-8" onClick={updateCustomMessage}>Set</Button>
+          <Button size="sm" onClick={updateCustomMessage}>Set</Button>
         </div>
       </div>
 
       {/* Team Presences */}
-      <div className="space-y-1 mt-2">
+      <div className="space-y-2">
         {displayedPresences.map((presence) => (
           <div key={presence.user_id}>
-            <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-secondary/50 transition-colors">
+            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors">
               <div className="relative">
-                <Avatar className="h-7 w-7">
+                <Avatar className="h-8 w-8">
                   <AvatarImage src={presence.profiles?.avatar_url || undefined} />
-                  <AvatarFallback className="text-xs">
+                  <AvatarFallback>
                     {presence.profiles?.full_name?.charAt(0) || '?'}
                   </AvatarFallback>
                 </Avatar>
-                <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background ${getStatusColor(presence.status)}`} />
+                <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${getStatusColor(presence.status)}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">
+                <p className="text-sm font-medium truncate">
                   {presence.profiles?.full_name}
                   {presence.user_id === currentUserId && ' (You)'}
                 </p>
-                <p className="text-[10px] text-muted-foreground truncate">
+                <p className="text-xs text-muted-foreground truncate">
                   {STATUS_OPTIONS.find(s => s.value === presence.status)?.label || presence.status}
                   {presence.custom_message && ` • ${presence.custom_message}`}
                 </p>
@@ -274,15 +276,15 @@ export const UserPresenceIndicator = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0"
+                  className="h-7 w-7 p-0"
                   onClick={() => setSendingTo(sendingTo === presence.user_id ? null : presence.user_id)}
                 >
-                  <MessageCircle className="h-3 w-3" />
+                  <MessageCircle className="h-4 w-4" />
                 </Button>
               )}
             </div>
             {sendingTo === presence.user_id && (
-              <div className="mt-1 ml-9 flex gap-1">
+              <div className="mt-2 ml-11 flex gap-2">
                 <Input
                   placeholder="Quick message..."
                   value={quickMessage}
@@ -292,18 +294,18 @@ export const UserPresenceIndicator = () => {
                       sendQuickMessage(presence.user_id);
                     }
                   }}
-                  className="text-xs h-7"
+                  className="text-xs h-8"
                 />
-                <Button size="sm" className="h-7 text-xs px-2" onClick={() => sendQuickMessage(presence.user_id)}>
+                <Button size="sm" className="h-8" onClick={() => sendQuickMessage(presence.user_id)}>
                   Send
                 </Button>
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className="h-7 w-7 p-0" 
+                  className="h-8 w-8 p-0" 
                   onClick={() => setSendingTo(null)}
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
             )}
@@ -315,7 +317,7 @@ export const UserPresenceIndicator = () => {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full mt-1 h-7 text-xs"
+          className="w-full mt-2"
           onClick={() => setShowAll(!showAll)}
         >
           {showAll ? 'Show Less' : `Show ${presences.length - 5} More`}
@@ -323,6 +325,6 @@ export const UserPresenceIndicator = () => {
       )}
       </>
       )}
-    </div>
+    </Card>
   );
 };

@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { StatusChangeNotification } from "./StatusChangeNotification";
 import { WalkieTalkieNotification } from "./WalkieTalkieNotification";
 import { AdminCommunicationPanel } from "./AdminCommunicationPanel";
-import { UserPresenceIndicator } from "./UserPresenceIndicator";
 import {
   Sidebar,
   SidebarContent,
@@ -216,13 +215,6 @@ export function DashboardSidebar({
           <SidebarGroupContent className="flex flex-col gap-2 px-2">
             <StatusChangeNotification />
             <WalkieTalkieNotification />
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Team Status */}
-        <SidebarGroup>
-          <SidebarGroupContent className="px-2">
-            <UserPresenceIndicator />
           </SidebarGroupContent>
         </SidebarGroup>
 
