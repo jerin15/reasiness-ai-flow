@@ -78,7 +78,7 @@ const Auth = () => {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="flex items-center justify-center mb-4">
-            <img src={reaLogo} alt="REA Advertising Logo" className="h-16 w-auto" />
+            <img src={reaLogo} alt="REAHUB - ANIMA Tech Logo" className="h-16 w-auto" />
           </div>
         </CardHeader>
         <CardContent>

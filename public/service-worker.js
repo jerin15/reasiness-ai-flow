@@ -85,7 +85,7 @@ self.addEventListener('push', event => {
     };
     
     event.waitUntil(
-      self.registration.showNotification(data.title || 'REAssist Notification', options)
+      self.registration.showNotification(data.title || 'REAHUB Notification', options)
     );
   }
 });

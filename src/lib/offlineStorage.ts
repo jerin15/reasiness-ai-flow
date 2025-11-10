@@ -22,7 +22,7 @@ let db: IDBPDatabase<OfflineDB> | null = null;
 export const initOfflineDB = async () => {
   if (db) return db;
   
-  db = await openDB<OfflineDB>('reassist-offline', 1, {
+  db = await openDB<OfflineDB>('reahub-offline', 1, {
     upgrade(db) {
       if (!db.objectStoreNames.contains('tasks')) {
         db.createObjectStore('tasks', { keyPath: 'id' });

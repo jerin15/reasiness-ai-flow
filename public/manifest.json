@@ -1,7 +1,7 @@
 {
-  "name": "REASSIST by REA Advertising",
-  "short_name": "REASSIST",
-  "description": "Professional task management and workflow automation system by REA Advertising",
+  "name": "REAHUB - ANIMA Tech",
+  "short_name": "REAHUB",
+  "description": "Professional task management and workflow automation system by ANIMA Tech",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

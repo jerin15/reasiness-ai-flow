@@ -19,9 +19,9 @@ export default defineConfig(({ mode }) => ({
         type: 'module'
       },
       manifest: {
-        name: 'REASSIST by REA Advertising',
-        short_name: 'REASSIST',
-        description: 'Professional Task Management System by REA Advertising',
+        name: 'REAHUB - ANIMA Tech',
+        short_name: 'REAHUB',
+        description: 'Professional Task Management System by ANIMA Tech',
         theme_color: '#000000',
         icons: [
           {

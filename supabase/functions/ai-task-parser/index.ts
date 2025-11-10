@@ -30,7 +30,7 @@ serve(async (req) => {
     }
 
     const currentDate = new Date().toISOString().split('T')[0];
-    const systemPrompt = `You are a task parser for REA Advertising company. Extract task details from natural language input.
+    const systemPrompt = `You are a task parser for REAHUB - ANIMA Tech. Extract task details from natural language input.
 Current date: ${currentDate}
 
 Available fields:

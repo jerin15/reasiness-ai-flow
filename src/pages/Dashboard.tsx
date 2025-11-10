@@ -257,9 +257,9 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <SidebarTrigger className="lg:hidden">
-                      <Menu className="h-5 w-5" />
-                    </SidebarTrigger>
-                    <img src={reaLogo} alt="REA Advertising" className="h-12 w-auto" />
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto" />
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={userAvatar} alt={userName} />
@@ -359,7 +359,7 @@ const Dashboard = () => {
                   <SidebarTrigger className="lg:hidden">
                     <Menu className="h-5 w-5" />
                   </SidebarTrigger>
-                  <img src={reaLogo} alt="REA Advertising" className="h-12 w-auto" />
+                  <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto" />
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={userAvatar} alt={userName} />
