@@ -107,7 +107,7 @@ export function TaskProductsManager({
     }
 
     if (taskId) {
-      // Save to database
+      // Save to database for existing tasks
       const { error } = await supabase
         .from('task_products')
         .insert({
@@ -125,13 +125,19 @@ export function TaskProductsManager({
       await fetchProducts();
       toast.success('Product added');
     } else {
-      // For new tasks, just add to local state
-      const tempProduct = { ...newProduct, id: `temp-${Date.now()}` };
+      // For new tasks, add to local state
+      const tempProduct = { 
+        ...newProduct, 
+        id: `temp-${Date.now()}`,
+        position: products.length 
+      };
       const updatedProducts = [...products, tempProduct];
       setProducts(updatedProducts);
       onProductsChange?.(updatedProducts);
+      toast.success('Product added');
     }
 
+    // Reset form
     setNewProduct({
       product_name: '',
       description: '',
@@ -163,7 +169,14 @@ export function TaskProductsManager({
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!taskId) return;
+    if (!taskId) {
+      // For new tasks, just remove from local state
+      const updatedProducts = products.filter(p => p.id !== productId);
+      setProducts(updatedProducts);
+      onProductsChange?.(updatedProducts);
+      toast.success('Product removed');
+      return;
+    }
 
     const { error } = await supabase
       .from('task_products')

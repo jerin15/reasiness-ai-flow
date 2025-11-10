@@ -10,6 +10,7 @@ import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AITaskInput } from "./AITaskInput";
+import { TaskProductsManager } from "./TaskProductsManager";
 
 type TeamMember = {
   id: string;
@@ -45,6 +46,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [aiGenerated, setAiGenerated] = useState(false);
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [originalInput, setOriginalInput] = useState<string | null>(null);
+  const [tempProducts, setTempProducts] = useState<any[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -145,11 +147,39 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         taskData.assigned_to = user.id; // Self-assigned task
       }
 
-      const { error } = await supabase.from("tasks").insert(taskData);
+      const { data: insertedTask, error } = await supabase
+        .from("tasks")
+        .insert(taskData)
+        .select()
+        .single();
 
       if (error) throw error;
 
-      toast.success("Task created successfully");
+      // If there are products to add, insert them now
+      if (tempProducts.length > 0 && insertedTask) {
+        const productsToInsert = tempProducts.map((product, index) => {
+          const { id, ...productData } = product; // Remove temp ID
+          return {
+            ...productData,
+            task_id: insertedTask.id,
+            position: index
+          };
+        });
+
+        const { error: productsError } = await supabase
+          .from('task_products')
+          .insert(productsToInsert);
+
+        if (productsError) {
+          console.error('Error adding products:', productsError);
+          toast.error('Task created but failed to add products');
+        } else {
+          toast.success(`Task created successfully with ${tempProducts.length} product(s)`);
+        }
+      } else {
+        toast.success("Task created successfully");
+      }
+
       onTaskAdded();
       setTitle("");
       setDescription("");
@@ -165,6 +195,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       setAiGenerated(false);
       setAiConfidence(null);
       setOriginalInput(null);
+      setTempProducts([]);
     } catch (error: any) {
       console.error("Error creating task:", error);
       toast.error(error.message || "Failed to create task");
@@ -286,6 +317,17 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                 placeholder="Supplier name"
               />
             </div>
+
+            {/* Products Manager for new task */}
+            <div className="border-t pt-4 mt-4">
+              <TaskProductsManager 
+                isAdmin={currentUserRole === 'admin' || currentUserRole === 'technical_head'}
+                userRole={currentUserRole || viewingUserRole}
+                onProductsChange={(products) => setTempProducts(products)}
+                readOnly={false}
+              />
+            </div>
+
             {(currentUserRole === 'admin' || currentUserRole === 'technical_head') && (
               <div className="space-y-2">
                 <Label htmlFor="assignedTo">Assign To *</Label>
