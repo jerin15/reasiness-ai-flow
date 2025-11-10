@@ -119,20 +119,26 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Validate priority value
+      const validPriorities = ['low', 'medium', 'high', 'urgent'];
+      if (!validPriorities.includes(priority)) {
+        throw new Error(`Invalid priority value: ${priority}`);
+      }
+
       const taskData: any = {
         title,
         description: description || null,
-        priority: priority as "low" | "medium" | "high" | "urgent",
+        priority: priority,
         due_date: dueDate || null,
         created_by: user.id,
         status: (currentUserRole === 'admin' || currentUserRole === 'technical_head') 
           ? selectedPipeline 
-          : "todo" as const,
+          : "todo",
         assigned_by: assignedBy || null,
         client_name: clientName || null,
         supplier_name: supplierName || null,
-        my_status: myStatus as "pending" | "done_from_my_side",
-        type: taskType as "quotation" | "invoice" | "design" | "general" | "production",
+        my_status: myStatus,
+        type: taskType,
         ai_generated: aiGenerated,
         ai_confidence_score: aiConfidence,
         original_input: originalInput,
@@ -153,7 +159,11 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Task creation error:', error);
+        console.error('Task data sent:', taskData);
+        throw error;
+      }
 
       // If there are products to add, insert them now
       if (tempProducts.length > 0 && insertedTask) {
