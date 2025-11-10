@@ -427,14 +427,18 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                         }
                         
                         toast.success("Task sent to Estimation & Operations production!", { id: loadingToast });
+                        
+                        // Call onTaskUpdated and suppress any errors since task moved successfully
+                        try {
+                          onTaskUpdated?.();
+                        } catch (err) {
+                          console.log('Task updated successfully, ignoring callback error:', err);
+                        }
                       } catch (error) {
                         console.error("Error sending to production:", error);
                         toast.error("Failed to send task to production", { id: loadingToast });
                         return;
                       }
-                      
-                      // Call onTaskUpdated outside try-catch to avoid showing error toast on success
-                      onTaskUpdated?.();
                     }}
                     disabled={isMoving}
                   >
