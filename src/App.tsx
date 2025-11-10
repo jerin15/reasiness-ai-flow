@@ -9,6 +9,8 @@ import { VoiceCallNotification } from "@/components/VoiceCallNotification";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { VoiceAnnouncementPlayer } from "@/components/VoiceAnnouncementPlayer";
 import { UrgentNotificationModal } from "@/components/UrgentNotificationModal";
+import { AppUpdateNotifier } from "@/components/AppUpdateNotifier";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 
@@ -20,6 +22,9 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/auth';
+  
+  // Check for version updates every 2 minutes
+  useVersionCheck();
 
   return (
     <>
@@ -40,6 +45,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <AppUpdateNotifier />
       <ReminderNotification />
       <ChatNotification />
       <VoiceCallNotification />
