@@ -339,8 +339,9 @@ export const EditTaskDialog = ({
           <div className="border-t pt-4 mt-4">
             <TaskProductsManager 
               taskId={task.id} 
-              isAdmin={isAdmin}
-              readOnly={!isAdmin && !['estimation', 'admin'].includes(currentUserRole)}
+              isAdmin={isAdmin || currentUserRole === 'admin' || currentUserRole === 'technical_head'}
+              userRole={viewingUserRole || currentUserRole}
+              readOnly={false}
             />
           </div>
 

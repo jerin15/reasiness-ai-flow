@@ -29,13 +29,15 @@ interface TaskProductsManagerProps {
   isAdmin?: boolean;
   onProductsChange?: (products: Product[]) => void;
   readOnly?: boolean;
+  userRole?: string;
 }
 
 export function TaskProductsManager({ 
   taskId, 
   isAdmin = false, 
   onProductsChange,
-  readOnly = false 
+  readOnly = false,
+  userRole 
 }: TaskProductsManagerProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,6 +50,32 @@ export function TaskProductsManager({
     approval_status: 'pending'
   });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('');
+
+  useEffect(() => {
+    fetchCurrentUserRole();
+  }, []);
+
+  const fetchCurrentUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (roleData) {
+      setCurrentUserRole(roleData.role);
+    }
+  };
+
+  // Determine if user can add/edit products
+  const canEdit = isAdmin || ['admin', 'technical_head', 'estimation'].includes(currentUserRole) || ['admin', 'technical_head', 'estimation'].includes(userRole || '');
+  
+  // Determine if user can approve products (only admins and technical heads)
+  const canApprove = isAdmin || ['admin', 'technical_head'].includes(currentUserRole) || ['admin', 'technical_head'].includes(userRole || '');
 
   useEffect(() => {
     if (taskId) {
@@ -185,7 +213,7 @@ export function TaskProductsManager({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Products</h3>
-        {!readOnly && (
+        {canEdit && (
           <Button 
             onClick={() => setShowAddForm(!showAddForm)} 
             size="sm"
@@ -299,7 +327,7 @@ export function TaskProductsManager({
               </div>
 
               <div className="flex gap-2">
-                {isAdmin && product.approval_status === 'pending' && (
+                {canApprove && product.approval_status === 'pending' && (
                   <>
                     <Button
                       size="sm"
@@ -323,7 +351,7 @@ export function TaskProductsManager({
                   </>
                 )}
                 
-                {!readOnly && !isAdmin && (
+                {canEdit && !canApprove && (
                   <Button
                     size="sm"
                     variant="ghost"
