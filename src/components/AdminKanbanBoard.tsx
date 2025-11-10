@@ -498,26 +498,17 @@ export const AdminKanbanBoard = () => {
             {tasks
               .filter(t => t.status === 'designer_done_production')
               .map(task => (
-                <div key={task.id} className="relative group">
-                  <TaskCard
-                    task={task}
-                    onEdit={handleEditTask}
-                    onDelete={handleDeleteFromProduction}
-                    isAdminView={true}
-                    onTaskUpdated={fetchTasks}
-                    userRole="admin"
-                    isAdminOwnPanel={true}
-                    showFullCrud={true}
-                  />
-                  <Button
-                    onClick={() => handleSendToProduction(task.id)}
-                    className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg z-10 gap-2"
-                    size="sm"
-                  >
-                    <ArrowRight className="h-4 w-4" />
-                    Send to Production
-                  </Button>
-                </div>
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onEdit={handleEditTask}
+                  onDelete={handleDeleteFromProduction}
+                  isAdminView={true}
+                  onTaskUpdated={fetchTasks}
+                  userRole="admin"
+                  isAdminOwnPanel={true}
+                  showFullCrud={true}
+                />
               ))
             }
           </div>
