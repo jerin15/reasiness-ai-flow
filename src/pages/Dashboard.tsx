@@ -19,7 +19,6 @@ import reaLogo from "@/assets/rea_logo_h.jpg";
 import { PersonalAnalytics } from "@/components/PersonalAnalytics";
 import { IncomingCallNotification } from "@/components/IncomingCallNotification";
 import { ProminentMessageNotification } from "@/components/ProminentMessageNotification";
-import { AdminCommunicationPanel } from "@/components/AdminCommunicationPanel";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -343,9 +342,6 @@ const Dashboard = () => {
                     </div>
                   </div>
                 </div>
-                {(userRole === "admin" || userRole === "technical_head") && (
-                  <AdminCommunicationPanel />
-                )}
               </div>
             </div>
           </header>

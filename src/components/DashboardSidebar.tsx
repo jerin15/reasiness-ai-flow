@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { StatusChangeNotification } from "./StatusChangeNotification";
 import { WalkieTalkieNotification } from "./WalkieTalkieNotification";
+import { AdminCommunicationPanel } from "./AdminCommunicationPanel";
 import {
   Sidebar,
   SidebarContent,
@@ -130,6 +131,13 @@ export function DashboardSidebar({
                   )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              {/* Announcement Panel for Admin/Technical Head */}
+              {isAdminOrHead && (
+                <SidebarMenuItem>
+                  <AdminCommunicationPanel />
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
