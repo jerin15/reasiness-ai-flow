@@ -12,9 +12,7 @@ import { toast } from "sonner";
 import { logTaskAction } from "@/lib/auditLogger";
 import { useState, useEffect } from "react";
 import { TaskAgingIndicator } from "./TaskAgingIndicator";
-import { TaskQuickActions } from "./TaskQuickActions";
 import { useTaskActivity } from "@/hooks/useTaskActivity";
-import { QuickActionBadge } from "./QuickActionBadge";
 
 type Task = {
   id: string;
@@ -54,10 +52,9 @@ type TaskCardProps = {
   isAdminOwnPanel?: boolean;
   showFullCrud?: boolean;
   onSendBack?: (task: Task) => void;
-  hideQuickActions?: boolean;
 };
 
-export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel, showFullCrud, onSendBack, hideQuickActions }: TaskCardProps) => {
+export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel, showFullCrud, onSendBack }: TaskCardProps) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
@@ -358,11 +355,6 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
               <div className="flex-1">
                 <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
                 
-                {/* Quick Action Badge */}
-                <div className="mt-1">
-                  <QuickActionBadge taskId={task.id} />
-                </div>
-                
                 {task.sent_to_designer_mockup && task.status === 'mockup' && (
                   <Badge className="mt-1 bg-amber-500 text-white animate-pulse">
                     🎨 Mockup Pipeline
@@ -655,18 +647,6 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                 <span>{formatDistanceToNow(new Date(task.status_changed_at), { addSuffix: true })}</span>
               </div>
             </div>
-            
-            {/* Quick Actions - Hidden for admin panels */}
-            {!hideQuickActions && (
-              <TaskQuickActions 
-                taskId={task.id}
-                currentStatus={task.status}
-                onActionComplete={() => {
-                  fetchProductStats();
-                  onTaskUpdated?.();
-                }}
-              />
-            )}
             
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
               <Badge variant="outline" className="text-xs font-normal">

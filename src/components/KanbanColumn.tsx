@@ -37,10 +37,9 @@ type KanbanColumnProps = {
   userRole?: string;
   userRolesMap?: Record<string, string>;
   isAdminOwnPanel?: boolean;
-  hideQuickActions?: boolean;
 };
 
-export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated, userRole, userRolesMap, isAdminOwnPanel, hideQuickActions }: KanbanColumnProps) => {
+export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated, userRole, userRolesMap, isAdminOwnPanel }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -77,7 +76,6 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTask
                 onTaskUpdated={onTaskUpdated}
                 userRole={userRole}
                 isAdminOwnPanel={isAdminOwnPanel}
-                hideQuickActions={hideQuickActions}
               />
             ))}
             {/* Empty drop zone at bottom for better drop targeting */}

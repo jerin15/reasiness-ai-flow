@@ -677,7 +677,6 @@ export const AdminKanbanBoard = () => {
                   userRole="admin"
                   isAdminOwnPanel={true}
                   showFullCrud={true}
-                  hideQuickActions={true}
                   onSendBack={(task) => {
                     setSendBackTask(task);
                     setSendBackDialogOpen(true);
@@ -719,7 +718,6 @@ export const AdminKanbanBoard = () => {
                     onTaskUpdated={fetchTasks}
                     userRole="admin"
                     isAdminOwnPanel={true}
-                    hideQuickActions={true}
                   />
                 );
               })}
@@ -734,7 +732,6 @@ export const AdminKanbanBoard = () => {
                 isAdminView={true}
                 userRole="admin"
                 isAdminOwnPanel={true}
-                hideQuickActions={true}
               />
             ) : null}
           </DragOverlay>
