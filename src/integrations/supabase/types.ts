@@ -134,6 +134,45 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_pipelines: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean
+          pipeline_name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean
+          pipeline_name: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          pipeline_name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       custom_roles: {
         Row: {
           can_create_tasks: boolean

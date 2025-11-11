@@ -100,64 +100,24 @@ export function DashboardSidebar({
                         </div>
                       </SelectItem>
                     ))}
+                  
+                  {userRole === "admin" && onCreateUserClick && (
+                    <>
+                      <div className="h-px bg-border my-1" />
+                      <div 
+                        className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCreateUserClick();
+                        }}
+                      >
+                        <UserPlus className="h-4 w-4 mr-2 text-primary" />
+                        <span className="font-medium text-primary">Create New User</span>
+                      </div>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {/* Quick Actions */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {/* Create Task - First and prominent */}
-              <SidebarMenuItem>
-                <Button 
-                  onClick={onCreateTaskClick}
-                  className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Create Task</span>
-                </Button>
-              </SidebarMenuItem>
-
-              {/* Team Chat */}
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={onChatClick}>
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Team Chat</span>
-                  {unreadCount > 0 && (
-                    <Badge variant="destructive" className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </Badge>
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* Announcement Panel for Admin/Technical Head */}
-              {isAdminOrHead && (
-                <SidebarMenuItem>
-                  <AdminCommunicationPanel />
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Admin Tools - Only for Admins */}
-        {userRole === "admin" && onCreateUserClick && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin Tools</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={onCreateUserClick} className="text-primary hover:text-primary">
-                    <UserPlus className="h-4 w-4" />
-                    <span>Create New User</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}

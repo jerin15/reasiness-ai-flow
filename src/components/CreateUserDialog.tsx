@@ -33,20 +33,17 @@ export const CreateUserDialog = ({ open, onOpenChange }: CreateUserDialogProps) 
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDisplayName, setNewRoleDisplayName] = useState("");
   const [newRoleDescription, setNewRoleDescription] = useState("");
-  const [pipelineAccess, setPipelineAccess] = useState<Record<string, boolean>>({
-    'todo': true,
-    'admin_cost_approval': false,
-    'approve_estimation': false,
-    'with_client': false,
-    'designer_mockup': false,
-    'designer_done': false,
-    'production': false,
-    'done': false,
-  });
+  const [customPipelines, setCustomPipelines] = useState<any[]>([]);
+  const [showCreatePipeline, setShowCreatePipeline] = useState(false);
+  const [newPipelineName, setNewPipelineName] = useState("");
+  const [newPipelineDisplayName, setNewPipelineDisplayName] = useState("");
+  const [newPipelineColor, setNewPipelineColor] = useState("#3b82f6");
+  const [pipelineAccess, setPipelineAccess] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (open) {
       fetchCustomRoles();
+      fetchCustomPipelines();
     }
   }, [open]);
 
@@ -58,6 +55,59 @@ export const CreateUserDialog = ({ open, onOpenChange }: CreateUserDialogProps) 
 
     if (!error && data) {
       setCustomRoles(data);
+    }
+  };
+
+  const fetchCustomPipelines = async () => {
+    const { data, error } = await supabase
+      .from('custom_pipelines')
+      .select('*')
+      .eq('is_active', true)
+      .order('position');
+
+    if (!error && data) {
+      setCustomPipelines(data);
+      // Initialize pipeline access with all pipelines set to false
+      const initialAccess: Record<string, boolean> = {};
+      data.forEach(p => {
+        initialAccess[p.pipeline_name] = p.pipeline_name === 'todo'; // Default todo to true
+      });
+      setPipelineAccess(initialAccess);
+    }
+  };
+
+  const handleCreatePipeline = async () => {
+    if (!newPipelineName || !newPipelineDisplayName) {
+      toast.error("Please provide pipeline name and display name");
+      return;
+    }
+
+    const pipelineNameFormatted = newPipelineName.toLowerCase().replace(/\s+/g, '_');
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from('custom_pipelines')
+        .insert({
+          pipeline_name: pipelineNameFormatted,
+          display_name: newPipelineDisplayName,
+          color: newPipelineColor,
+          position: customPipelines.length,
+          created_by: user?.id,
+        });
+
+      if (error) throw new Error(error.message);
+
+      toast.success(`Pipeline "${newPipelineDisplayName}" created!`);
+      setShowCreatePipeline(false);
+      setNewPipelineName("");
+      setNewPipelineDisplayName("");
+      setNewPipelineColor("#3b82f6");
+      fetchCustomPipelines();
+    } catch (error: any) {
+      console.error("Error creating pipeline:", error);
+      toast.error(error.message || "Failed to create pipeline");
     }
   };
 
@@ -113,16 +163,12 @@ export const CreateUserDialog = ({ open, onOpenChange }: CreateUserDialogProps) 
       setNewRoleName("");
       setNewRoleDisplayName("");
       setNewRoleDescription("");
-      setPipelineAccess({
-        'todo': true,
-        'admin_cost_approval': false,
-        'approve_estimation': false,
-        'with_client': false,
-        'designer_mockup': false,
-        'designer_done': false,
-        'production': false,
-        'done': false,
+      // Reset pipeline access
+      const resetAccess: Record<string, boolean> = {};
+      customPipelines.forEach(p => {
+        resetAccess[p.pipeline_name] = p.pipeline_name === 'todo';
       });
+      setPipelineAccess(resetAccess);
       fetchCustomRoles();
       setRole(roleNameFormatted);
     } catch (error: any) {
@@ -194,16 +240,10 @@ export const CreateUserDialog = ({ open, onOpenChange }: CreateUserDialogProps) 
     }
   };
 
-  const pipelineLabels: Record<string, string> = {
-    'todo': 'To Do',
-    'admin_cost_approval': 'Admin Cost Approval',
-    'approve_estimation': 'Approve Estimation',
-    'with_client': 'With Client',
-    'designer_mockup': 'Designer Mockup',
-    'designer_done': 'Designer Done',
-    'production': 'Production',
-    'done': 'Done',
-  };
+  const pipelineLabels: Record<string, string> = customPipelines.reduce((acc, p) => {
+    acc[p.pipeline_name] = p.display_name;
+    return acc;
+  }, {} as Record<string, string>);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -361,21 +401,84 @@ export const CreateUserDialog = ({ open, onOpenChange }: CreateUserDialogProps) 
               </div>
 
               <div className="space-y-3">
-                <Label>Pipeline Access</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Pipeline Access</Label>
+                  {!showCreatePipeline && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowCreatePipeline(true)}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      New Pipeline
+                    </Button>
+                  )}
+                </div>
+
+                {showCreatePipeline && (
+                  <div className="border rounded-lg p-3 space-y-2 bg-muted/50">
+                    <Input
+                      placeholder="Pipeline name (e.g., quality_check)"
+                      value={newPipelineName}
+                      onChange={(e) => setNewPipelineName(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Display name (e.g., Quality Check)"
+                      value={newPipelineDisplayName}
+                      onChange={(e) => setNewPipelineDisplayName(e.target.value)}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Color:</Label>
+                      <input
+                        type="color"
+                        value={newPipelineColor}
+                        onChange={(e) => setNewPipelineColor(e.target.value)}
+                        className="h-8 w-16 rounded border cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleCreatePipeline}
+                      >
+                        Create
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setShowCreatePipeline(false);
+                          setNewPipelineName("");
+                          setNewPipelineDisplayName("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
                   {Object.entries(pipelineLabels).map(([status, label]) => (
                     <div key={status} className="flex items-center space-x-2">
                       <Checkbox
                         id={`pipeline-${status}`}
-                        checked={pipelineAccess[status]}
+                        checked={pipelineAccess[status] || false}
                         onCheckedChange={(checked) => 
                           setPipelineAccess(prev => ({ ...prev, [status]: checked as boolean }))
                         }
                       />
                       <label
                         htmlFor={`pipeline-${status}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-2"
                       >
+                        <div 
+                          className="h-3 w-3 rounded-full" 
+                          style={{ backgroundColor: customPipelines.find(p => p.pipeline_name === status)?.color }}
+                        />
                         {label}
                       </label>
                     </div>
