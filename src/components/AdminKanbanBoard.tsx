@@ -203,68 +203,57 @@ export const AdminKanbanBoard = () => {
         original_status: 'done',
       }));
 
-      // Fetch approved products from tasks that are in DONE status
+      // Fetch approved products ONLY from tasks that have approved products
       // These should show in FOR PRODUCTION as individual items
-      const { data: approvedProducts } = await supabase
-        .from('task_products')
-        .select(`
-          *,
-          task:tasks!inner(
-            id,
-            title,
-            status,
-            created_by,
-            assigned_to,
-            client_name,
-            is_personal_admin_task
-          )
-        `)
-        .eq('approval_status', 'approved')
-        .eq('task.status', 'done');
+      let approvedProductTasks: any[] = [];
+      
+      if (tasksWithApprovedProducts.length > 0) {
+        const { data: approvedProducts } = await supabase
+          .from('task_products')
+          .select('*')
+          .in('task_id', tasksWithApprovedProducts)
+          .eq('approval_status', 'approved');
 
-      console.log('📦 Approved products in DONE:', approvedProducts?.length, approvedProducts);
+        console.log('📦 Approved products from filtered tasks:', approvedProducts?.length, approvedProducts);
 
-      // Convert approved products to task-like objects for display
-      const approvedProductTasks = approvedProducts
-        ?.filter(product => {
-          const task = product.task as any;
-          // Filter by designer and personal task logic
-          const isDesignerTask = rolesMap[task.created_by] === 'designer' || 
-                                 rolesMap[task.assigned_to || ''] === 'designer';
-          const isAccessible = !task.is_personal_admin_task || task.created_by === user.id;
-          return isDesignerTask && isAccessible;
-        })
-        .map(product => {
-          const parentTask = product.task as any;
-          return {
-            id: product.id, // Use product ID as unique identifier
-            title: `${parentTask.title} - ${product.product_name}`,
-            description: product.description || `Qty: ${product.quantity} ${product.unit}`,
-            status: 'designer_done_production',
-            original_status: 'done',
-            priority: 'medium',
-            due_date: null,
-            position: product.position || 0,
-            assigned_to: parentTask.assigned_to,
-            created_by: parentTask.created_by,
-            created_at: product.created_at,
-            updated_at: product.updated_at,
-            status_changed_at: product.updated_at,
-            assigned_by: null,
-            client_name: parentTask.client_name,
-            my_status: 'pending',
-            supplier_name: null,
-            type: 'product',
-            came_from_designer_done: false,
-            sent_back_to_designer: false,
-            admin_remarks: null,
-            is_product: true, // Flag to identify this is a product, not a task
-            parent_task_id: parentTask.id,
-            product_data: product,
-          } as Task & { is_product: boolean; parent_task_id: string; product_data: any };
-        }) || [];
+        // Convert approved products to task-like objects for display
+        approvedProductTasks = approvedProducts
+          ?.map(product => {
+            // Find the parent task from designerDoneFiltered
+            const parentTask = designerDoneFiltered.find(t => t.id === product.task_id);
+            if (!parentTask) return null;
 
-      console.log('🎯 Approved products as tasks for FOR PRODUCTION:', approvedProductTasks.length);
+            return {
+              id: product.id, // Use product ID as unique identifier
+              title: `${parentTask.title} - ${product.product_name}`,
+              description: product.description || `Qty: ${product.quantity} ${product.unit}`,
+              status: 'designer_done_production',
+              original_status: 'done',
+              priority: 'medium',
+              due_date: null,
+              position: product.position || 0,
+              assigned_to: parentTask.assigned_to,
+              created_by: parentTask.created_by,
+              created_at: product.created_at,
+              updated_at: product.updated_at,
+              status_changed_at: product.updated_at,
+              assigned_by: null,
+              client_name: parentTask.client_name,
+              my_status: 'pending',
+              supplier_name: null,
+              type: 'product',
+              came_from_designer_done: false,
+              sent_back_to_designer: false,
+              admin_remarks: null,
+              is_product: true, // Flag to identify this is a product, not a task
+              parent_task_id: parentTask.id,
+              product_data: product,
+            } as Task & { is_product: boolean; parent_task_id: string; product_data: any };
+          })
+          .filter(Boolean) || [];
+
+        console.log('🎯 Approved products as tasks for FOR PRODUCTION:', approvedProductTasks.length);
+      }
 
       const allTasks = [...(approvalTasks || []), ...(filteredWithClientTasks || []), ...(quotationBillTasks || []), ...designerDoneWithStatus, ...approvedProductTasks];
       console.log('📦 Total tasks in admin panel:', allTasks.length);
