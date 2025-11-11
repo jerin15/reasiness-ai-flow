@@ -22,70 +22,118 @@ let db: IDBPDatabase<OfflineDB> | null = null;
 export const initOfflineDB = async () => {
   if (db) return db;
   
-  db = await openDB<OfflineDB>('reahub-offline', 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('tasks')) {
-        db.createObjectStore('tasks', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('syncQueue')) {
-        db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
-      }
-    },
-  });
-  
-  return db;
+  try {
+    db = await openDB<OfflineDB>('reahub-offline', 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('tasks')) {
+          db.createObjectStore('tasks', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('syncQueue')) {
+          db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+        }
+      },
+    });
+    
+    return db;
+  } catch (error) {
+    console.error('Failed to initialize offline DB:', error);
+    // If IndexedDB fails, return null to allow app to continue without offline support
+    return null;
+  }
 };
 
 // Store tasks locally
 export const saveTasksLocally = async (tasks: any[]) => {
-  const database = await initOfflineDB();
-  const tx = database.transaction('tasks', 'readwrite');
-  
-  await Promise.all(tasks.map(task => tx.store.put(task)));
-  await tx.done;
+  try {
+    const database = await initOfflineDB();
+    if (!database) return; // Skip if DB initialization failed
+    
+    const tx = database.transaction('tasks', 'readwrite');
+    await Promise.all(tasks.map(task => tx.store.put(task)));
+    await tx.done;
+  } catch (error) {
+    console.error('Error saving tasks locally:', error);
+  }
 };
 
 export const getLocalTasks = async () => {
-  const database = await initOfflineDB();
-  return await database.getAll('tasks');
+  try {
+    const database = await initOfflineDB();
+    if (!database) return [];
+    return await database.getAll('tasks');
+  } catch (error) {
+    console.error('Error getting local tasks:', error);
+    return [];
+  }
 };
 
 export const saveTaskLocally = async (task: any) => {
-  const database = await initOfflineDB();
-  await database.put('tasks', task);
+  try {
+    const database = await initOfflineDB();
+    if (!database) return;
+    await database.put('tasks', task);
+  } catch (error) {
+    console.error('Error saving task locally:', error);
+  }
 };
 
 export const deleteTaskLocally = async (taskId: string) => {
-  const database = await initOfflineDB();
-  await database.delete('tasks', taskId);
+  try {
+    const database = await initOfflineDB();
+    if (!database) return;
+    await database.delete('tasks', taskId);
+  } catch (error) {
+    console.error('Error deleting task locally:', error);
+  }
 };
 
 // Sync queue operations
 export const addToSyncQueue = async (operation: 'insert' | 'update' | 'delete', table: string, data: any) => {
-  const database = await initOfflineDB();
-  await database.add('syncQueue', {
-    operation,
-    table,
-    data,
-    timestamp: Date.now()
-  });
-  console.log('📦 Added to sync queue:', { operation, table });
+  try {
+    const database = await initOfflineDB();
+    if (!database) return;
+    await database.add('syncQueue', {
+      operation,
+      table,
+      data,
+      timestamp: Date.now()
+    });
+    console.log('📦 Added to sync queue:', { operation, table });
+  } catch (error) {
+    console.error('Error adding to sync queue:', error);
+  }
 };
 
 export const getSyncQueue = async () => {
-  const database = await initOfflineDB();
-  return await database.getAll('syncQueue');
+  try {
+    const database = await initOfflineDB();
+    if (!database) return [];
+    return await database.getAll('syncQueue');
+  } catch (error) {
+    console.error('Error getting sync queue:', error);
+    return [];
+  }
 };
 
 export const clearSyncQueue = async () => {
-  const database = await initOfflineDB();
-  const tx = database.transaction('syncQueue', 'readwrite');
-  await tx.store.clear();
-  await tx.done;
-  console.log('✅ Sync queue cleared');
+  try {
+    const database = await initOfflineDB();
+    if (!database) return;
+    const tx = database.transaction('syncQueue', 'readwrite');
+    await tx.store.clear();
+    await tx.done;
+    console.log('✅ Sync queue cleared');
+  } catch (error) {
+    console.error('Error clearing sync queue:', error);
+  }
 };
 
 export const removeSyncQueueItem = async (id: number) => {
-  const database = await initOfflineDB();
-  await database.delete('syncQueue', id);
+  try {
+    const database = await initOfflineDB();
+    if (!database) return;
+    await database.delete('syncQueue', id);
+  } catch (error) {
+    console.error('Error removing sync queue item:', error);
+  }
 };

@@ -337,33 +337,43 @@ export function TaskProductsManager({
         if (newProductError) {
           console.error('Error adding product to new task:', newProductError);
           toast.error('Task created but failed to add product');
-        } else {
-          toast.success(`Product approved and sent to ${targetStatus} pipeline`);
+          await fetchProducts();
+          return;
         }
 
+        toast.success(`Product approved and sent to ${targetStatus} pipeline`);
+
         // Check if all products are now approved
-        const { data: allProducts } = await supabase
-          .from('task_products')
-          .select('approval_status')
-          .eq('task_id', taskId);
+        try {
+          const { data: allProducts, error: productsError } = await supabase
+            .from('task_products')
+            .select('approval_status')
+            .eq('task_id', taskId);
 
-        const allApproved = allProducts?.every(p => p.approval_status === 'approved');
+          if (productsError) {
+            console.error('Error checking product statuses:', productsError);
+          } else if (allProducts && allProducts.length > 0) {
+            const allApproved = allProducts.every(p => p.approval_status === 'approved');
 
-        if (allApproved && allProducts && allProducts.length > 0) {
-          // All products approved - mark parent task as completed
-          const { error: completeError } = await supabase
-            .from('tasks')
-            .update({
-              status: 'done',
-              completed_at: new Date().toISOString()
-            })
-            .eq('id', taskId);
+            if (allApproved) {
+              // All products approved - mark parent task as completed
+              const { error: completeError } = await supabase
+                .from('tasks')
+                .update({
+                  status: 'done',
+                  completed_at: new Date().toISOString()
+                })
+                .eq('id', taskId);
 
-          if (completeError) {
-            console.error('Error completing parent task:', completeError);
-          } else {
-            toast.success('All products approved - Task completed!');
+              if (completeError) {
+                console.error('Error completing parent task:', completeError);
+              } else {
+                toast.success('All products approved - Task completed!');
+              }
+            }
           }
+        } catch (error) {
+          console.error('Error in product completion check:', error);
         }
       } else {
         toast.success(`Product ${status === 'rejected' ? 'rejected' : 'marked for revision'}`);
