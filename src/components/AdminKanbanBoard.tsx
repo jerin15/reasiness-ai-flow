@@ -557,12 +557,12 @@ export const AdminKanbanBoard = () => {
                   key={task.id}
                   task={task}
                   onEdit={handleEditTask}
-                  onDelete={handleDeleteFromProduction}
+                  onDelete={undefined}
                   isAdminView={true}
                   onTaskUpdated={fetchTasks}
                   userRole="admin"
                   isAdminOwnPanel={true}
-                  showFullCrud={true}
+                  showFullCrud={false}
                   onSendBack={(task) => {
                     setSendBackTask(task);
                     setSendBackDialogOpen(true);
