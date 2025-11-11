@@ -298,23 +298,19 @@ export const AdminKanbanBoard = () => {
           const estimationUserId = estimationUsers[0].user_id;
           
           // Update all misassigned tasks
-          for (const task of tasksToFix) {
-            await supabase
+          const updatePromises = tasksToFix.map(task =>
+            supabase
               .from('tasks')
               .update({
                 assigned_to: estimationUserId,
                 updated_at: new Date().toISOString(),
               })
-              .eq('id', task.id);
-            
-            console.log(`✅ Fixed task ${task.title} - assigned to estimation user`);
-          }
+              .eq('id', task.id)
+          );
           
+          await Promise.all(updatePromises);
+          console.log(`✅ Fixed ${tasksToFix.length} task(s) - assigned to estimation user`);
           toast.info(`Auto-fixed ${tasksToFix.length} task(s) - assigned to estimation team`);
-          
-          // Refetch to show updated data without the fixed tasks
-          await fetchTasks();
-          return;
         }
       }
       
