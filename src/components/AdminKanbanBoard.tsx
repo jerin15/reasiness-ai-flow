@@ -629,17 +629,6 @@ export const AdminKanbanBoard = () => {
           return;
         }
 
-        // Log the product deletion
-        if (productCheck.task_id) {
-          await logTaskAction({
-            task_id: productCheck.task_id,
-            action: 'product_removed_from_production',
-            old_values: { product_id: taskId },
-            new_values: null,
-            role: roleData?.role
-          });
-        }
-
         toast.success("Product removed from FOR PRODUCTION");
       } else {
         // It's a regular task - soft delete
@@ -656,15 +645,6 @@ export const AdminKanbanBoard = () => {
           toast.error('Failed to remove task. Please try again.');
           return;
         }
-
-        // Log the task deletion
-        await logTaskAction({
-          task_id: taskId,
-          action: 'removed_from_production',
-          old_values: { status: 'designer_done_production' },
-          new_values: { deleted_at: new Date().toISOString() },
-          role: roleData?.role
-        });
 
         toast.success("Task removed from FOR PRODUCTION");
       }
