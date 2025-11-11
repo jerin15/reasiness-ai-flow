@@ -454,33 +454,48 @@ export type Database = {
       task_audit_log: {
         Row: {
           action: string
+          browser_name: string | null
           changed_by: string
           created_at: string
+          device_type: string | null
           id: string
+          ip_address: string | null
           new_values: Json | null
           old_values: Json | null
+          os_name: string | null
           role: string
           task_id: string
+          user_agent: string | null
         }
         Insert: {
           action: string
+          browser_name?: string | null
           changed_by: string
           created_at?: string
+          device_type?: string | null
           id?: string
+          ip_address?: string | null
           new_values?: Json | null
           old_values?: Json | null
+          os_name?: string | null
           role: string
           task_id: string
+          user_agent?: string | null
         }
         Update: {
           action?: string
+          browser_name?: string | null
           changed_by?: string
           created_at?: string
+          device_type?: string | null
           id?: string
+          ip_address?: string | null
           new_values?: Json | null
           old_values?: Json | null
+          os_name?: string | null
           role?: string
           task_id?: string
+          user_agent?: string | null
         }
         Relationships: [
           {

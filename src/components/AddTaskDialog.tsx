@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AITaskInput } from "./AITaskInput";
 import { TaskProductsManager } from "./TaskProductsManager";
+import { enrichLatestAuditLog } from "@/lib/enrichAuditLog";
 
 type TeamMember = {
   id: string;
@@ -163,6 +164,11 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         console.error('Task creation error:', error);
         console.error('Task data sent:', taskData);
         throw error;
+      }
+
+      // Enrich the audit log with device information
+      if (insertedTask) {
+        await enrichLatestAuditLog(insertedTask.id);
       }
 
       // If there are products to add, insert them now
