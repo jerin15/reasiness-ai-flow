@@ -593,30 +593,37 @@ export const AdminKanbanBoard = () => {
         return;
       }
 
+      console.log('🗑️ Attempting to delete from FOR PRODUCTION:', taskId);
+
       // Try deleting as product first (products are shown with product ID)
-      const { error: productError } = await supabase
+      const { error: productError, count: productCount } = await supabase
         .from('task_products')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('id', taskId);
 
-      // If product delete succeeded or failed with "not found", try task delete
-      const { error: taskError } = await supabase
+      console.log('📦 Product delete result:', { productError, productCount });
+
+      // Try task delete
+      const { error: taskError, count: taskCount } = await supabase
         .from('tasks')
-        .update({ deleted_at: new Date().toISOString() })
+        .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
         .eq('id', taskId);
+
+      console.log('📋 Task delete result:', { taskError, taskCount });
 
       // Success if either delete worked
-      if (!productError || !taskError) {
+      if ((!productError && productCount && productCount > 0) || (!taskError && taskCount && taskCount > 0)) {
+        console.log('✅ Successfully deleted item');
         toast.success("Removed from FOR PRODUCTION");
         await fetchTasks();
         return;
       }
 
       // Both failed
-      console.error('Delete failed:', { productError, taskError });
-      toast.error('Failed to remove. Check console for details.');
+      console.error('❌ Delete failed - both operations returned 0 rows or errors:', { productError, taskError });
+      toast.error('Failed to remove. Item may not exist or you lack permission.');
     } catch (error: any) {
-      console.error('Error removing item:', error);
+      console.error('❌ Error removing item:', error);
       toast.error('Failed to remove item');
     }
   };
