@@ -28,7 +28,10 @@ interface UrgentNotification {
 export const UrgentNotificationModal = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [notification, setNotification] = useState<UrgentNotification | null>(null);
+  const [notificationQueue, setNotificationQueue] = useState<string[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [lastAlertTime, setLastAlertTime] = useState(0);
 
   useEffect(() => {
     const initUser = async () => {
@@ -65,6 +68,27 @@ export const UrgentNotificationModal = () => {
     };
   }, []);
 
+  // Process notification queue
+  useEffect(() => {
+    if (notificationQueue.length === 0 || isProcessing || notification) return;
+
+    const processNext = async () => {
+      setIsProcessing(true);
+      const nextId = notificationQueue[0];
+      
+      try {
+        await handleNewNotification(nextId);
+      } catch (error) {
+        console.error('Error processing notification:', error);
+      } finally {
+        setNotificationQueue(prev => prev.slice(1));
+        setIsProcessing(false);
+      }
+    };
+
+    processNext();
+  }, [notificationQueue, isProcessing, notification]);
+
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -79,9 +103,9 @@ export const UrgentNotificationModal = () => {
           table: 'urgent_notifications',
           filter: `recipient_id=eq.${currentUserId}`
         },
-        async (payload) => {
+        (payload) => {
           console.log('🚨 Urgent notification received:', payload);
-          await handleNewNotification(payload.new.id);
+          setNotificationQueue(prev => [...prev, payload.new.id]);
         }
       )
       .on(
@@ -92,9 +116,9 @@ export const UrgentNotificationModal = () => {
           table: 'urgent_notifications',
           filter: `is_broadcast=eq.true`
         },
-        async (payload) => {
+        (payload) => {
           console.log('🚨 Broadcast urgent notification:', payload);
-          await handleNewNotification(payload.new.id);
+          setNotificationQueue(prev => [...prev, payload.new.id]);
         }
       )
       .subscribe();
@@ -105,55 +129,50 @@ export const UrgentNotificationModal = () => {
   }, [currentUserId]);
 
   const handleNewNotification = async (notificationId: string) => {
-    // Fetch full notification data
-    const { data: notification, error } = await supabase
-      .from('urgent_notifications')
-      .select('*')
-      .eq('id', notificationId)
-      .single();
+    try {
+      // Fetch full notification data
+      const { data: notification, error } = await supabase
+        .from('urgent_notifications')
+        .select('*')
+        .eq('id', notificationId)
+        .single();
 
-    if (!notification || error) return;
+      if (error) {
+        console.error('Error fetching notification:', error);
+        return;
+      }
 
-    // Fetch sender profile separately
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', notification.sender_id)
-      .single();
+      if (!notification) return;
 
-    const data = { ...notification, profiles: profile };
+      // Fetch sender profile separately with error handling
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', notification.sender_id)
+        .single();
 
-    if (data && !error) {
+      const data = { 
+        ...notification, 
+        profiles: profile || { full_name: 'System' }
+      };
+
       setNotification(data as any);
       playAlertSound();
       
       // Vibrate if supported
       if (navigator.vibrate) {
-        navigator.vibrate([200, 100, 200, 100, 200]);
+        try {
+          navigator.vibrate([200, 100, 200, 100, 200]);
+        } catch (e) {
+          console.warn('Vibration not supported:', e);
+        }
       }
 
-      // Show browser notification ALWAYS (works even when tab is in background)
-      if (Notification.permission === 'granted') {
-        console.log('🚨 Showing urgent browser notification:', data.title);
-        const notification = new Notification('🚨 URGENT: ' + data.title, {
-          body: data.message,
-          tag: 'urgent-notification-' + notificationId,
-          requireInteraction: true,
-          icon: '/rea-logo-icon.png',
-          badge: '/rea-logo-icon.png',
-          silent: false,
-        });
-
-        // When user clicks notification, focus the window
-        notification.onclick = () => {
-          window.focus();
-          notification.close();
-        };
-      } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        // Fallback: Try to show via service worker
-        console.log('🚨 Attempting notification via service worker');
-        navigator.serviceWorker.ready.then(registration => {
-          registration.showNotification('🚨 URGENT: ' + data.title, {
+      // Show browser notification with error handling
+      try {
+        if (Notification.permission === 'granted') {
+          console.log('🚨 Showing urgent browser notification:', data.title);
+          const browserNotification = new Notification('🚨 URGENT: ' + data.title, {
             body: data.message,
             tag: 'urgent-notification-' + notificationId,
             requireInteraction: true,
@@ -161,17 +180,37 @@ export const UrgentNotificationModal = () => {
             badge: '/rea-logo-icon.png',
             silent: false,
           });
-        });
-      } else {
-        console.warn('⚠️ Cannot show browser notification - permission not granted or service worker not available');
+
+          browserNotification.onclick = () => {
+            window.focus();
+            browserNotification.close();
+          };
+        }
+      } catch (notifError) {
+        console.warn('Browser notification error:', notifError);
       }
+    } catch (error) {
+      console.error('Critical error in handleNewNotification:', error);
     }
   };
 
   const playAlertSound = () => {
     if (!audioContext) return;
 
+    // Throttle alerts to prevent audio glitches
+    const now = Date.now();
+    if (now - lastAlertTime < 1000) {
+      console.log('Alert throttled');
+      return;
+    }
+    setLastAlertTime(now);
+
     try {
+      // Resume audio context if suspended
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
 
@@ -186,6 +225,16 @@ export const UrgentNotificationModal = () => {
 
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.2);
+
+      // Clean up oscillator after it stops
+      setTimeout(() => {
+        try {
+          oscillator.disconnect();
+          gainNode.disconnect();
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }, 300);
     } catch (error) {
       console.error('Error playing alert sound:', error);
     }
@@ -225,7 +274,7 @@ export const UrgentNotificationModal = () => {
               </p>
             </div>
           </div>
-          <AlertDialogDescription className="text-base text-foreground">
+          <AlertDialogDescription className="text-base text-foreground whitespace-pre-wrap">
             {notification.message}
           </AlertDialogDescription>
         </AlertDialogHeader>
