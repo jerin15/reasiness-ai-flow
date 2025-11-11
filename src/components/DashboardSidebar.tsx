@@ -129,7 +129,10 @@ export function DashboardSidebar({
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={onCreateTaskClick}>
+                  <SidebarMenuButton 
+                    onClick={onCreateTaskClick}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
                     <Plus className="h-4 w-4" />
                     <span>Create Task</span>
                   </SidebarMenuButton>
