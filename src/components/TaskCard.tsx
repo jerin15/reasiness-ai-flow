@@ -11,6 +11,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { logTaskAction } from "@/lib/auditLogger";
 import { useState, useEffect } from "react";
+import { TaskAgingIndicator } from "./TaskAgingIndicator";
+import { TaskQuickActions } from "./TaskQuickActions";
+import { useTaskActivity } from "@/hooks/useTaskActivity";
 
 type Task = {
   id: string;
@@ -36,6 +39,7 @@ type Task = {
   came_from_designer_done?: boolean;
   sent_back_to_designer?: boolean;
   admin_remarks?: string | null;
+  last_activity_at?: string;
 };
 
 type TaskCardProps = {
@@ -55,9 +59,12 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
+  const { logActivity } = useTaskActivity();
 
   useEffect(() => {
     fetchProductStats();
+    // Log task view
+    logActivity(task.id, 'viewed');
   }, [task.id]);
 
   const fetchProductStats = async () => {
@@ -569,6 +576,12 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
               >
                 {task.type}
               </Badge>
+              {task.last_activity_at && (
+                <TaskAgingIndicator 
+                  lastActivityAt={task.last_activity_at}
+                  priority={task.priority}
+                />
+              )}
               {task.mockup_completed_by_designer && (
                 <Badge
                   variant="secondary"
@@ -634,6 +647,17 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                 <span>{formatDistanceToNow(new Date(task.status_changed_at), { addSuffix: true })}</span>
               </div>
             </div>
+            
+            {/* Quick Actions */}
+            <TaskQuickActions 
+              taskId={task.id}
+              currentStatus={task.status}
+              onActionComplete={() => {
+                fetchProductStats();
+                onTaskUpdated?.();
+              }}
+            />
+            
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
               <Badge variant="outline" className="text-xs font-normal">
                 Created: {format(new Date(task.created_at), "MMM d, yyyy 'at' h:mm a")}

@@ -65,6 +65,45 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_rules: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          enabled: boolean | null
+          id: string
+          notify_roles: Database["public"]["Enums"]["app_role"][] | null
+          rule_name: string
+          source_status: Database["public"]["Enums"]["task_status"]
+          target_status: Database["public"]["Enums"]["task_status"] | null
+          threshold_hours: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          enabled?: boolean | null
+          id?: string
+          notify_roles?: Database["public"]["Enums"]["app_role"][] | null
+          rule_name: string
+          source_status: Database["public"]["Enums"]["task_status"]
+          target_status?: Database["public"]["Enums"]["task_status"] | null
+          threshold_hours: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          enabled?: boolean | null
+          id?: string
+          notify_roles?: Database["public"]["Enums"]["app_role"][] | null
+          rule_name?: string
+          source_status?: Database["public"]["Enums"]["task_status"]
+          target_status?: Database["public"]["Enums"]["task_status"] | null
+          threshold_hours?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       call_sessions: {
         Row: {
           answer: string | null
@@ -353,6 +392,45 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          created_at: string | null
+          do_not_disturb_end: string | null
+          do_not_disturb_start: string | null
+          email_notifications: boolean | null
+          id: string
+          notification_sound: string | null
+          reminder_frequency: string | null
+          show_on_leaderboard: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          do_not_disturb_end?: string | null
+          do_not_disturb_start?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          notification_sound?: string | null
+          reminder_frequency?: string | null
+          show_on_leaderboard?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          do_not_disturb_end?: string | null
+          do_not_disturb_start?: string | null
+          email_notifications?: boolean | null
+          id?: string
+          notification_sound?: string | null
+          reminder_frequency?: string | null
+          show_on_leaderboard?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -444,6 +522,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "supplier_quotes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_activity_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_activity_log_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
@@ -658,6 +771,50 @@ export type Database = {
           },
         ]
       }
+      task_suggestions: {
+        Row: {
+          accepted: boolean | null
+          confidence: number | null
+          created_at: string | null
+          dismissed: boolean | null
+          id: string
+          responded_at: string | null
+          suggested_status: Database["public"]["Enums"]["task_status"] | null
+          suggestion_text: string
+          task_id: string
+        }
+        Insert: {
+          accepted?: boolean | null
+          confidence?: number | null
+          created_at?: string | null
+          dismissed?: boolean | null
+          id?: string
+          responded_at?: string | null
+          suggested_status?: Database["public"]["Enums"]["task_status"] | null
+          suggestion_text: string
+          task_id: string
+        }
+        Update: {
+          accepted?: boolean | null
+          confidence?: number | null
+          created_at?: string | null
+          dismissed?: boolean | null
+          id?: string
+          responded_at?: string | null
+          suggested_status?: Database["public"]["Enums"]["task_status"] | null
+          suggestion_text?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_suggestions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           admin_remarks: string | null
@@ -675,6 +832,7 @@ export type Database = {
           due_date: string | null
           id: string
           is_personal_admin_task: boolean | null
+          last_activity_at: string | null
           linked_task_id: string | null
           mockup_completed_by_designer: boolean | null
           my_status: Database["public"]["Enums"]["my_task_status"] | null
@@ -709,6 +867,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           is_personal_admin_task?: boolean | null
+          last_activity_at?: string | null
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
@@ -743,6 +902,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           is_personal_admin_task?: boolean | null
+          last_activity_at?: string | null
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
@@ -821,6 +981,99 @@ export type Database = {
           recipient_id?: string | null
           sender_id?: string
           title?: string
+        }
+        Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_type: string
+          earned_at: string | null
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          achievement_type: string
+          earned_at?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          achievement_type?: string
+          earned_at?: string | null
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_activity_streaks: {
+        Row: {
+          created_at: string | null
+          current_streak: number | null
+          efficiency_score: number | null
+          id: string
+          last_activity_date: string | null
+          longest_streak: number | null
+          total_quick_responses: number | null
+          total_tasks_completed: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_streak?: number | null
+          efficiency_score?: number | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number | null
+          total_quick_responses?: number | null
+          total_tasks_completed?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_streak?: number | null
+          efficiency_score?: number | null
+          id?: string
+          last_activity_date?: string | null
+          longest_streak?: number | null
+          total_quick_responses?: number | null
+          total_tasks_completed?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_daily_reviews: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          review_date: string
+          tasks_reviewed: number | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          review_date: string
+          tasks_reviewed?: number | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          review_date?: string
+          tasks_reviewed?: number | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -946,6 +1199,48 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_reports: {
+        Row: {
+          achievements_earned: string[] | null
+          created_at: string | null
+          efficiency_score: number | null
+          id: string
+          longest_stuck_task_id: string | null
+          metrics: Json | null
+          tasks_completed: number | null
+          tasks_pending: number | null
+          user_id: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          achievements_earned?: string[] | null
+          created_at?: string | null
+          efficiency_score?: number | null
+          id?: string
+          longest_stuck_task_id?: string | null
+          metrics?: Json | null
+          tasks_completed?: number | null
+          tasks_pending?: number | null
+          user_id: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          achievements_earned?: string[] | null
+          created_at?: string | null
+          efficiency_score?: number | null
+          id?: string
+          longest_stuck_task_id?: string | null
+          metrics?: Json | null
+          tasks_completed?: number | null
+          tasks_pending?: number | null
+          user_id?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -953,6 +1248,7 @@ export type Database = {
     Functions: {
       check_due_date_reminders: { Args: never; Returns: undefined }
       cleanup_old_completed_tasks: { Args: never; Returns: undefined }
+      get_task_age_hours: { Args: { task_id: string }; Returns: number }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
