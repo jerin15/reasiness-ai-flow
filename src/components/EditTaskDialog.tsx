@@ -26,6 +26,8 @@ type Task = {
   came_from_designer_done?: boolean;
   sent_to_designer_mockup?: boolean;
   mockup_completed_by_designer?: boolean;
+  sent_back_to_designer?: boolean;
+  admin_remarks?: string | null;
 };
 
 type EditTaskDialogProps = {
@@ -60,6 +62,7 @@ export const EditTaskDialog = ({
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
+  const [adminRemarks, setAdminRemarks] = useState("");
 
   useEffect(() => {
     if (task) {
@@ -73,6 +76,7 @@ export const EditTaskDialog = ({
       setMyStatus(task.my_status || "pending");
       setTaskType(task.type || "general");
       setStatus(task.status || "todo");
+      setAdminRemarks(task.admin_remarks || "");
     }
   }, [task]);
 
@@ -115,6 +119,7 @@ export const EditTaskDialog = ({
         my_status: myStatus as "pending" | "done_from_my_side",
         type: taskType as "quotation" | "invoice" | "design" | "general" | "production",
         status: status as any,
+        admin_remarks: adminRemarks || null,
         ...(statusChanged && {
           previous_status: task.status as any,
           status_changed_at: new Date().toISOString(),
@@ -334,6 +339,29 @@ export const EditTaskDialog = ({
               placeholder="Supplier name"
             />
           </div>
+
+          {/* Admin Remarks - Show for admins or if task has been sent back */}
+          {(isAdmin || currentUserRole === 'admin' || task.sent_back_to_designer || task.status === 'designer_done_production') && (
+            <div className="space-y-2">
+              <Label htmlFor="edit-adminRemarks" className="flex items-center gap-2">
+                Admin Remarks for Designer
+                {task.sent_back_to_designer && (
+                  <Badge variant="destructive" className="text-xs">Task Sent Back</Badge>
+                )}
+              </Label>
+              <Textarea
+                id="edit-adminRemarks"
+                value={adminRemarks}
+                onChange={(e) => setAdminRemarks(e.target.value)}
+                placeholder="Enter detailed remarks for the designer about what needs to be changed or reviewed..."
+                rows={4}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                These remarks will be visible to the designer when they view this task.
+              </p>
+            </div>
+          )}
 
           {/* Products Manager */}
           <div className="border-t pt-4 mt-4">
