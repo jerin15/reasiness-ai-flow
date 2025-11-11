@@ -142,6 +142,35 @@ export function DashboardSidebar({
           </SidebarGroup>
         )}
 
+        {/* Communication */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Communication</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={onChatClick}>
+                  <MessageSquare className="h-4 w-4" />
+                  <span className="flex items-center gap-2">
+                    Team Chat
+                    {unreadCount > 0 && (
+                      <Badge variant="destructive" className="ml-auto">
+                        {unreadCount}
+                      </Badge>
+                    )}
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {isAdminOrHead && (
+                <SidebarMenuItem>
+                  <div className="px-2">
+                    <AdminCommunicationPanel />
+                  </div>
+                </SidebarMenuItem>
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {/* Reports & Analytics */}
         <SidebarGroup>
           <SidebarGroupLabel>Reports & Analytics</SidebarGroupLabel>
