@@ -3,7 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Calendar, GripVertical, Edit2, Clock, ArrowRight, Package } from "lucide-react";
+import { Calendar, GripVertical, Edit2, Clock, ArrowRight, Package, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -33,6 +33,8 @@ type Task = {
   sent_to_designer_mockup?: boolean;
   mockup_completed_by_designer?: boolean;
   came_from_designer_done?: boolean;
+  sent_back_to_designer?: boolean;
+  admin_remarks?: string | null;
 };
 
 type TaskCardProps = {
@@ -45,9 +47,10 @@ type TaskCardProps = {
   userRole?: string;
   isAdminOwnPanel?: boolean;
   showFullCrud?: boolean;
+  onSendBack?: (task: Task) => void;
 };
 
-export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel, showFullCrud }: TaskCardProps) => {
+export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel, showFullCrud, onSendBack }: TaskCardProps) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
@@ -319,7 +322,8 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         task.sent_to_designer_mockup && task.status === 'mockup' && "border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/20 shadow-lg shadow-amber-500/50 animate-pulse",
         task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20 shadow-lg shadow-green-500/50",
         task.came_from_designer_done && task.status === 'production' && "border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 shadow-lg shadow-purple-500/50",
-        task.status === 'designer_done_production' && "border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-lg shadow-blue-500/50"
+        task.status === 'designer_done_production' && "border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-lg shadow-blue-500/50",
+        task.sent_back_to_designer && task.status === 'todo' && "border-2 border-red-500 bg-red-50 dark:bg-red-950/20 shadow-lg shadow-red-500/50 animate-pulse"
       )}
     >
       <CardContent className="p-3">
@@ -343,6 +347,11 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                 {task.mockup_completed_by_designer && (
                   <Badge className="mt-1 bg-green-500 text-white">
                     ✓ Mockup Completed
+                  </Badge>
+                )}
+                {task.sent_back_to_designer && task.status === 'todo' && (
+                  <Badge className="mt-1 bg-red-500 text-white animate-pulse">
+                    ⚠️ SENT BACK - NEEDS REDO
                   </Badge>
                 )}
               </div>
@@ -445,6 +454,23 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                     Send
                   </Button>
                 )}
+                
+                {/* Send Back to Designer button for admin in FOR PRODUCTION pipeline */}
+                {userRole === 'admin' && task.status === 'designer_done_production' && onSendBack && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-5 px-1.5 text-[10px] bg-amber-500 hover:bg-amber-600 text-white border-amber-600 font-medium shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSendBack(task);
+                    }}
+                    disabled={isMoving}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                  </Button>
+                )}
+                
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -509,6 +535,17 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
               <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                 {task.description}
               </p>
+            )}
+            
+            {task.sent_back_to_designer && task.admin_remarks && (
+              <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded p-2 mb-2">
+                <p className="text-xs font-semibold text-red-700 dark:text-red-300 mb-1">
+                  Admin Remarks:
+                </p>
+                <p className="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap">
+                  {task.admin_remarks}
+                </p>
+              </div>
             )}
             <div className="flex items-center gap-2 flex-wrap">
               <Badge

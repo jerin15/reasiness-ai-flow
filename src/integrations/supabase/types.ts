@@ -531,6 +531,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          admin_remarks: string | null
           ai_confidence_score: number | null
           ai_generated: boolean | null
           assigned_by: string | null
@@ -553,6 +554,7 @@ export type Database = {
           previous_status: Database["public"]["Enums"]["task_status"] | null
           priority: Database["public"]["Enums"]["task_priority"]
           reminder_sent: boolean | null
+          sent_back_to_designer: boolean | null
           sent_to_designer_mockup: boolean | null
           status: Database["public"]["Enums"]["task_status"]
           status_changed_at: string | null
@@ -563,6 +565,7 @@ export type Database = {
           visible_to: string | null
         }
         Insert: {
+          admin_remarks?: string | null
           ai_confidence_score?: number | null
           ai_generated?: boolean | null
           assigned_by?: string | null
@@ -585,6 +588,7 @@ export type Database = {
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
           reminder_sent?: boolean | null
+          sent_back_to_designer?: boolean | null
           sent_to_designer_mockup?: boolean | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
@@ -595,6 +599,7 @@ export type Database = {
           visible_to?: string | null
         }
         Update: {
+          admin_remarks?: string | null
           ai_confidence_score?: number | null
           ai_generated?: boolean | null
           assigned_by?: string | null
@@ -617,6 +622,7 @@ export type Database = {
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
           reminder_sent?: boolean | null
+          sent_back_to_designer?: boolean | null
           sent_to_designer_mockup?: boolean | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null

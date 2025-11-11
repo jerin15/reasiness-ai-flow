@@ -9,8 +9,9 @@ import { EditTaskDialog } from "./EditTaskDialog";
 import { StatusChangeNotification } from "./StatusChangeNotification";
 import { updateTaskOffline } from "@/lib/offlineTaskOperations";
 import { getLocalTasks, saveTasksLocally } from "@/lib/offlineStorage";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
+import { SendBackToDesignerDialog } from "./SendBackToDesignerDialog";
 
 type Task = {
   id: string;
@@ -31,6 +32,8 @@ type Task = {
   supplier_name: string | null;
   type: string;
   came_from_designer_done?: boolean;
+  sent_back_to_designer?: boolean;
+  admin_remarks?: string | null;
 };
 
 type Column = {
@@ -53,6 +56,8 @@ export const AdminKanbanBoard = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [userRoles, setUserRoles] = useState<Record<string, string>>({});
+  const [sendBackDialogOpen, setSendBackDialogOpen] = useState(false);
+  const [sendBackTask, setSendBackTask] = useState<Task | null>(null);
 
   const fetchTasks = async () => {
     try {
@@ -508,6 +513,10 @@ export const AdminKanbanBoard = () => {
                   userRole="admin"
                   isAdminOwnPanel={true}
                   showFullCrud={true}
+                  onSendBack={(task) => {
+                    setSendBackTask(task);
+                    setSendBackDialogOpen(true);
+                  }}
                 />
               ))
             }
@@ -574,6 +583,16 @@ export const AdminKanbanBoard = () => {
         onTaskDeleted={handleTaskDeleted}
         isAdmin={true}
       />
+      
+      {sendBackTask && (
+        <SendBackToDesignerDialog
+          open={sendBackDialogOpen}
+          onOpenChange={setSendBackDialogOpen}
+          taskId={sendBackTask.id}
+          taskTitle={sendBackTask.title}
+          onSuccess={fetchTasks}
+        />
+      )}
     </div>
   );
 };
