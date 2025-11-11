@@ -10,9 +10,9 @@ import { AddTaskDialog } from "./AddTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
 import { format } from "date-fns";
-import { TeamActivityStream } from "./TeamActivityStream";
+import { TeamMemberActivityList } from "./TeamMemberActivityList";
 import { getQuickActionStats } from "@/lib/taskActivityHelpers";
-import { Activity } from "lucide-react";
+import { Activity, Users } from "lucide-react";
 
 interface Task {
   id: string;
@@ -253,52 +253,55 @@ export const AdminDashboard = () => {
         </Card>
       </div>
 
-      {/* Quick Action Stats & Activity Feed */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Quick Action Stats */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Team Activity (Last 24 Hours)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{quickActionStats.workingOnIt}</div>
-                <div className="text-xs text-muted-foreground">🟢 Working On It</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-500">{quickActionStats.waiting}</div>
-                <div className="text-xs text-muted-foreground">🟡 Waiting</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-red-500">{quickActionStats.needHelp}</div>
-                <div className="text-xs text-muted-foreground">🔴 Need Help</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-500">{quickActionStats.almostDone}</div>
-                <div className="text-xs text-muted-foreground">🔵 Almost Done</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-500">{quickActionStats.notesAdded}</div>
-                <div className="text-xs text-muted-foreground">💬 Notes Added</div>
-              </div>
+      {/* Quick Action Stats */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Team Activity Summary (Last 24 Hours)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-500">{quickActionStats.workingOnIt}</div>
+              <div className="text-xs text-muted-foreground">🟢 Working On It</div>
             </div>
-          </CardContent>
-        </Card>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-500">{quickActionStats.waiting}</div>
+              <div className="text-xs text-muted-foreground">🟡 Waiting</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-500">{quickActionStats.needHelp}</div>
+              <div className="text-xs text-muted-foreground">🔴 Need Help</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-500">{quickActionStats.almostDone}</div>
+              <div className="text-xs text-muted-foreground">🔵 Almost Done</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-500">{quickActionStats.notesAdded}</div>
+              <div className="text-xs text-muted-foreground">💬 Notes Added</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Live Activity Stream */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Live Team Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TeamActivityStream limit={10} compact={true} />
-          </CardContent>
-        </Card>
-      </div>
+      {/* Detailed Team Member Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Team Member Activity Details
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Click on each team member to see their detailed activity
+          </p>
+        </CardHeader>
+        <CardContent>
+          <TeamMemberActivityList />
+        </CardContent>
+      </Card>
 
       {/* Personal Admin Tasks */}
       <PersonalAdminTasks />
