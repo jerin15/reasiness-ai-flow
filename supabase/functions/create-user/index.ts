@@ -11,7 +11,7 @@ interface CreateUserRequest {
   email: string;
   password: string;
   full_name: string;
-  role: 'admin' | 'estimation' | 'designer' | 'operations' | 'technical_head';
+  role: string; // Can be any custom role name now
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -45,14 +45,14 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Check if requesting user is admin
-    const { data: roleData, error: roleError } = await supabaseClient
+    const { data: adminRoleData, error: roleError } = await supabaseClient
       .from("user_roles")
       .select("role")
       .eq("user_id", requestingUser.id)
       .eq("role", "admin")
       .single();
 
-    if (roleError || !roleData) {
+    if (roleError || !adminRoleData) {
       throw new Error("Only admins can create users");
     }
 
@@ -68,9 +68,15 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Password must be at least 6 characters long");
     }
 
-    const validRoles = ['admin', 'estimation', 'designer', 'operations', 'technical_head'];
-    if (!validRoles.includes(role)) {
-      throw new Error(`Invalid role. Must be one of: ${validRoles.join(', ')}`);
+    // Validate that the role exists in custom_roles table
+    const { data: roleData, error: roleCheckError } = await supabaseClient
+      .from("custom_roles")
+      .select("role_name")
+      .eq("role_name", role)
+      .single();
+
+    if (roleCheckError || !roleData) {
+      throw new Error(`Invalid role: ${role}. Role does not exist.`);
     }
 
     // Create admin client with service role key

@@ -134,6 +134,48 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_roles: {
+        Row: {
+          can_create_tasks: boolean
+          can_delete_tasks: boolean
+          can_edit_all_tasks: boolean
+          can_view_all_tasks: boolean
+          created_at: string
+          created_by: string | null
+          description: string | null
+          display_name: string
+          id: string
+          role_name: string
+          updated_at: string
+        }
+        Insert: {
+          can_create_tasks?: boolean
+          can_delete_tasks?: boolean
+          can_edit_all_tasks?: boolean
+          can_view_all_tasks?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          role_name: string
+          updated_at?: string
+        }
+        Update: {
+          can_create_tasks?: boolean
+          can_delete_tasks?: boolean
+          can_edit_all_tasks?: boolean
+          can_view_all_tasks?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          role_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string
@@ -296,6 +338,36 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      role_pipeline_access: {
+        Row: {
+          can_edit: boolean
+          can_move_to: boolean
+          can_view: boolean
+          created_at: string
+          id: string
+          pipeline_status: string
+          role_name: string
+        }
+        Insert: {
+          can_edit?: boolean
+          can_move_to?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          pipeline_status: string
+          role_name: string
+        }
+        Update: {
+          can_edit?: boolean
+          can_move_to?: boolean
+          can_view?: boolean
+          created_at?: string
+          id?: string
+          pipeline_status?: string
+          role_name?: string
         }
         Relationships: []
       }
