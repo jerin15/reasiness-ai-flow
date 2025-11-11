@@ -340,6 +340,31 @@ export function TaskProductsManager({
         } else {
           toast.success(`Product approved and sent to ${targetStatus} pipeline`);
         }
+
+        // Check if all products are now approved
+        const { data: allProducts } = await supabase
+          .from('task_products')
+          .select('approval_status')
+          .eq('task_id', taskId);
+
+        const allApproved = allProducts?.every(p => p.approval_status === 'approved');
+
+        if (allApproved && allProducts && allProducts.length > 0) {
+          // All products approved - mark parent task as completed
+          const { error: completeError } = await supabase
+            .from('tasks')
+            .update({
+              status: 'done',
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', taskId);
+
+          if (completeError) {
+            console.error('Error completing parent task:', completeError);
+          } else {
+            toast.success('All products approved - Task completed!');
+          }
+        }
       } else {
         toast.success(`Product ${status === 'rejected' ? 'rejected' : 'marked for revision'}`);
       }
