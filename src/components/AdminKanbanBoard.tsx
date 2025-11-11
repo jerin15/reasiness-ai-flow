@@ -603,7 +603,15 @@ export const AdminKanbanBoard = () => {
 
       console.log('📦 Product delete result:', { productError, productCount });
 
-      // Try task delete
+      // If product delete succeeded, we're done
+      if (!productError && productCount && productCount > 0) {
+        console.log('✅ Successfully deleted product');
+        toast.success("Removed from FOR PRODUCTION");
+        await fetchTasks();
+        return;
+      }
+
+      // Only try task delete if product delete found nothing
       const { error: taskError, count: taskCount } = await supabase
         .from('tasks')
         .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
@@ -611,17 +619,17 @@ export const AdminKanbanBoard = () => {
 
       console.log('📋 Task delete result:', { taskError, taskCount });
 
-      // Success if either delete worked
-      if ((!productError && productCount && productCount > 0) || (!taskError && taskCount && taskCount > 0)) {
-        console.log('✅ Successfully deleted item');
+      // Success if task delete worked
+      if (!taskError && taskCount && taskCount > 0) {
+        console.log('✅ Successfully deleted task');
         toast.success("Removed from FOR PRODUCTION");
         await fetchTasks();
         return;
       }
 
       // Both failed
-      console.error('❌ Delete failed - both operations returned 0 rows or errors:', { productError, taskError });
-      toast.error('Failed to remove. Item may not exist or you lack permission.');
+      console.error('❌ Delete failed - item not found:', { productError, taskError });
+      toast.error('Failed to remove. Item not found.');
     } catch (error: any) {
       console.error('❌ Error removing item:', error);
       toast.error('Failed to remove item');
