@@ -77,7 +77,7 @@ export const AdminKanbanBoard = () => {
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       
       console.log('👤 Admin role check:', roleData);
 
