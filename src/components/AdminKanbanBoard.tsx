@@ -158,7 +158,31 @@ export const AdminKanbanBoard = () => {
         return isAccessible;
       }) || [];
 
-      console.log('🎨 Designer Done for Production tasks:', designerDoneFiltered.length, designerDoneFiltered);
+      // Fetch task_products to check which tasks have approved products
+      const taskIds = designerDoneFiltered.map(t => t.id);
+      let tasksWithApprovedProducts: string[] = [];
+      
+      if (taskIds.length > 0) {
+        const { data: productsData } = await supabase
+          .from('task_products')
+          .select('task_id, approval_status')
+          .in('task_id', taskIds);
+        
+        // Get tasks that have at least one approved product
+        tasksWithApprovedProducts = productsData
+          ?.filter(p => p.approval_status === 'approved')
+          .map(p => p.task_id)
+          .filter((id, index, self) => self.indexOf(id) === index) || [];
+        
+        console.log('🎯 Tasks with approved products (will be excluded):', tasksWithApprovedProducts.length);
+      }
+
+      // Filter out tasks that have approved products - those products go through separate production flow
+      const designerDoneFilteredFinal = designerDoneFiltered.filter(
+        task => !tasksWithApprovedProducts.includes(task.id)
+      );
+
+      console.log('🎨 Designer Done for Production tasks:', designerDoneFilteredFinal.length, designerDoneFilteredFinal);
       if (designerDoneError) {
         console.error('❌ Error fetching designer done tasks:', designerDoneError);
       }
@@ -173,7 +197,7 @@ export const AdminKanbanBoard = () => {
         .or(`is_personal_admin_task.is.null,is_personal_admin_task.eq.false,and(is_personal_admin_task.eq.true,created_by.eq.${user.id})`);
 
       // Map designer done tasks to special status for admin view
-      const designerDoneWithStatus = designerDoneFiltered.map(task => ({
+      const designerDoneWithStatus = designerDoneFilteredFinal.map(task => ({
         ...task,
         status: 'designer_done_production',
         original_status: 'done',
