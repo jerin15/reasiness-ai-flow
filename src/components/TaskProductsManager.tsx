@@ -345,18 +345,23 @@ export function TaskProductsManager({
 
         // Check if all products are now approved
         try {
+          console.log('🔍 Checking if all products are approved for task:', taskId);
           const { data: allProducts, error: productsError } = await supabase
             .from('task_products')
             .select('approval_status')
             .eq('task_id', taskId);
 
+          console.log('📊 All products status:', allProducts);
+
           if (productsError) {
             console.error('Error checking product statuses:', productsError);
           } else if (allProducts && allProducts.length > 0) {
             const allApproved = allProducts.every(p => p.approval_status === 'approved');
+            console.log('✅ All products approved?', allApproved);
 
             if (allApproved) {
               // All products approved - mark parent task as completed
+              console.log('🎉 All products approved! Marking parent task as DONE');
               const { error: completeError } = await supabase
                 .from('tasks')
                 .update({
@@ -366,9 +371,18 @@ export function TaskProductsManager({
                 .eq('id', taskId);
 
               if (completeError) {
-                console.error('Error completing parent task:', completeError);
+                console.error('❌ Error completing parent task:', completeError);
               } else {
-                toast.success('All products approved - Task completed!');
+                console.log('✅ Parent task marked as DONE successfully!');
+                toast.success('All products approved - Task completed!', {
+                  duration: 5000
+                });
+                
+                // Force a small delay to ensure database is updated before refetch
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Refetch products to trigger any parent component updates
+                await fetchProducts();
               }
             }
           }
