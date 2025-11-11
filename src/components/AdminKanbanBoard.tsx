@@ -498,12 +498,23 @@ export const AdminKanbanBoard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      if (!confirm("Are you sure you want to remove this task from FOR PRODUCTION view? This will affect all admins.")) {
+      // Verify user is admin
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (roleData?.role !== 'admin' && roleData?.role !== 'technical_head') {
+        toast.error('Only admins can remove tasks from FOR PRODUCTION');
         return;
       }
 
-      // Soft delete the task entirely - this removes it from all admin panels
-      // The task remains in designer's DONE pipeline
+      if (!confirm("Are you sure you want to remove this task from FOR PRODUCTION? This will remove it for all admins.")) {
+        return;
+      }
+
+      // Soft delete - removes from all admin panels but keeps in designer's done
       const { error } = await supabase
         .from('tasks')
         .update({ 
@@ -512,13 +523,17 @@ export const AdminKanbanBoard = () => {
         })
         .eq('id', taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('RLS Error:', error);
+        toast.error('Failed to remove task. Please try again.');
+        return;
+      }
 
-      toast.success("Task removed from FOR PRODUCTION (all admins will no longer see it)");
+      toast.success("Task removed from FOR PRODUCTION (all admins)");
       await fetchTasks();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting task:', error);
-      toast.error('Failed to remove task');
+      toast.error(error.message || 'Failed to remove task');
     }
   };
 
@@ -557,12 +572,12 @@ export const AdminKanbanBoard = () => {
                   key={task.id}
                   task={task}
                   onEdit={handleEditTask}
-                  onDelete={undefined}
+                  onDelete={handleDeleteFromProduction}
                   isAdminView={true}
                   onTaskUpdated={fetchTasks}
                   userRole="admin"
                   isAdminOwnPanel={true}
-                  showFullCrud={false}
+                  showFullCrud={true}
                   onSendBack={(task) => {
                     setSendBackTask(task);
                     setSendBackDialogOpen(true);
