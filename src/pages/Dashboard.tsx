@@ -216,7 +216,10 @@ const Dashboard = () => {
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
+  console.log('🎯 Dashboard render:', { loading, userRole, selectedUserId, currentUserId });
+
   if (loading) {
+    console.log('⏳ Dashboard: Still loading...');
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -224,8 +227,11 @@ const Dashboard = () => {
     );
   }
 
+  console.log('✅ Dashboard: Loading complete, rendering main UI');
+
   // Show admin dashboard only for admin users viewing their own tasks
   if (userRole === 'admin' && selectedUserId === currentUserId) {
+    console.log('👑 Dashboard: Rendering AdminDashboard');
     return (
       <SidebarProvider>
         <div className="min-h-screen flex w-full bg-background">
@@ -323,6 +329,7 @@ const Dashboard = () => {
     );
   }
 
+  console.log('📋 Dashboard: Rendering KanbanBoard view');
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
