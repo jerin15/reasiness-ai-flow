@@ -93,11 +93,13 @@ export const AdminKanbanBoard = () => {
 
       // Fetch ALL tasks for admin approval pipeline
       // Admin sees tasks from estimation/admin that need cost approval
+      // EXCLUDE personal tasks from other admins (only show own personal tasks or non-personal tasks)
       const { data: approvalTasks, error: approvalError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'admin_approval')
         .is('deleted_at', null)
+        .or(`is_personal_admin_task.is.null,is_personal_admin_task.eq.false,and(is_personal_admin_task.eq.true,created_by.eq.${user.id})`)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -110,11 +112,13 @@ export const AdminKanbanBoard = () => {
 
       // Fetch tasks with_client status (designer approval flow)
       // Exclude tasks that are marked as done
+      // EXCLUDE personal tasks from other admins
       const { data: withClientTasks, error: withClientError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'with_client')
         .is('deleted_at', null)
+        .or(`is_personal_admin_task.is.null,is_personal_admin_task.eq.false,and(is_personal_admin_task.eq.true,created_by.eq.${user.id})`)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -131,12 +135,14 @@ export const AdminKanbanBoard = () => {
 
       // Fetch tasks from designer's done pipeline for production
       // Exclude tasks hidden from admin view
+      // EXCLUDE personal tasks from other admins
       const { data: designerDoneTasks, error: designerDoneError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'done')
         .is('deleted_at', null)
         .or(`visible_to.is.null,visible_to.neq.${user.id}`)
+        .or(`is_personal_admin_task.is.null,is_personal_admin_task.eq.false,and(is_personal_admin_task.eq.true,created_by.eq.${user.id})`)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -151,11 +157,13 @@ export const AdminKanbanBoard = () => {
       }
 
       // Also fetch quotation_bill tasks to check for misassignments
+      // EXCLUDE personal tasks from other admins
       const { data: quotationBillTasks } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'quotation_bill')
-        .is('deleted_at', null);
+        .is('deleted_at', null)
+        .or(`is_personal_admin_task.is.null,is_personal_admin_task.eq.false,and(is_personal_admin_task.eq.true,created_by.eq.${user.id})`);
 
       // Map designer done tasks to special status for admin view
       const designerDoneWithStatus = designerDoneFiltered.map(task => ({
