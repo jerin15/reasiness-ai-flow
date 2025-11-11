@@ -209,12 +209,16 @@ export function TaskProductsManager({
   ) => {
     if (!taskId) return;
     
+    console.log('🔄 Starting approval process for product:', productId, 'status:', status);
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('User not authenticated');
         return;
       }
+      
+      console.log('👤 User approving:', user.id);
       
       // Update the product approval status
       const { error: updateError } = await supabase
@@ -228,10 +232,12 @@ export function TaskProductsManager({
         .eq('id', productId);
 
       if (updateError) {
-        console.error('Product approval error:', updateError);
+        console.error('❌ Product approval error:', updateError);
         toast.error('Failed to update product approval status');
         return;
       }
+
+      console.log('✅ Product approval status updated successfully');
 
       // If approved, create a new task with this product
       if (status === 'approved') {
@@ -396,15 +402,18 @@ export function TaskProductsManager({
             }
           }
         } catch (error) {
-          console.error('Error in product completion check:', error);
+          console.error('❌ Error in product completion check:', error);
         }
       } else {
+        console.log('ℹ️ Product status changed to:', status);
         toast.success(`Product ${status === 'rejected' ? 'rejected' : 'marked for revision'}`);
       }
 
+      console.log('🔄 Refreshing products list...');
       await fetchProducts();
+      console.log('✅ Products list refreshed');
     } catch (error) {
-      console.error('Approval error:', error);
+      console.error('❌ Approval error:', error);
       toast.error('Failed to process approval');
     }
   };
