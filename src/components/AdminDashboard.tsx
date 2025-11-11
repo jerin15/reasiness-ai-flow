@@ -253,6 +253,38 @@ export const AdminDashboard = () => {
         </Card>
       </div>
 
+      {/* Admin Approval Pipeline - PRIORITY #1 */}
+      <Card className="border-2 border-yellow-500/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ListTodo className="h-5 w-5 text-yellow-500" />
+            Admin Cost Approval Pipeline
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Tasks requiring admin approval for cost estimation
+          </p>
+        </CardHeader>
+        <CardContent>
+          <AdminKanbanBoard />
+        </CardContent>
+      </Card>
+
+      {/* Production Tasks - PRIORITY #2 */}
+      <Card className="border-2 border-blue-500/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ListTodo className="h-5 w-5 text-blue-500" />
+            Production Pipeline
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Personal admin tasks and production monitoring
+          </p>
+        </CardHeader>
+        <CardContent>
+          <PersonalAdminTasks />
+        </CardContent>
+      </Card>
+
       {/* Quick Action Stats */}
       <Card>
         <CardHeader>
@@ -300,19 +332,6 @@ export const AdminDashboard = () => {
         </CardHeader>
         <CardContent>
           <TeamMemberActivityList />
-        </CardContent>
-      </Card>
-
-      {/* Personal Admin Tasks */}
-      <PersonalAdminTasks />
-
-      {/* Admin Approval Pipeline */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Admin Approval Pipeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AdminKanbanBoard />
         </CardContent>
       </Card>
 

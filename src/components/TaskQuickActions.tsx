@@ -4,8 +4,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { PlayCircle, PauseCircle, HelpCircle, CheckCircle, MessageSquare, Zap } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTaskActivity } from '@/hooks/useTaskActivity';
+import { getLatestQuickAction } from '@/lib/taskActivityHelpers';
 
 interface TaskQuickActionsProps {
   taskId: string;
@@ -16,7 +17,40 @@ interface TaskQuickActionsProps {
 export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: TaskQuickActionsProps) => {
   const [noteText, setNoteText] = useState('');
   const [isNoteOpen, setIsNoteOpen] = useState(false);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
   const { logActivity } = useTaskActivity();
+
+  useEffect(() => {
+    fetchLatestAction();
+
+    // Real-time subscription
+    const channel = supabase
+      .channel(`quick-actions-${taskId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'task_activity_log',
+          filter: `task_id=eq.${taskId}`
+        },
+        () => {
+          fetchLatestAction();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [taskId]);
+
+  const fetchLatestAction = async () => {
+    const data = await getLatestQuickAction(taskId);
+    if (data?.details?.quick_action) {
+      setActiveAction(data.details.quick_action);
+    }
+  };
 
   const handleQuickAction = async (action: string) => {
     try {
@@ -141,9 +175,13 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
     <div className="flex flex-wrap gap-1 mt-2">
       <Button
         size="sm"
-        variant="outline"
+        variant={activeAction === 'working_on_it' ? 'default' : 'outline'}
         onClick={() => handleQuickAction('working')}
-        className="h-7 text-xs"
+        className={`h-7 text-xs ${
+          activeAction === 'working_on_it' 
+            ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' 
+            : ''
+        }`}
       >
         <PlayCircle className="h-3 w-3 mr-1" />
         Working On It
@@ -151,9 +189,13 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
 
       <Button
         size="sm"
-        variant="outline"
+        variant={activeAction === 'waiting_for_client' ? 'default' : 'outline'}
         onClick={() => handleQuickAction('waiting')}
-        className="h-7 text-xs"
+        className={`h-7 text-xs ${
+          activeAction === 'waiting_for_client' 
+            ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500' 
+            : ''
+        }`}
       >
         <PauseCircle className="h-3 w-3 mr-1" />
         Waiting
@@ -161,9 +203,13 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
 
       <Button
         size="sm"
-        variant="outline"
+        variant={activeAction === 'help_requested' ? 'default' : 'outline'}
         onClick={() => handleQuickAction('help')}
-        className="h-7 text-xs"
+        className={`h-7 text-xs ${
+          activeAction === 'help_requested' 
+            ? 'bg-red-500 hover:bg-red-600 text-white border-red-500 animate-pulse' 
+            : ''
+        }`}
       >
         <HelpCircle className="h-3 w-3 mr-1" />
         Need Help
@@ -171,9 +217,13 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
 
       <Button
         size="sm"
-        variant="outline"
+        variant={activeAction === 'almost_done' ? 'default' : 'outline'}
         onClick={() => handleQuickAction('almost')}
-        className="h-7 text-xs"
+        className={`h-7 text-xs ${
+          activeAction === 'almost_done' 
+            ? 'bg-blue-500 hover:bg-blue-600 text-white border-blue-500' 
+            : ''
+        }`}
       >
         <CheckCircle className="h-3 w-3 mr-1" />
         Almost Done
