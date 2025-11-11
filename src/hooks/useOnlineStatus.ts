@@ -13,12 +13,17 @@ export const useOnlineStatus = () => {
     setIsSyncing(true);
     console.log('🔄 Starting offline sync...');
     
+    // Set a timeout to prevent infinite syncing state
+    const syncTimeout = setTimeout(() => {
+      console.warn('⚠️ Sync timeout - resetting sync state');
+      setIsSyncing(false);
+    }, 10000); // 10 second timeout
+    
     try {
       const queue = await getSyncQueue();
       
-      if (queue.length === 0) {
+      if (!queue || queue.length === 0) {
         console.log('✅ No offline changes to sync');
-        setIsSyncing(false);
         return;
       }
 
@@ -63,8 +68,12 @@ export const useOnlineStatus = () => {
       console.log(`✅ Sync complete: ${successCount} success, ${failCount} failed`);
     } catch (error) {
       console.error('❌ Sync failed:', error);
-      toast.error('Failed to sync offline changes');
+      // Don't show error toast on initial load - just log it
+      if (isSyncing) {
+        toast.error('Failed to sync offline changes');
+      }
     } finally {
+      clearTimeout(syncTimeout);
       setIsSyncing(false);
     }
   };
@@ -86,9 +95,15 @@ export const useOnlineStatus = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial sync on mount if online
+    // Initial sync on mount if online - but don't block the UI
     if (navigator.onLine) {
-      syncOfflineChanges();
+      // Use setTimeout to make it non-blocking
+      setTimeout(() => {
+        syncOfflineChanges().catch(err => {
+          console.error('Initial sync failed:', err);
+          setIsSyncing(false);
+        });
+      }, 100);
     }
 
     return () => {
