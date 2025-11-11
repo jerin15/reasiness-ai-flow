@@ -133,6 +133,19 @@ export const AdminKanbanBoard = () => {
         throw withClientError;
       }
 
+      // CRITICAL: First, fetch ALL tasks that have approved products across ALL statuses
+      // These parent tasks should NEVER appear in any column
+      const { data: allApprovedProducts } = await supabase
+        .from('task_products')
+        .select('task_id, approval_status')
+        .eq('approval_status', 'approved');
+      
+      const tasksWithApprovedProducts = allApprovedProducts
+        ?.map(p => p.task_id)
+        .filter((id, index, self) => self.indexOf(id) === index) || [];
+      
+      console.log('🚫 ALL tasks with approved products (will be excluded everywhere):', tasksWithApprovedProducts.length, tasksWithApprovedProducts);
+
       // Fetch tasks from designer's done pipeline for production
       // Show tasks that are:
       // 1. Either visible_to is null (visible to all) OR visible_to equals current admin
@@ -158,25 +171,6 @@ export const AdminKanbanBoard = () => {
         return isAccessible;
       }) || [];
 
-      // Fetch task_products to check which tasks have approved products
-      const taskIds = designerDoneFiltered.map(t => t.id);
-      let tasksWithApprovedProducts: string[] = [];
-      
-      if (taskIds.length > 0) {
-        const { data: productsData } = await supabase
-          .from('task_products')
-          .select('task_id, approval_status')
-          .in('task_id', taskIds);
-        
-        // Get tasks that have at least one approved product
-        tasksWithApprovedProducts = productsData
-          ?.filter(p => p.approval_status === 'approved')
-          .map(p => p.task_id)
-          .filter((id, index, self) => self.indexOf(id) === index) || [];
-        
-        console.log('🎯 Tasks with approved products (will be excluded):', tasksWithApprovedProducts.length);
-      }
-
       // Filter out tasks that have approved products - those products go through separate production flow
       const designerDoneFilteredFinal = designerDoneFiltered.filter(
         task => !tasksWithApprovedProducts.includes(task.id)
@@ -195,6 +189,15 @@ export const AdminKanbanBoard = () => {
         .eq('status', 'quotation_bill')
         .is('deleted_at', null)
         .or(`is_personal_admin_task.is.null,is_personal_admin_task.eq.false,and(is_personal_admin_task.eq.true,created_by.eq.${user.id})`);
+
+      // CRITICAL: Filter out ALL parent tasks with approved products from ALL task arrays
+      const filteredApprovalTasks = approvalTasks?.filter(t => !tasksWithApprovedProducts.includes(t.id)) || [];
+      const filteredWithClientTasksFinal = filteredWithClientTasks?.filter(t => !tasksWithApprovedProducts.includes(t.id)) || [];
+      const filteredQuotationBillTasks = quotationBillTasks?.filter(t => !tasksWithApprovedProducts.includes(t.id)) || [];
+      
+      console.log('✅ Filtered approval tasks (removed parent tasks):', filteredApprovalTasks.length);
+      console.log('✅ Filtered with_client tasks (removed parent tasks):', filteredWithClientTasksFinal.length);
+      console.log('✅ Filtered quotation_bill tasks (removed parent tasks):', filteredQuotationBillTasks.length);
 
       // Map designer done tasks to special status for admin view
       const designerDoneWithStatus = designerDoneFilteredFinal.map(task => ({
@@ -255,17 +258,8 @@ export const AdminKanbanBoard = () => {
       console.log('🎯 Approved products as tasks for FOR PRODUCTION:', approvedProductTasks.length);
       }
 
-      // Combine all tasks
-      let allTasks = [...(approvalTasks || []), ...(filteredWithClientTasks || []), ...(quotationBillTasks || []), ...designerDoneWithStatus, ...approvedProductTasks];
-      
-      // CRITICAL: Remove any parent tasks that have approved products from the final list
-      // This ensures parent tasks don't show when their products are in FOR PRODUCTION
-      allTasks = allTasks.filter(task => {
-        // Keep products (they have is_product flag)
-        if ((task as any).is_product) return true;
-        // Remove parent tasks that have approved products
-        return !tasksWithApprovedProducts.includes(task.id);
-      });
+      // Combine all tasks using the filtered versions (parent tasks with approved products already removed)
+      let allTasks = [...filteredApprovalTasks, ...filteredWithClientTasksFinal, ...filteredQuotationBillTasks, ...designerDoneWithStatus, ...approvedProductTasks];
       
       // Final deduplication by ID to ensure no duplicates
       const seenIds = new Set();
