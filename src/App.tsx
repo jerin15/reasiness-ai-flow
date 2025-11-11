@@ -11,6 +11,7 @@ import { VoiceAnnouncementPlayer } from "@/components/VoiceAnnouncementPlayer";
 import { UrgentNotificationModal } from "@/components/UrgentNotificationModal";
 import { AppUpdateNotifier } from "@/components/AppUpdateNotifier";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 
@@ -41,22 +42,24 @@ const AppContent = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AppUpdateNotifier />
-      <ReminderNotification />
-      <ChatNotification />
-      <VoiceCallNotification />
-      <VoiceAnnouncementPlayer />
-      <UrgentNotificationModal />
-      <OfflineIndicator />
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AppUpdateNotifier />
+        <ReminderNotification />
+        <ChatNotification />
+        <VoiceCallNotification />
+        <VoiceAnnouncementPlayer />
+        <UrgentNotificationModal />
+        <OfflineIndicator />
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

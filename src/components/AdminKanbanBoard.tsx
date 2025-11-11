@@ -60,9 +60,14 @@ export const AdminKanbanBoard = () => {
   const [sendBackTask, setSendBackTask] = useState<Task | null>(null);
 
   const fetchTasks = async () => {
+    console.log('🔍 AdminKanbanBoard: Starting fetchTasks...');
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.log('❌ AdminKanbanBoard: No user found');
+        setLoading(false);
+        return;
+      }
 
       console.log('🔍 Admin fetching tasks for user:', user.id);
 
@@ -209,7 +214,17 @@ export const AdminKanbanBoard = () => {
   };
 
   useEffect(() => {
-    fetchTasks();
+    console.log('🚀 AdminKanbanBoard: useEffect triggered');
+    
+    // Set a safety timeout in case fetch hangs
+    const safetyTimeout = setTimeout(() => {
+      console.warn('⚠️ AdminKanbanBoard: fetchTasks taking too long, forcing loading off');
+      setLoading(false);
+    }, 15000); // 15 second timeout
+    
+    fetchTasks().finally(() => {
+      clearTimeout(safetyTimeout);
+    });
     
     // Real-time subscription for all task changes with aggressive polling
     const channel = supabase
@@ -240,6 +255,7 @@ export const AdminKanbanBoard = () => {
       });
 
     return () => {
+      clearTimeout(safetyTimeout);
       supabase.removeChannel(channel);
     };
   }, []);

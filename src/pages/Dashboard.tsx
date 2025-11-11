@@ -55,7 +55,21 @@ const Dashboard = () => {
   const unreadCount = useUnreadMessageCount(currentUserId);
 
   useEffect(() => {
-    checkAuth();
+    console.log('🚀 Dashboard: Initial useEffect triggered');
+    
+    // Add safety timeout for auth check
+    const authTimeout = setTimeout(() => {
+      console.warn('⚠️ Dashboard: checkAuth taking too long, forcing loading off');
+      setLoading(false);
+    }, 10000);
+    
+    checkAuth().finally(() => {
+      clearTimeout(authTimeout);
+    });
+    
+    return () => {
+      clearTimeout(authTimeout);
+    };
   }, []);
 
 
@@ -102,16 +116,19 @@ const Dashboard = () => {
   }, [userRole, currentUserId]);
 
   const checkAuth = async () => {
+    console.log('🔐 Dashboard: Starting checkAuth...');
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (!session) {
+        console.log('❌ Dashboard: No session, redirecting to auth');
         navigate("/auth");
         return;
       }
 
+      console.log('✅ Dashboard: Session found for user:', session.user.id);
       setCurrentUserId(session.user.id);
       setSelectedUserId(session.user.id);
 
@@ -122,6 +139,8 @@ const Dashboard = () => {
         .eq("id", session.user.id)
         .single();
 
+      console.log('👤 Dashboard: Profile loaded:', profile?.full_name, profile?.user_roles?.[0]?.role);
+
       if (profile) {
         setUserName(profile.full_name || profile.email);
         setUserAvatar(profile.avatar_url || "");
@@ -131,12 +150,16 @@ const Dashboard = () => {
 
         // If admin or technical_head, fetch all team members
         if (role === "admin" || role === "technical_head") {
-          fetchTeamMembers();
+          console.log('👥 Dashboard: Fetching team members for admin/technical_head');
+          await fetchTeamMembers();
         }
       }
+      
+      console.log('✅ Dashboard: checkAuth completed successfully');
     } catch (error) {
-      console.error("Error checking auth:", error);
+      console.error("❌ Dashboard: Error checking auth:", error);
     } finally {
+      console.log('🏁 Dashboard: Setting loading to false');
       setLoading(false);
     }
   };

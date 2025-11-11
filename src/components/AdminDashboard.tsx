@@ -51,7 +51,17 @@ export const AdminDashboard = () => {
   const [showAddTask, setShowAddTask] = useState(false);
 
   useEffect(() => {
-    fetchTasksAndStats();
+    console.log('🚀 AdminDashboard: useEffect triggered');
+    
+    // Set a safety timeout
+    const safetyTimeout = setTimeout(() => {
+      console.warn('⚠️ AdminDashboard: fetchTasksAndStats taking too long, forcing loading off');
+      setLoading(false);
+    }, 15000);
+    
+    fetchTasksAndStats().finally(() => {
+      clearTimeout(safetyTimeout);
+    });
     
     // Real-time subscription for all task changes
     const channel = supabase
@@ -74,6 +84,7 @@ export const AdminDashboard = () => {
       });
 
     return () => {
+      clearTimeout(safetyTimeout);
       supabase.removeChannel(channel);
     };
   }, []);
