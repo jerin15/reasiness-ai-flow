@@ -54,18 +54,23 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
 
   const handleQuickAction = async (action: string) => {
     try {
+      let quickActionName = '';
+      
       switch (action) {
         case 'working':
+          quickActionName = 'working_on_it';
           await supabase
             .from('tasks')
             .update({ last_activity_at: new Date().toISOString() })
             .eq('id', taskId);
           
-          await logActivity(taskId, 'edited', { quick_action: 'working_on_it' });
+          await logActivity(taskId, 'edited', { quick_action: quickActionName });
+          setActiveAction(quickActionName); // Immediately update UI
           toast.success('✅ Marked as: Working on it');
           break;
 
         case 'waiting':
+          quickActionName = 'waiting_for_client';
           await supabase
             .from('tasks')
             .update({ 
@@ -74,11 +79,13 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
             })
             .eq('id', taskId);
           
-          await logActivity(taskId, 'status_changed', { quick_action: 'waiting_for_client', from: currentStatus, to: 'with_client' });
+          await logActivity(taskId, 'status_changed', { quick_action: quickActionName, from: currentStatus, to: 'with_client' });
+          setActiveAction(quickActionName); // Immediately update UI
           toast.success('⏸️ Moved to: Waiting for Client');
           break;
 
         case 'help':
+          quickActionName = 'help_requested';
           const { data: { user } } = await supabase.auth.getUser();
           const { data: task } = await supabase
             .from('tasks')
@@ -107,12 +114,14 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
               .from('urgent_notifications')
               .insert(notifications);
 
-            await logActivity(taskId, 'edited', { quick_action: 'help_requested' });
+            await logActivity(taskId, 'edited', { quick_action: quickActionName });
+            setActiveAction(quickActionName); // Immediately update UI
             toast.success('🆘 Help request sent to admins');
           }
           break;
 
         case 'almost':
+          quickActionName = 'almost_done';
           await supabase
             .from('tasks')
             .update({ 
@@ -124,15 +133,18 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
           const eod = new Date();
           eod.setHours(18, 0, 0, 0);
           
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          
           await supabase
             .from('task_reminders')
             .insert({
               task_id: taskId,
-              user_id: user?.id,
+              user_id: currentUser?.id,
               reminder_time: eod.toISOString()
             });
 
-          await logActivity(taskId, 'edited', { quick_action: 'almost_done' });
+          await logActivity(taskId, 'edited', { quick_action: quickActionName });
+          setActiveAction(quickActionName); // Immediately update UI
           toast.success('✅ Marked as almost done, reminder set for 6 PM');
           break;
       }
@@ -175,11 +187,11 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
     <div className="flex flex-wrap gap-1 mt-2">
       <Button
         size="sm"
-        variant={activeAction === 'working_on_it' ? 'default' : 'outline'}
+        variant="outline"
         onClick={() => handleQuickAction('working')}
-        className={`h-7 text-xs ${
+        className={`h-7 text-xs transition-all ${
           activeAction === 'working_on_it' 
-            ? 'bg-green-500 hover:bg-green-600 text-white border-green-500' 
+            ? 'bg-green-500 hover:bg-green-600 text-white border-green-600 font-semibold' 
             : ''
         }`}
       >
@@ -189,11 +201,11 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
 
       <Button
         size="sm"
-        variant={activeAction === 'waiting_for_client' ? 'default' : 'outline'}
+        variant="outline"
         onClick={() => handleQuickAction('waiting')}
-        className={`h-7 text-xs ${
+        className={`h-7 text-xs transition-all ${
           activeAction === 'waiting_for_client' 
-            ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500' 
+            ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600 font-semibold' 
             : ''
         }`}
       >
@@ -203,11 +215,11 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
 
       <Button
         size="sm"
-        variant={activeAction === 'help_requested' ? 'default' : 'outline'}
+        variant="outline"
         onClick={() => handleQuickAction('help')}
-        className={`h-7 text-xs ${
+        className={`h-7 text-xs transition-all ${
           activeAction === 'help_requested' 
-            ? 'bg-red-500 hover:bg-red-600 text-white border-red-500 animate-pulse' 
+            ? 'bg-red-500 hover:bg-red-600 text-white border-red-600 animate-pulse font-semibold' 
             : ''
         }`}
       >
@@ -217,11 +229,11 @@ export const TaskQuickActions = ({ taskId, currentStatus, onActionComplete }: Ta
 
       <Button
         size="sm"
-        variant={activeAction === 'almost_done' ? 'default' : 'outline'}
+        variant="outline"
         onClick={() => handleQuickAction('almost')}
-        className={`h-7 text-xs ${
+        className={`h-7 text-xs transition-all ${
           activeAction === 'almost_done' 
-            ? 'bg-blue-500 hover:bg-blue-600 text-white border-blue-500' 
+            ? 'bg-blue-500 hover:bg-blue-600 text-white border-blue-600 font-semibold' 
             : ''
         }`}
       >
