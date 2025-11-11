@@ -348,75 +348,80 @@ export function TaskProductsManager({
         }
 
         toast.success(`Product approved and sent to ${targetStatus} pipeline`);
-
-        // Check if all products are now approved
-        try {
-          console.log('🔍 Checking if all products are approved for task:', taskId);
-          const { data: allProducts, error: productsError } = await supabase
-            .from('task_products')
-            .select('approval_status')
-            .eq('task_id', taskId);
-
-          console.log('📊 All products status:', allProducts);
-
-          if (productsError) {
-            console.error('Error checking product statuses:', productsError);
-          } else if (allProducts && allProducts.length > 0) {
-            const allApproved = allProducts.every(p => p.approval_status === 'approved');
-            console.log('✅ All products approved?', allApproved);
-
-            if (allApproved) {
-              // All products approved - mark parent task as completed
-              console.log('🎉 All products approved! Marking parent task as DONE');
-              console.log('📝 Updating task ID:', taskId, 'to status: done');
-              
-              const { data: updatedTask, error: completeError } = await supabase
-                .from('tasks')
-                .update({
-                  status: 'done',
-                  completed_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', taskId)
-                .select()
-                .single();
-
-              if (completeError) {
-                console.error('❌ Error completing parent task:', completeError);
-                toast.error('Failed to complete task - please refresh and try again');
-              } else {
-                console.log('✅ Parent task marked as DONE successfully!', updatedTask);
-                toast.success('🎉 All products approved! Task completed and removed from pipeline.', {
-                  duration: 6000
-                });
-                
-                // Force immediate UI update by triggering realtime event manually
-                // This ensures all connected clients see the change immediately
-                window.dispatchEvent(new CustomEvent('task-completed', { 
-                  detail: { taskId, status: 'done' } 
-                }));
-                
-                // Refetch products to trigger any parent component updates
-                await fetchProducts();
-              }
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error in product completion check:', error);
-        }
-      } else {
-        console.log('ℹ️ Product status changed to:', status);
-        toast.success(`Product ${status === 'rejected' ? 'rejected' : 'marked for revision'}`);
       }
 
-      console.log('🔄 Refreshing products list...');
-      await fetchProducts();
-      console.log('✅ Products list refreshed');
+      // ALWAYS check if all products are approved after ANY approval status change
+      // This ensures we catch the case even if something failed above
+      console.log('🔍 Checking if all products are approved for task:', taskId);
+      
+      const { data: allProducts, error: productsError } = await supabase
+        .from('task_products')
+        .select('approval_status')
+        .eq('task_id', taskId);
+
+      console.log('📊 Product check result:', { 
+        totalProducts: allProducts?.length, 
+        products: allProducts,
+        error: productsError 
+      });
+
+      if (productsError) {
+        console.error('❌ Error checking product statuses:', productsError);
+      } else if (allProducts && allProducts.length > 0) {
+        const approvedCount = allProducts.filter(p => p.approval_status === 'approved').length;
+        const allApproved = allProducts.every(p => p.approval_status === 'approved');
+        
+        console.log(`📊 Approval status: ${approvedCount}/${allProducts.length} approved. All approved? ${allApproved}`);
+
+        if (allApproved) {
+          // All products approved - mark parent task as completed
+          console.log('🎉 ALL PRODUCTS APPROVED! Updating parent task to DONE status');
+          console.log('📝 Task ID to update:', taskId);
+          
+          const { data: updatedTask, error: completeError } = await supabase
+            .from('tasks')
+            .update({
+              status: 'done',
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', taskId)
+            .select()
+            .single();
+
+          if (completeError) {
+            console.error('❌ CRITICAL ERROR completing parent task:', completeError);
+            toast.error('Failed to complete task - please contact support');
+          } else {
+            console.log('✅ SUCCESS! Parent task marked as DONE:', updatedTask);
+            toast.success('🎉 All products approved! Task completed and removed from pipeline.', {
+              duration: 6000
+            });
+            
+            // Dispatch custom event for immediate UI update
+            window.dispatchEvent(new CustomEvent('task-completed', { 
+              detail: { taskId, status: 'done' } 
+            }));
+            
+            // Refetch products
+            await fetchProducts();
+          }
+        } else {
+          console.log(`ℹ️ Not all products approved yet. ${approvedCount}/${allProducts.length} approved.`);
+        }
+      }
     } catch (error) {
-      console.error('❌ Approval error:', error);
-      toast.error('Failed to process approval');
+      console.error('❌ Error in product approval flow:', error);
     }
-  };
+
+    console.log('🔄 Refreshing products list...');
+    await fetchProducts();
+    console.log('✅ Products list refreshed');
+  } catch (error) {
+    console.error('❌ Approval error:', error);
+    toast.error('Failed to process approval');
+  }
+};
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; label: string }> = {
