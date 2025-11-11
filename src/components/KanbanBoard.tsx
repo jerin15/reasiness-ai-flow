@@ -259,6 +259,14 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
   useEffect(() => {
     fetchTasks();
+    
+    // Listen for custom task-completed events
+    const handleTaskCompleted = (event: CustomEvent) => {
+      console.log('🎉 KanbanBoard: Task completed event received', event.detail);
+      setTimeout(() => fetchTasks(), 300);
+    };
+    
+    window.addEventListener('task-completed', handleTaskCompleted as EventListener);
 
     // Subscribe to realtime changes with a unique channel per view
     const channelName = `tasks-changes-${viewingUserId || 'default'}`;
@@ -289,6 +297,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       });
 
     return () => {
+      window.removeEventListener('task-completed', handleTaskCompleted as EventListener);
       supabase.removeChannel(channel);
     };
   }, [viewingUserId, isAdmin]);

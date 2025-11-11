@@ -362,24 +362,33 @@ export function TaskProductsManager({
             if (allApproved) {
               // All products approved - mark parent task as completed
               console.log('🎉 All products approved! Marking parent task as DONE');
-              const { error: completeError } = await supabase
+              console.log('📝 Updating task ID:', taskId, 'to status: done');
+              
+              const { data: updatedTask, error: completeError } = await supabase
                 .from('tasks')
                 .update({
                   status: 'done',
-                  completed_at: new Date().toISOString()
+                  completed_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
                 })
-                .eq('id', taskId);
+                .eq('id', taskId)
+                .select()
+                .single();
 
               if (completeError) {
                 console.error('❌ Error completing parent task:', completeError);
+                toast.error('Failed to complete task - please refresh and try again');
               } else {
-                console.log('✅ Parent task marked as DONE successfully!');
-                toast.success('All products approved - Task completed!', {
-                  duration: 5000
+                console.log('✅ Parent task marked as DONE successfully!', updatedTask);
+                toast.success('🎉 All products approved! Task completed and removed from pipeline.', {
+                  duration: 6000
                 });
                 
-                // Force a small delay to ensure database is updated before refetch
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Force immediate UI update by triggering realtime event manually
+                // This ensures all connected clients see the change immediately
+                window.dispatchEvent(new CustomEvent('task-completed', { 
+                  detail: { taskId, status: 'done' } 
+                }));
                 
                 // Refetch products to trigger any parent component updates
                 await fetchProducts();

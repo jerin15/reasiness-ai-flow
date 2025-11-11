@@ -109,6 +109,7 @@ export const AdminKanbanBoard = () => {
       }
 
       // Fetch tasks with_client status (designer approval flow)
+      // Exclude tasks that are marked as done
       const { data: withClientTasks, error: withClientError } = await supabase
         .from('tasks')
         .select('*')
@@ -117,7 +118,12 @@ export const AdminKanbanBoard = () => {
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
-      console.log('👥 With Client tasks:', withClientTasks?.length, withClientTasks);
+      console.log('👥 With Client tasks (raw):', withClientTasks?.length);
+      
+      // Double-check: filter out any tasks that somehow have status 'done'
+      const filteredWithClientTasks = withClientTasks?.filter(task => task.status === 'with_client') || [];
+      console.log('👥 With Client tasks (filtered):', filteredWithClientTasks.length, filteredWithClientTasks);
+      
       if (withClientError) {
         console.error('❌ Error fetching with_client tasks:', withClientError);
         throw withClientError;
@@ -158,7 +164,7 @@ export const AdminKanbanBoard = () => {
         original_status: 'done',
       }));
 
-      const allTasks = [...(approvalTasks || []), ...(withClientTasks || []), ...(quotationBillTasks || []), ...designerDoneWithStatus];
+      const allTasks = [...(approvalTasks || []), ...(filteredWithClientTasks || []), ...(quotationBillTasks || []), ...designerDoneWithStatus];
       console.log('📦 Total tasks in admin panel:', allTasks.length);
       
       // Auto-fix: Check for quotation_bill tasks assigned to admins instead of estimation users
@@ -226,6 +232,14 @@ export const AdminKanbanBoard = () => {
       clearTimeout(safetyTimeout);
     });
     
+    // Listen for custom task-completed events
+    const handleTaskCompleted = (event: CustomEvent) => {
+      console.log('🎉 AdminKanbanBoard: Task completed event received', event.detail);
+      setTimeout(() => fetchTasks(), 300); // Small delay to ensure DB is updated
+    };
+    
+    window.addEventListener('task-completed', handleTaskCompleted as EventListener);
+    
     // Real-time subscription for all task changes with aggressive polling
     const channel = supabase
       .channel('admin-kanban-realtime', {
@@ -256,6 +270,7 @@ export const AdminKanbanBoard = () => {
 
     return () => {
       clearTimeout(safetyTimeout);
+      window.removeEventListener('task-completed', handleTaskCompleted as EventListener);
       supabase.removeChannel(channel);
     };
   }, []);
