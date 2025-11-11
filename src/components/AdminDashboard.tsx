@@ -10,9 +10,6 @@ import { AddTaskDialog } from "./AddTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
 import { format } from "date-fns";
-import { TeamMemberActivityList } from "./TeamMemberActivityList";
-import { getQuickActionStats } from "@/lib/taskActivityHelpers";
-import { Activity, Users } from "lucide-react";
 
 interface Task {
   id: string;
@@ -43,13 +40,6 @@ interface Stats {
   productionTasks: number;
 }
 
-interface QuickActionStats {
-  workingOnIt: number;
-  waiting: number;
-  needHelp: number;
-  almostDone: number;
-  notesAdded: number;
-}
 
 export const AdminDashboard = () => {
   const [myCreatedTasks, setMyCreatedTasks] = useState<Task[]>([]);
@@ -57,13 +47,6 @@ export const AdminDashboard = () => {
     tasksCreatedByMe: 0,
     pendingApproval: 0,
     productionTasks: 0,
-  });
-  const [quickActionStats, setQuickActionStats] = useState<QuickActionStats>({
-    workingOnIt: 0,
-    waiting: 0,
-    needHelp: 0,
-    almostDone: 0,
-    notesAdded: 0,
   });
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -175,10 +158,6 @@ export const AdminDashboard = () => {
         pendingApproval: pendingCount || 0,
         productionTasks: productionCount || 0,
       });
-
-      // Fetch quick action stats
-      const actionStats = await getQuickActionStats();
-      setQuickActionStats(actionStats);
     } catch (error) {
       console.error('Error fetching tasks:', error);
       toast.error('Failed to fetch tasks');
@@ -282,56 +261,6 @@ export const AdminDashboard = () => {
         </CardHeader>
         <CardContent>
           <PersonalAdminTasks />
-        </CardContent>
-      </Card>
-
-      {/* Quick Action Stats */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Team Activity Summary (Last 24 Hours)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-500">{quickActionStats.workingOnIt}</div>
-              <div className="text-xs text-muted-foreground">🟢 Working On It</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-500">{quickActionStats.waiting}</div>
-              <div className="text-xs text-muted-foreground">🟡 Waiting</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-500">{quickActionStats.needHelp}</div>
-              <div className="text-xs text-muted-foreground">🔴 Need Help</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-500">{quickActionStats.almostDone}</div>
-              <div className="text-xs text-muted-foreground">🔵 Almost Done</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-500">{quickActionStats.notesAdded}</div>
-              <div className="text-xs text-muted-foreground">💬 Notes Added</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Detailed Team Member Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Team Member Activity Details
-          </CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Click on each team member to see their detailed activity
-          </p>
-        </CardHeader>
-        <CardContent>
-          <TeamMemberActivityList />
         </CardContent>
       </Card>
 
