@@ -152,13 +152,7 @@ export const AdminKanbanBoard = () => {
                                rolesMap[task.assigned_to || ''] === 'designer';
         if (!isDesignerTask) return false;
 
-        // Check visibility: 
-        // visible_to field works as "hidden_from" - if it's set to an admin's ID, hide from that admin
-        // Show if: visible_to is null (visible to all) OR visible_to is NOT current user (not hidden from current user)
-        const isVisible = !task.visible_to || task.visible_to !== user.id;
-        if (!isVisible) return false;
-
-        // Check personal task: not personal OR created by current admin
+        // Only filter by personal tasks - ALL shared tasks visible to ALL admins
         const isAccessible = !task.is_personal_admin_task || task.created_by === user.id;
         
         return isAccessible;
@@ -504,22 +498,26 @@ export const AdminKanbanBoard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Instead of deleting, hide from admin's FOR PRODUCTION view
-      // This doesn't affect designer's DONE pipeline
+      if (!confirm("Are you sure you want to remove this task from FOR PRODUCTION view? This will affect all admins.")) {
+        return;
+      }
+
+      // Soft delete the task entirely - this removes it from all admin panels
+      // The task remains in designer's DONE pipeline
       const { error } = await supabase
         .from('tasks')
         .update({ 
-          visible_to: user.id,
+          deleted_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', taskId);
 
       if (error) throw error;
 
-      toast.success("Task removed from FOR PRODUCTION (still in designer's pipeline)");
+      toast.success("Task removed from FOR PRODUCTION (all admins will no longer see it)");
       await fetchTasks();
     } catch (error) {
-      console.error('Error hiding task:', error);
+      console.error('Error deleting task:', error);
       toast.error('Failed to remove task');
     }
   };
