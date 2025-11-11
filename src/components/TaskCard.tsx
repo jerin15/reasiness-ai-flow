@@ -14,6 +14,7 @@ import { useState, useEffect } from "react";
 import { TaskAgingIndicator } from "./TaskAgingIndicator";
 import { TaskQuickActions } from "./TaskQuickActions";
 import { useTaskActivity } from "@/hooks/useTaskActivity";
+import { QuickActionBadge } from "./QuickActionBadge";
 
 type Task = {
   id: string;
@@ -355,6 +356,12 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex-1">
                 <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
+                
+                {/* Quick Action Badge */}
+                <div className="mt-1">
+                  <QuickActionBadge taskId={task.id} />
+                </div>
+                
                 {task.sent_to_designer_mockup && task.status === 'mockup' && (
                   <Badge className="mt-1 bg-amber-500 text-white animate-pulse">
                     🎨 Mockup Pipeline

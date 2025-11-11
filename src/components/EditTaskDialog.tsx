@@ -6,11 +6,13 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TaskProductsManager } from "./TaskProductsManager";
 import { enrichLatestAuditLog } from "@/lib/enrichAuditLog";
 import { logTaskAction } from "@/lib/auditLogger";
+import { TaskActivityTimeline } from "./TaskActivityTimeline";
 
 type Task = {
   id: string;
@@ -260,7 +262,7 @@ export const EditTaskDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Edit Task
@@ -276,18 +278,27 @@ export const EditTaskDialog = ({
             )}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 overflow-hidden">
-          <div className="space-y-4 overflow-y-auto pr-2 max-h-[calc(90vh-12rem)]">
-          <div className="space-y-2">
-            <Label htmlFor="edit-title">Title *</Label>
-            <Input
-              id="edit-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter task title"
-              required
-            />
-          </div>
+
+        <Tabs defaultValue="edit" className="flex-1 overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="edit">Edit Task</TabsTrigger>
+            <TabsTrigger value="activity">Activity Timeline</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="edit" className="h-full overflow-hidden">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 h-full overflow-hidden">
+              <div className="space-y-4 overflow-y-auto pr-2 max-h-[calc(90vh-16rem)]">
+              {/* ... keep existing form fields ... */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Title *</Label>
+                <Input
+                  id="edit-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter task title"
+                  required
+                />
+              </div>
           <div className="space-y-2">
             <Label htmlFor="edit-description">Description</Label>
             <Textarea
@@ -532,6 +543,12 @@ export const EditTaskDialog = ({
             </div>
           </DialogFooter>
         </form>
+          </TabsContent>
+
+          <TabsContent value="activity" className="h-full overflow-hidden mt-4">
+            <TaskActivityTimeline taskId={task.id} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

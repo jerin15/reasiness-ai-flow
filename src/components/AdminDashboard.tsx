@@ -10,6 +10,9 @@ import { AddTaskDialog } from "./AddTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
 import { format } from "date-fns";
+import { TeamActivityStream } from "./TeamActivityStream";
+import { getQuickActionStats } from "@/lib/taskActivityHelpers";
+import { Activity } from "lucide-react";
 
 interface Task {
   id: string;
@@ -40,12 +43,27 @@ interface Stats {
   productionTasks: number;
 }
 
+interface QuickActionStats {
+  workingOnIt: number;
+  waiting: number;
+  needHelp: number;
+  almostDone: number;
+  notesAdded: number;
+}
+
 export const AdminDashboard = () => {
   const [myCreatedTasks, setMyCreatedTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<Stats>({
     tasksCreatedByMe: 0,
     pendingApproval: 0,
     productionTasks: 0,
+  });
+  const [quickActionStats, setQuickActionStats] = useState<QuickActionStats>({
+    workingOnIt: 0,
+    waiting: 0,
+    needHelp: 0,
+    almostDone: 0,
+    notesAdded: 0,
   });
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -157,6 +175,10 @@ export const AdminDashboard = () => {
         pendingApproval: pendingCount || 0,
         productionTasks: productionCount || 0,
       });
+
+      // Fetch quick action stats
+      const actionStats = await getQuickActionStats();
+      setQuickActionStats(actionStats);
     } catch (error) {
       console.error('Error fetching tasks:', error);
       toast.error('Failed to fetch tasks');
@@ -227,6 +249,53 @@ export const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.productionTasks}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Action Stats & Activity Feed */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Quick Action Stats */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Team Activity (Last 24 Hours)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-500">{quickActionStats.workingOnIt}</div>
+                <div className="text-xs text-muted-foreground">🟢 Working On It</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-yellow-500">{quickActionStats.waiting}</div>
+                <div className="text-xs text-muted-foreground">🟡 Waiting</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-500">{quickActionStats.needHelp}</div>
+                <div className="text-xs text-muted-foreground">🔴 Need Help</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-500">{quickActionStats.almostDone}</div>
+                <div className="text-xs text-muted-foreground">🔵 Almost Done</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-gray-500">{quickActionStats.notesAdded}</div>
+                <div className="text-xs text-muted-foreground">💬 Notes Added</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Live Activity Stream */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Live Team Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TeamActivityStream limit={10} compact={true} />
           </CardContent>
         </Card>
       </div>
