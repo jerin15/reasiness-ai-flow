@@ -255,22 +255,21 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
               is_personal_admin_task
             )
           `)
-          .eq('approval_status', 'approved');
+          .eq('approval_status', 'approved')
+          .eq('designer_completed', false); // Only show products not yet completed by designer
 
-        console.log('🎨 Designer: Approved products found:', approvedProducts?.length);
+        console.log('🎨 Designer: Approved products (not completed):', approvedProducts?.length);
 
         // Filter for products from tasks assigned to this designer
         approvedProductTasks = approvedProducts
           ?.filter(product => {
             const task = product.task as any;
             // Only show products from tasks where designer is creator or assigned
-            return task.created_by === user.id || task.assigned_to === user.id;
+            // AND parent task is NOT in 'done' status (if it's done, it means all products are done)
+            return (task.created_by === user.id || task.assigned_to === user.id) && task.status !== 'done';
           })
           .map(product => {
             const parentTask = product.task as any;
-            // If parent task is in 'done' status, don't show the product in designer's production
-            // (it will already be in designer's done column as part of the parent task)
-            if (parentTask.status === 'done') return null;
             
             return {
               id: product.id, // Use product ID as unique identifier
@@ -426,34 +425,70 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     }
 
     try {
-      // If this is a product, we need to update the parent task's status instead
+      // If this is a product, we need to handle it specially
       if (isProduct && parentTaskId) {
-        console.log('🎨 Moving product to', newStatus, '- updating parent task:', parentTaskId);
+        console.log('🎨 Moving product to', newStatus, '- Product ID:', taskId, 'Parent:', parentTaskId);
         
         if (newStatus === "done") {
-          // When product moved to done, update parent task to done
-          const { error } = await supabase
-            .from('tasks')
-            .update({
-              status: 'done',
-              completed_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', parentTaskId);
+          // Mark this product as completed by designer
+          const { error: updateError } = await supabase
+            .from('task_products')
+            .update({ designer_completed: true })
+            .eq('id', taskId);
 
-          if (error) {
-            console.error("❌ Error updating parent task:", error);
-            toast.error(`Failed to move product: ${error.message}`);
+          if (updateError) {
+            console.error("❌ Error marking product as completed:", updateError);
+            toast.error("Failed to complete product");
             return;
           }
 
-          toast.success("Product completed! Task moved to Done");
+          // Check if all approved products for this parent task are now completed
+          const { data: allApprovedProducts, error: fetchError } = await supabase
+            .from('task_products')
+            .select('id, designer_completed')
+            .eq('task_id', parentTaskId)
+            .eq('approval_status', 'approved');
+
+          if (fetchError) {
+            console.error("❌ Error fetching products:", fetchError);
+            toast.error("Failed to check product status");
+            return;
+          }
+
+          console.log('📦 All approved products for parent task:', allApprovedProducts);
+
+          // Check if ALL approved products are now completed
+          const allProductsCompleted = allApprovedProducts?.every(p => p.designer_completed) ?? false;
+
+          if (allProductsCompleted && allApprovedProducts && allApprovedProducts.length > 0) {
+            // All approved products are done, update parent task to done
+            const { error } = await supabase
+              .from('tasks')
+              .update({
+                status: 'done',
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', parentTaskId);
+
+            if (error) {
+              console.error("❌ Error updating parent task:", error);
+              toast.error(`Failed to update task: ${error.message}`);
+              return;
+            }
+
+            toast.success("✅ Product completed! All products done - task moved to Done");
+          } else {
+            const remaining = allApprovedProducts?.filter(p => !p.designer_completed).length ?? 0;
+            toast.success(`✅ Product completed! ${remaining} product(s) remaining`);
+          }
+          
           fetchTasks();
           return;
         }
         
         // For other status changes of products, just prevent the move
-        toast.error("Products can only be moved to Done");
+        toast.error("Products can only be moved from Production to Done");
         return;
       }
 

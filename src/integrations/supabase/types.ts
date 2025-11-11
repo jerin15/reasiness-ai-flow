@@ -560,6 +560,7 @@ export type Database = {
           approved_by: string | null
           created_at: string | null
           description: string | null
+          designer_completed: boolean | null
           estimated_price: number | null
           final_price: number | null
           id: string
@@ -577,6 +578,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           description?: string | null
+          designer_completed?: boolean | null
           estimated_price?: number | null
           final_price?: number | null
           id?: string
@@ -594,6 +596,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           description?: string | null
+          designer_completed?: boolean | null
           estimated_price?: number | null
           final_price?: number | null
           id?: string
