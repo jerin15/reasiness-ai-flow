@@ -238,10 +238,78 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         };
       });
       
-      setTasks(transformedData);
+      // FOR DESIGNERS: Fetch approved products and show them as individual items in PRODUCTION column
+      let approvedProductTasks: any[] = [];
+      if (roleToCheck === 'designer') {
+        const { data: approvedProducts } = await supabase
+          .from('task_products')
+          .select(`
+            *,
+            task:tasks!inner(
+              id,
+              title,
+              status,
+              created_by,
+              assigned_to,
+              client_name,
+              is_personal_admin_task
+            )
+          `)
+          .eq('approval_status', 'approved');
+
+        console.log('🎨 Designer: Approved products found:', approvedProducts?.length);
+
+        // Filter for products from tasks assigned to this designer
+        approvedProductTasks = approvedProducts
+          ?.filter(product => {
+            const task = product.task as any;
+            // Only show products from tasks where designer is creator or assigned
+            return task.created_by === user.id || task.assigned_to === user.id;
+          })
+          .map(product => {
+            const parentTask = product.task as any;
+            // If parent task is in 'done' status, don't show the product in designer's production
+            // (it will already be in designer's done column as part of the parent task)
+            if (parentTask.status === 'done') return null;
+            
+            return {
+              id: product.id, // Use product ID as unique identifier
+              title: `${parentTask.title} - ${product.product_name}`,
+              description: product.description || `Qty: ${product.quantity} ${product.unit || 'pcs'}`,
+              status: 'production', // Show in PRODUCTION column
+              priority: 'medium',
+              due_date: null,
+              position: product.position || 0,
+              assigned_to: parentTask.assigned_to,
+              created_by: parentTask.created_by,
+              created_at: product.created_at,
+              updated_at: product.updated_at,
+              status_changed_at: product.updated_at,
+              assigned_by: null,
+              client_name: parentTask.client_name,
+              my_status: 'pending',
+              supplier_name: null,
+              type: 'product',
+              assigned_user_role: null,
+              sent_to_designer_mockup: false,
+              mockup_completed_by_designer: false,
+              came_from_designer_done: false,
+              is_product: true, // Flag to identify this is a product
+              parent_task_id: parentTask.id,
+              product_data: product,
+            };
+          })
+          .filter(Boolean) || [];
+
+        console.log('🎨 Designer: Approved products as tasks:', approvedProductTasks.length);
+      }
+
+      // Combine regular tasks with approved product tasks for designers
+      const allTasks = [...transformedData, ...approvedProductTasks];
+      setTasks(allTasks);
       
       // Save to local storage for offline access
-      await saveTasksLocally(data || []);
+      await saveTasksLocally(allTasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       toast.error("Failed to load tasks");
@@ -317,6 +385,10 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
     
+    // Check if this is a product (not a regular task)
+    const isProduct = (task as any).is_product;
+    const parentTaskId = (task as any).parent_task_id;
+    
     // Determine the new status - more robust handling
     let newStatus: string | null = null;
     
@@ -354,6 +426,38 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     }
 
     try {
+      // If this is a product, we need to update the parent task's status instead
+      if (isProduct && parentTaskId) {
+        console.log('🎨 Moving product to', newStatus, '- updating parent task:', parentTaskId);
+        
+        if (newStatus === "done") {
+          // When product moved to done, update parent task to done
+          const { error } = await supabase
+            .from('tasks')
+            .update({
+              status: 'done',
+              completed_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', parentTaskId);
+
+          if (error) {
+            console.error("❌ Error updating parent task:", error);
+            toast.error(`Failed to move product: ${error.message}`);
+            return;
+          }
+
+          toast.success("Product completed! Task moved to Done");
+          fetchTasks();
+          return;
+        }
+        
+        // For other status changes of products, just prevent the move
+        toast.error("Products can only be moved to Done");
+        return;
+      }
+
+      // Regular task update logic
       const updates: any = {
         status: newStatus,
         previous_status: task.status,
