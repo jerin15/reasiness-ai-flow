@@ -134,21 +134,34 @@ export const AdminKanbanBoard = () => {
       }
 
       // Fetch tasks from designer's done pipeline for production
-      // Exclude tasks hidden from admin view
-      // EXCLUDE personal tasks from other admins
+      // Show tasks that are:
+      // 1. Either visible_to is null (visible to all) OR visible_to equals current admin
+      // 2. Either NOT personal tasks OR personal tasks created by current admin
       const { data: designerDoneTasks, error: designerDoneError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'done')
         .is('deleted_at', null)
-        .or(`visible_to.is.null,visible_to.neq.${user.id}`)
-        .or(`is_personal_admin_task.is.null,is_personal_admin_task.eq.false,and(is_personal_admin_task.eq.true,created_by.eq.${user.id})`)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
-      // Filter for tasks where creator or assignee is designer
+      // Filter in JavaScript for better control over complex conditions
       const designerDoneFiltered = designerDoneTasks?.filter(task => {
-        return rolesMap[task.created_by] === 'designer' || rolesMap[task.assigned_to || ''] === 'designer';
+        // Must be created/assigned to a designer
+        const isDesignerTask = rolesMap[task.created_by] === 'designer' || 
+                               rolesMap[task.assigned_to || ''] === 'designer';
+        if (!isDesignerTask) return false;
+
+        // Check visibility: 
+        // visible_to field works as "hidden_from" - if it's set to an admin's ID, hide from that admin
+        // Show if: visible_to is null (visible to all) OR visible_to is NOT current user (not hidden from current user)
+        const isVisible = !task.visible_to || task.visible_to !== user.id;
+        if (!isVisible) return false;
+
+        // Check personal task: not personal OR created by current admin
+        const isAccessible = !task.is_personal_admin_task || task.created_by === user.id;
+        
+        return isAccessible;
       }) || [];
 
       console.log('🎨 Designer Done for Production tasks:', designerDoneFiltered.length, designerDoneFiltered);
