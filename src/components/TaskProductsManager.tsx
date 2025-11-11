@@ -412,16 +412,13 @@ export function TaskProductsManager({
       }
     } catch (error) {
       console.error('❌ Error in product approval flow:', error);
+      toast.error('Failed to process approval');
     }
 
     console.log('🔄 Refreshing products list...');
     await fetchProducts();
     console.log('✅ Products list refreshed');
-  } catch (error) {
-    console.error('❌ Approval error:', error);
-    toast.error('Failed to process approval');
-  }
-};
+  };
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; label: string }> = {
