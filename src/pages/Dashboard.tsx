@@ -25,6 +25,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Menu } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { AddTaskDialog } from "@/components/AddTaskDialog";
+import { CreateUserDialog } from "@/components/CreateUserDialog";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -52,6 +53,7 @@ const Dashboard = () => {
   const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [showCreateUser, setShowCreateUser] = useState(false);
   const unreadCount = useUnreadMessageCount(currentUserId);
 
   useEffect(() => {
@@ -339,6 +341,7 @@ const Dashboard = () => {
           onChatClick={() => setShowChat(true)}
           onPersonalAnalyticsClick={() => setShowPersonalAnalytics(!showPersonalAnalytics)}
           onCreateTaskClick={() => setShowAddTask(true)}
+          onCreateUserClick={userRole === "admin" ? () => setShowCreateUser(true) : undefined}
           onSignOut={handleSignOut}
           showPersonalAnalytics={showPersonalAnalytics}
           getSelectedUserName={getSelectedUserName}
@@ -439,6 +442,11 @@ const Dashboard = () => {
         onOpenChange={setShowAddTask}
         onTaskAdded={() => {}}
         defaultAssignedTo={currentUserId}
+      />
+      
+      <CreateUserDialog 
+        open={showCreateUser}
+        onOpenChange={setShowCreateUser}
       />
       
       <IncomingCallNotification />

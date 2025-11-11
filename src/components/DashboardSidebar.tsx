@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { StatusChangeNotification } from "./StatusChangeNotification";
@@ -33,6 +33,7 @@ interface DashboardSidebarProps {
   onChatClick: () => void;
   onPersonalAnalyticsClick: () => void;
   onCreateTaskClick: () => void;
+  onCreateUserClick?: () => void;
   onSignOut: () => void;
   showPersonalAnalytics?: boolean;
   getSelectedUserName: () => string;
@@ -54,6 +55,7 @@ export function DashboardSidebar({
   onChatClick,
   onPersonalAnalyticsClick,
   onCreateTaskClick,
+  onCreateUserClick,
   onSignOut,
   showPersonalAnalytics,
   getSelectedUserName,
@@ -142,6 +144,23 @@ export function DashboardSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin Tools - Only for Admins */}
+        {userRole === "admin" && onCreateUserClick && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Admin Tools</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={onCreateUserClick} className="text-primary hover:text-primary">
+                    <UserPlus className="h-4 w-4" />
+                    <span>Create New User</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Reports & Analytics */}
         <SidebarGroup>
