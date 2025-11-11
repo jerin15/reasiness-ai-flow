@@ -9,6 +9,7 @@ import { EditTaskDialog } from "./EditTaskDialog";
 import { StatusChangeNotification } from "./StatusChangeNotification";
 import { updateTaskOffline } from "@/lib/offlineTaskOperations";
 import { getLocalTasks, saveTasksLocally } from "@/lib/offlineStorage";
+import { logTaskAction } from "@/lib/auditLogger";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { SendBackToDesignerDialog } from "./SendBackToDesignerDialog";
@@ -215,7 +216,8 @@ export const AdminKanbanBoard = () => {
           .from('task_products')
           .select('*')
           .in('task_id', tasksWithApprovedProducts)
-          .eq('approval_status', 'approved');
+          .eq('approval_status', 'approved')
+          .eq('designer_completed', true);
 
         console.log('📦 Approved products from filtered tasks:', approvedProducts?.length, approvedProducts);
 
@@ -599,34 +601,78 @@ export const AdminKanbanBoard = () => {
         .single();
 
       if (roleData?.role !== 'admin' && roleData?.role !== 'technical_head') {
-        toast.error('Only admins can remove tasks from FOR PRODUCTION');
+        toast.error('Only admins can remove items from FOR PRODUCTION');
         return;
       }
 
-      if (!confirm("Are you sure you want to remove this task from FOR PRODUCTION? This will remove it for all admins.")) {
+      if (!confirm("Are you sure you want to remove this item from FOR PRODUCTION?")) {
         return;
       }
 
-      // Soft delete - removes from all admin panels but keeps in designer's done
-      const { error } = await supabase
-        .from('tasks')
-        .update({ 
-          deleted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', taskId);
+      // Check if this is a product (ID exists in task_products) or a regular task
+      const { data: productCheck } = await supabase
+        .from('task_products')
+        .select('id, task_id')
+        .eq('id', taskId)
+        .maybeSingle();
 
-      if (error) {
-        console.error('RLS Error:', error);
-        toast.error('Failed to remove task. Please try again.');
-        return;
+      if (productCheck) {
+        // It's a product - delete from task_products
+        const { error } = await supabase
+          .from('task_products')
+          .delete()
+          .eq('id', taskId);
+
+        if (error) {
+          console.error('Error deleting product:', error);
+          toast.error('Failed to remove product. Please try again.');
+          return;
+        }
+
+        // Log the product deletion
+        if (productCheck.task_id) {
+          await logTaskAction({
+            task_id: productCheck.task_id,
+            action: 'product_removed_from_production',
+            old_values: { product_id: taskId },
+            new_values: null,
+            role: roleData?.role
+          });
+        }
+
+        toast.success("Product removed from FOR PRODUCTION");
+      } else {
+        // It's a regular task - soft delete
+        const { error } = await supabase
+          .from('tasks')
+          .update({ 
+            deleted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', taskId);
+
+        if (error) {
+          console.error('Error deleting task:', error);
+          toast.error('Failed to remove task. Please try again.');
+          return;
+        }
+
+        // Log the task deletion
+        await logTaskAction({
+          task_id: taskId,
+          action: 'removed_from_production',
+          old_values: { status: 'designer_done_production' },
+          new_values: { deleted_at: new Date().toISOString() },
+          role: roleData?.role
+        });
+
+        toast.success("Task removed from FOR PRODUCTION");
       }
 
-      toast.success("Task removed from FOR PRODUCTION (all admins)");
       await fetchTasks();
     } catch (error: any) {
-      console.error('Error deleting task:', error);
-      toast.error(error.message || 'Failed to remove task');
+      console.error('Error in handleDeleteFromProduction:', error);
+      toast.error(error.message || 'Failed to remove item');
     }
   };
 
