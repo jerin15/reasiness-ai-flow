@@ -252,11 +252,34 @@ export const AdminKanbanBoard = () => {
           })
           .filter(Boolean) || [];
 
-        console.log('🎯 Approved products as tasks for FOR PRODUCTION:', approvedProductTasks.length);
+      console.log('🎯 Approved products as tasks for FOR PRODUCTION:', approvedProductTasks.length);
       }
 
-      const allTasks = [...(approvalTasks || []), ...(filteredWithClientTasks || []), ...(quotationBillTasks || []), ...designerDoneWithStatus, ...approvedProductTasks];
+      // Combine all tasks
+      let allTasks = [...(approvalTasks || []), ...(filteredWithClientTasks || []), ...(quotationBillTasks || []), ...designerDoneWithStatus, ...approvedProductTasks];
+      
+      // CRITICAL: Remove any parent tasks that have approved products from the final list
+      // This ensures parent tasks don't show when their products are in FOR PRODUCTION
+      allTasks = allTasks.filter(task => {
+        // Keep products (they have is_product flag)
+        if ((task as any).is_product) return true;
+        // Remove parent tasks that have approved products
+        return !tasksWithApprovedProducts.includes(task.id);
+      });
+      
+      // Final deduplication by ID to ensure no duplicates
+      const seenIds = new Set();
+      allTasks = allTasks.filter(task => {
+        if (seenIds.has(task.id)) {
+          console.warn('⚠️ Duplicate task found:', task.id, task.title);
+          return false;
+        }
+        seenIds.add(task.id);
+        return true;
+      });
+      
       console.log('📦 Total tasks in admin panel:', allTasks.length);
+      console.log('🚫 Excluded parent tasks with approved products:', tasksWithApprovedProducts.length);
       
       // Auto-fix: Check for quotation_bill tasks assigned to admins instead of estimation users
       const tasksToFix = allTasks.filter(task => {
