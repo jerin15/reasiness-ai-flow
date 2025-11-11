@@ -593,41 +593,51 @@ export const AdminKanbanBoard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Verify user is admin
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (roleData?.role !== 'admin' && roleData?.role !== 'technical_head') {
+        toast.error('Only admins can remove items from FOR PRODUCTION');
+        return;
+      }
+
       if (!confirm("Are you sure you want to remove this item from FOR PRODUCTION?")) {
         return;
       }
 
-      // Try deleting as a product first
-      const { error: productError } = await supabase
+      // Try to delete from task_products first (products have priority)
+      const { error: productDeleteError, count: productCount } = await supabase
         .from('task_products')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('id', taskId);
 
-      if (!productError) {
-        toast.success("Product removed from FOR PRODUCTION");
+      if (!productDeleteError && productCount && productCount > 0) {
+        toast.success("Removed from FOR PRODUCTION");
         await fetchTasks();
         return;
       }
 
-      // If not a product, try as a task
-      const { error: taskError } = await supabase
+      // If not a product, soft delete the task
+      const { error: taskDeleteError } = await supabase
         .from('tasks')
-        .update({ 
-          deleted_at: new Date().toISOString()
-        })
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', taskId);
 
-      if (!taskError) {
-        toast.success("Task removed from FOR PRODUCTION");
-        await fetchTasks();
+      if (taskDeleteError) {
+        console.error('Delete error:', taskDeleteError);
+        toast.error('Failed to remove item');
         return;
       }
 
-      console.error('Delete errors:', { productError, taskError });
-      toast.error('Failed to remove item');
+      toast.success("Removed from FOR PRODUCTION");
+      await fetchTasks();
     } catch (error: any) {
-      console.error('Error in handleDeleteFromProduction:', error);
-      toast.error(error.message || 'Failed to remove item');
+      console.error('Error removing item:', error);
+      toast.error('Failed to remove item');
     }
   };
 
