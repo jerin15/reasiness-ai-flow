@@ -25,6 +25,19 @@ export const DailyTaskReviewDialog = () => {
 
       setUserId(user.id);
 
+      // Check if user is in estimation team
+      const { data: userRoleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      // Only show for estimation team
+      if (!userRoleData || userRoleData.role !== 'estimation') {
+        setIsOpen(false);
+        return;
+      }
+
       const today = new Date().toISOString().split('T')[0];
       
       // Check if review is completed today
@@ -41,11 +54,21 @@ export const DailyTaskReviewDialog = () => {
         return;
       }
 
-      // Get user's active tasks
+      // Get all estimation team members
+      const { data: estimationMembers } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'estimation');
+
+      if (!estimationMembers || estimationMembers.length === 0) return;
+
+      const estimationUserIds = estimationMembers.map(m => m.user_id);
+
+      // Get all tasks from estimation team that are not done
       const { data: userTasks, error } = await supabase
         .from('tasks')
         .select('*')
-        .or(`assigned_to.eq.${user.id},created_by.eq.${user.id}`)
+        .in('created_by', estimationUserIds)
         .is('deleted_at', null)
         .neq('status', 'done')
         .order('priority', { ascending: false })
