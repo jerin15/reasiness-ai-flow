@@ -122,6 +122,23 @@ export function DashboardSidebar({
           </SidebarGroup>
         )}
 
+        {/* Quick Actions - Admin Only */}
+        {isAdminOrHead && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={onCreateTaskClick}>
+                    <Plus className="h-4 w-4" />
+                    <span>Create Task</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         {/* Reports & Analytics */}
         <SidebarGroup>
           <SidebarGroupLabel>Reports & Analytics</SidebarGroupLabel>
