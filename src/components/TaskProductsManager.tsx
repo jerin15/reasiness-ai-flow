@@ -555,72 +555,210 @@ export function TaskProductsManager({
       <div className="space-y-3">
         {products.map((product) => (
           <Card key={product.id} className="p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-3">
-                  <h4 className="font-semibold">{product.product_name}</h4>
-                  {getStatusBadge(product.approval_status)}
+            {editingId === product.id ? (
+              // Edit mode
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <Label>Product Name *</Label>
+                    <Input
+                      value={product.product_name}
+                      onChange={(e) => {
+                        const updated = products.map(p => 
+                          p.id === product.id ? { ...p, product_name: e.target.value } : p
+                        );
+                        setProducts(updated);
+                      }}
+                      placeholder="Enter product name"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={product.description || ''}
+                      onChange={(e) => {
+                        const updated = products.map(p => 
+                          p.id === product.id ? { ...p, description: e.target.value } : p
+                        );
+                        setProducts(updated);
+                      }}
+                      placeholder="Product description"
+                      rows={2}
+                    />
+                  </div>
+                  <div>
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number"
+                      value={product.quantity}
+                      onChange={(e) => {
+                        const updated = products.map(p => 
+                          p.id === product.id ? { ...p, quantity: parseFloat(e.target.value) || 0 } : p
+                        );
+                        setProducts(updated);
+                      }}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <Label>Unit</Label>
+                    <Select
+                      value={product.unit}
+                      onValueChange={(value) => {
+                        const updated = products.map(p => 
+                          p.id === product.id ? { ...p, unit: value } : p
+                        );
+                        setProducts(updated);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pcs">Pieces</SelectItem>
+                        <SelectItem value="sqft">Sq Ft</SelectItem>
+                        <SelectItem value="sqm">Sq Meter</SelectItem>
+                        <SelectItem value="kg">Kg</SelectItem>
+                        <SelectItem value="m">Meter</SelectItem>
+                        <SelectItem value="set">Set</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Estimated Price (AED)</Label>
+                    <Input
+                      type="number"
+                      value={product.estimated_price}
+                      onChange={(e) => {
+                        const updated = products.map(p => 
+                          p.id === product.id ? { ...p, estimated_price: parseFloat(e.target.value) || 0 } : p
+                        );
+                        setProducts(updated);
+                      }}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  {canApprove && (
+                    <div>
+                      <Label>Final Price (AED)</Label>
+                      <Input
+                        type="number"
+                        value={product.final_price || 0}
+                        onChange={(e) => {
+                          const updated = products.map(p => 
+                            p.id === product.id ? { ...p, final_price: parseFloat(e.target.value) || 0 } : p
+                          );
+                          setProducts(updated);
+                        }}
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  )}
                 </div>
-                
-                {product.description && (
-                  <p className="text-sm text-muted-foreground">{product.description}</p>
-                )}
-                
-                <div className="flex gap-4 text-sm">
-                  <span>Qty: {product.quantity} {product.unit}</span>
-                  <span>Est. Price: AED {product.estimated_price}</span>
-                  {product.final_price && (
-                    <span className="font-medium">Final: AED {product.final_price}</span>
+                <div className="flex gap-2 justify-end">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setEditingId(null);
+                      fetchProducts(); // Reset to original
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="button" 
+                    size="sm"
+                    onClick={() => handleUpdateProduct(product.id!, product)}
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // View mode
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <h4 className="font-semibold">{product.product_name}</h4>
+                    {getStatusBadge(product.approval_status)}
+                  </div>
+                  
+                  {product.description && (
+                    <p className="text-sm text-muted-foreground">{product.description}</p>
+                  )}
+                  
+                  <div className="flex gap-4 text-sm">
+                    <span>Qty: {product.quantity} {product.unit}</span>
+                    <span>Est. Price: AED {product.estimated_price}</span>
+                    {product.final_price && (
+                      <span className="font-medium">Final: AED {product.final_price}</span>
+                    )}
+                  </div>
+
+                  {product.approval_notes && (
+                    <div className="text-sm bg-muted p-2 rounded">
+                      <span className="font-medium">Notes: </span>
+                      {product.approval_notes}
+                    </div>
                   )}
                 </div>
 
-                {product.approval_notes && (
-                  <div className="text-sm bg-muted p-2 rounded">
-                    <span className="font-medium">Notes: </span>
-                    {product.approval_notes}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                {canApprove && product.approval_status === 'pending' && (
-                  <>
+                <div className="flex gap-2">
+                  {canEdit && (
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
-                      className="text-green-600"
-                      onClick={() => handleApprovalStatusChange(product.id!, 'approved')}
+                      variant="ghost"
+                      onClick={() => setEditingId(product.id!)}
                     >
-                      <Check className="h-4 w-4" />
+                      <Edit2 className="h-4 w-4" />
                     </Button>
+                  )}
+                  
+                  {canApprove && product.approval_status === 'pending' && (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-green-600"
+                        onClick={() => handleApprovalStatusChange(product.id!, 'approved')}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600"
+                        onClick={() => {
+                          const notes = prompt('Rejection reason (optional):');
+                          handleApprovalStatusChange(product.id!, 'rejected', notes || undefined);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                  
+                  {canEdit && (
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
-                      className="text-red-600"
-                      onClick={() => {
-                        const notes = prompt('Rejection reason (optional):');
-                        handleApprovalStatusChange(product.id!, 'rejected', notes || undefined);
-                      }}
+                      variant="ghost"
+                      onClick={() => handleDeleteProduct(product.id!)}
                     >
-                      <X className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  </>
-                )}
-                
-                {canEdit && !canApprove && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDeleteProduct(product.id!)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </Card>
         ))}
 
