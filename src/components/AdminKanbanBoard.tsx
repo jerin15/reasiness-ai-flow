@@ -587,34 +587,73 @@ export const AdminKanbanBoard = () => {
   const handleDeleteFromProduction = async (taskId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        console.error('❌ No user found');
+        return;
+      }
 
       if (!confirm("Remove this item from FOR PRODUCTION?")) {
         return;
       }
 
-      console.log('🗑️ Attempting to delete from FOR PRODUCTION:', taskId);
+      console.log('🗑️ Starting delete process for:', taskId);
+      console.log('🔍 Current user:', user.id);
 
       // Find the task to check if it's a product or regular task
       const task = tasks.find(t => t.id === taskId) as any;
       
+      console.log('🔍 Found task in state:', {
+        found: !!task,
+        taskId,
+        isProduct: task?.is_product,
+        taskStatus: task?.status,
+        originalStatus: task?.original_status,
+        parentTaskId: task?.parent_task_id,
+        fullTask: task
+      });
+      
       if (!task) {
         console.error('❌ Task not found in state:', taskId);
-        toast.error('Item not found');
+        console.log('📋 Available task IDs:', tasks.map(t => t.id));
+        toast.error('Item not found in display');
         return;
       }
 
       // If it's a product, delete from task_products
       if (task.is_product) {
-        console.log('📦 Deleting product:', taskId);
-        const { error: productError } = await supabase
+        console.log('📦 This is a PRODUCT - deleting from task_products table');
+        console.log('📦 Product details:', {
+          productId: taskId,
+          parentTaskId: task.parent_task_id,
+          productData: task.product_data
+        });
+        
+        const { data: deleteData, error: productError, count } = await supabase
           .from('task_products')
-          .delete()
+          .delete({ count: 'exact' })
           .eq('id', taskId);
+
+        console.log('📦 Product delete result:', { 
+          error: productError, 
+          count,
+          data: deleteData,
+          errorDetails: productError ? {
+            message: productError.message,
+            details: productError.details,
+            hint: productError.hint,
+            code: productError.code
+          } : null
+        });
 
         if (productError) {
           console.error('❌ Error deleting product:', productError);
-          toast.error('Failed to remove product');
+          toast.error(`Failed to remove product: ${productError.message}`);
+          return;
+        }
+
+        if (count === 0) {
+          console.error('❌ Product not found in database:', taskId);
+          toast.error('Product not found in database');
           return;
         }
 
@@ -623,15 +662,41 @@ export const AdminKanbanBoard = () => {
         await fetchTasks();
       } else {
         // It's a regular task, soft delete it
-        console.log('📋 Soft deleting task:', taskId);
-        const { error: taskError } = await supabase
+        console.log('📋 This is a TASK - soft deleting from tasks table');
+        console.log('📋 Task details:', {
+          taskId,
+          status: task.status,
+          originalStatus: task.original_status,
+          createdBy: task.created_by,
+          assignedTo: task.assigned_to
+        });
+        
+        const { data: updateData, error: taskError, count } = await supabase
           .from('tasks')
-          .update({ deleted_at: new Date().toISOString() })
+          .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
           .eq('id', taskId);
+
+        console.log('📋 Task soft delete result:', { 
+          error: taskError, 
+          count,
+          data: updateData,
+          errorDetails: taskError ? {
+            message: taskError.message,
+            details: taskError.details,
+            hint: taskError.hint,
+            code: taskError.code
+          } : null
+        });
 
         if (taskError) {
           console.error('❌ Error deleting task:', taskError);
-          toast.error('Failed to remove task');
+          toast.error(`Failed to remove task: ${taskError.message}`);
+          return;
+        }
+
+        if (count === 0) {
+          console.error('❌ Task not found in database or no permission:', taskId);
+          toast.error('Task not found or no permission');
           return;
         }
 
@@ -640,8 +705,8 @@ export const AdminKanbanBoard = () => {
         await fetchTasks();
       }
     } catch (error: any) {
-      console.error('❌ Error removing item:', error);
-      toast.error('Failed to remove item');
+      console.error('❌ Unexpected error removing item:', error);
+      toast.error(`Failed to remove: ${error.message}`);
     }
   };
 
