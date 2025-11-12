@@ -132,7 +132,6 @@ const Dashboard = () => {
         console.error('❌ Dashboard: Profile fetch error:', profileError);
         toast.error("Failed to load profile. Please try logging in again.");
         setTimeout(() => navigate("/auth"), 2000);
-        setLoading(false);
         return;
       }
 
@@ -141,7 +140,6 @@ const Dashboard = () => {
       if (!profile) {
         console.error('❌ Dashboard: Profile is null');
         toast.error("Profile not found. Please contact support.");
-        setLoading(false);
         return;
       }
 
@@ -153,10 +151,12 @@ const Dashboard = () => {
       setUserRole(role);
       setSelectedUserRole(role);
 
-      // If admin or technical_head, fetch all team members
+      // If admin or technical_head, fetch all team members (don't await to avoid blocking)
       if (role === "admin" || role === "technical_head") {
         console.log('👥 Dashboard: Fetching team members for admin/technical_head');
-        await fetchTeamMembers();
+        fetchTeamMembers().catch(err => {
+          console.error('❌ Dashboard: fetchTeamMembers background error:', err);
+        });
       }
       
       console.log('✅ Dashboard: checkAuth completed successfully');
@@ -172,15 +172,24 @@ const Dashboard = () => {
 
   const fetchTeamMembers = async () => {
     try {
+      console.log('👥 Dashboard: Starting fetchTeamMembers...');
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, email, avatar_url, user_roles(*)")
         .order("full_name");
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Dashboard: Error fetching team members:', error);
+        throw error;
+      }
+      
+      console.log('✅ Dashboard: Team members fetched:', data?.length || 0);
       setTeamMembers(data || []);
     } catch (error) {
-      console.error("Error fetching team members:", error);
+      console.error("❌ Dashboard: fetchTeamMembers failed:", error);
+      toast.error("Failed to load team members");
+      // Don't let this block the dashboard from loading
+      setTeamMembers([]);
     }
   };
 
