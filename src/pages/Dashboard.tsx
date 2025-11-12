@@ -121,57 +121,49 @@ const Dashboard = () => {
       setCurrentUserId(session.user.id);
       setSelectedUserId(session.user.id);
 
-      // Get user profile and role with timeout
-      const profilePromise = supabase
+      // Get user profile and role
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("*, user_roles(*)")
         .eq("id", session.user.id)
         .single();
 
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-      );
-
-      const { data: profile, error: profileError } = await Promise.race([
-        profilePromise,
-        timeoutPromise
-      ]) as any;
-
       if (profileError) {
         console.error('❌ Dashboard: Profile fetch error:', profileError);
-        toast.error("Failed to load profile. Please refresh the page.");
+        toast.error("Failed to load profile. Please try logging in again.");
+        setTimeout(() => navigate("/auth"), 2000);
         setLoading(false);
         return;
       }
 
       console.log('👤 Dashboard: Profile loaded:', profile?.full_name, profile?.user_roles?.[0]?.role);
 
-      if (profile) {
-        setUserName(profile.full_name || profile.email);
-        setUserAvatar(profile.avatar_url || "");
-        const role = profile.user_roles?.[0]?.role || "operations";
-        
-        if (!role || role === "operations") {
-          console.warn('⚠️ Dashboard: No role found or default role, check user_roles table');
-        }
-        
-        setUserRole(role);
-        setSelectedUserRole(role);
-
-        // If admin or technical_head, fetch all team members
-        if (role === "admin" || role === "technical_head") {
-          console.log('👥 Dashboard: Fetching team members for admin/technical_head');
-          await fetchTeamMembers();
-        }
-      } else {
+      if (!profile) {
         console.error('❌ Dashboard: Profile is null');
         toast.error("Profile not found. Please contact support.");
+        setLoading(false);
+        return;
+      }
+
+      setUserName(profile.full_name || profile.email);
+      setUserAvatar(profile.avatar_url || "");
+      const role = profile.user_roles?.[0]?.role || "operations";
+      
+      console.log('🎭 Dashboard: User role set to:', role);
+      setUserRole(role);
+      setSelectedUserRole(role);
+
+      // If admin or technical_head, fetch all team members
+      if (role === "admin" || role === "technical_head") {
+        console.log('👥 Dashboard: Fetching team members for admin/technical_head');
+        await fetchTeamMembers();
       }
       
       console.log('✅ Dashboard: checkAuth completed successfully');
     } catch (error) {
       console.error("❌ Dashboard: Error checking auth:", error);
-      toast.error("Failed to authenticate. Please refresh the page.");
+      toast.error("Authentication error. Please try logging in again.");
+      setTimeout(() => navigate("/auth"), 2000);
     } finally {
       console.log('🏁 Dashboard: Setting loading to false');
       setLoading(false);
