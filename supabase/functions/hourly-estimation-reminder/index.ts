@@ -17,21 +17,32 @@ Deno.serve(async (req) => {
 
     console.log('🔔 Starting hourly estimation team reminder check...');
 
-    // Get all estimation team members
+    // Get all estimation team members (excluding those who are also admins)
     const { data: estimationUsers, error: usersError } = await supabase
       .from('user_roles')
       .select('user_id, profiles!inner(id, full_name, email)')
       .eq('role', 'estimation');
-
+    
     if (usersError) {
       console.error('Error fetching estimation users:', usersError);
       throw usersError;
     }
 
-    console.log(`📊 Found ${estimationUsers?.length || 0} estimation team members`);
+    // Filter out users who also have admin role
+    const estimationUserIds = estimationUsers?.map(u => u.user_id) || [];
+    const { data: adminUsers } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'admin')
+      .in('user_id', estimationUserIds);
+    
+    const adminUserIds = new Set(adminUsers?.map(u => u.user_id) || []);
+    const pureEstimationUsers = estimationUsers?.filter(u => !adminUserIds.has(u.user_id));
+
+    console.log(`📊 Found ${pureEstimationUsers?.length || 0} pure estimation team members (excluding admins)`);
 
     // For each estimation team member, check their pending tasks
-    for (const userRole of estimationUsers || []) {
+    for (const userRole of pureEstimationUsers || []) {
       const userId = userRole.user_id;
       const profile = userRole.profiles as any;
 
@@ -95,7 +106,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: 'Hourly estimation reminders processed',
-        usersProcessed: estimationUsers?.length || 0
+        usersProcessed: pureEstimationUsers?.length || 0
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
