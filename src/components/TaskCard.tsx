@@ -126,6 +126,35 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
     console.log("TaskCard - Getting pipelines for role:", role, "| isAdminOwnPanel:", isAdminOwnPanel);
     let allPipelines: { value: string; label: string }[] = [];
     
+    // ADMINS SEE ALL PIPELINES - they can move any task anywhere
+    if (role?.toLowerCase() === 'admin' || isAdminOwnPanel) {
+      console.log("Admin view - showing all pipelines");
+      return [
+        { value: "todo", label: "To-Do List (GENERAL)" },
+        { value: "supplier_quotes", label: "Supplier Quotes" },
+        { value: "client_approval", label: "Client Approval" },
+        { value: "admin_approval", label: "Admin Cost Approval" },
+        { value: "quotation_bill", label: "Quotation Bill" },
+        { value: "mockup", label: "MOCKUP (Designer)" },
+        { value: "with_client", label: "With Client (Designer)" },
+        { value: "production", label: "Production" },
+        { value: "final_invoice", label: "PENDING INVOICES" },
+        { value: "approval", label: "Approval (Operations)" },
+        { value: "delivery", label: "Delivery (Operations)" },
+        { value: "developing", label: "Developing (Tech)" },
+        { value: "testing", label: "Testing (Tech)" },
+        { value: "under_review", label: "Under Review (Tech)" },
+        { value: "deployed", label: "Deployed (Tech)" },
+        { value: "trial_and_error", label: "Trial and Error (Tech)" },
+        { value: "new_calls", label: "New Calls (Client Service)" },
+        { value: "follow_up", label: "Follow Up (Client Service)" },
+        { value: "quotation", label: "Quotation (Client Service)" },
+        { value: "send_to_designer_mockup", label: "→ Send to Designer Mockup" },
+        { value: "return_to_estimation", label: "→ Return to Estimation" },
+        { value: "done", label: "Done" },
+      ].filter(pipeline => pipeline.value !== task.status);
+    }
+    
     // Special case: Tasks in admin_approval status - only show "Approved" option
     if (task.status === "admin_approval") {
       console.log("Task in admin_approval - only showing Approved option");
@@ -164,6 +193,14 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         if (task.sent_to_designer_mockup) {
           allPipelines.push({ value: "return_to_estimation", label: "→ Return to Estimation (Mockup Done)" });
         }
+        break;
+      case "client_service":
+        allPipelines = [
+          { value: "new_calls", label: "New Calls" },
+          { value: "follow_up", label: "Follow Up" },
+          { value: "quotation", label: "Quotation" },
+          { value: "done", label: "Done" },
+        ];
         break;
       case "operations":
         allPipelines = [

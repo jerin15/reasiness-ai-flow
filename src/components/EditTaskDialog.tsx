@@ -169,7 +169,8 @@ export const EditTaskDialog = ({
           previous_status: task.status as any,
           status_changed_at: new Date().toISOString(),
         }),
-        // Allow estimation, admin, and technical_head to reassign tasks
+        // Allow admin, technical_head, and estimation to reassign tasks
+        // Admins can always reassign to anyone
         ...(assignedTo && (currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && {
           assigned_to: assignedTo
         }),
@@ -447,10 +448,12 @@ export const EditTaskDialog = ({
             />
           </div>
 
-          {/* Assign To field - for estimation, admin, and technical_head */}
+          {/* Assign To field - always visible for admins, estimation, and technical_head */}
           {(currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && (
             <div className="space-y-2">
-              <Label htmlFor="edit-assignedTo">Assign To</Label>
+              <Label htmlFor="edit-assignedTo">
+                {currentUserRole === 'admin' ? 'Assign/Reassign To Anyone' : 'Assign To'}
+              </Label>
               <Select value={assignedTo} onValueChange={setAssignedTo}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select team member" />
@@ -513,8 +516,37 @@ export const EditTaskDialog = ({
               </SelectTrigger>
               <SelectContent>
                 {(() => {
-                  // If assignedTo is set, show pipeline for the assignee's role
-                  // Otherwise, show pipeline for current user's role
+                  // ADMINS SEE ALL PIPELINES - they can move tasks anywhere
+                  if (currentUserRole === 'admin' || viewingUserRole === 'admin') {
+                    return (
+                      <>
+                        <SelectItem value="todo">To-Do List (GENERAL)</SelectItem>
+                        <SelectItem value="supplier_quotes">Supplier Quotes</SelectItem>
+                        <SelectItem value="client_approval">Client Approval</SelectItem>
+                        <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>
+                        <SelectItem value="quotation_bill">Quotation Bill</SelectItem>
+                        <SelectItem value="mockup">MOCKUP (Designer)</SelectItem>
+                        <SelectItem value="with_client">With Client (Designer)</SelectItem>
+                        <SelectItem value="production">Production</SelectItem>
+                        <SelectItem value="final_invoice">Final Invoice</SelectItem>
+                        <SelectItem value="approval">Approval (Operations)</SelectItem>
+                        <SelectItem value="delivery">Delivery (Operations)</SelectItem>
+                        <SelectItem value="developing">Developing (Tech)</SelectItem>
+                        <SelectItem value="testing">Testing (Tech)</SelectItem>
+                        <SelectItem value="under_review">Under Review (Tech)</SelectItem>
+                        <SelectItem value="deployed">Deployed (Tech)</SelectItem>
+                        <SelectItem value="trial_and_error">Trial and Error (Tech)</SelectItem>
+                        <SelectItem value="new_calls">New Calls (Client Service)</SelectItem>
+                        <SelectItem value="follow_up">Follow Up (Client Service)</SelectItem>
+                        <SelectItem value="quotation">Quotation (Client Service)</SelectItem>
+                        <SelectItem value="send_to_designer_mockup">→ Send to Designer Mockup</SelectItem>
+                        <SelectItem value="return_to_estimation">→ Return to Estimation (Mockup Done)</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </>
+                    );
+                  }
+                  
+                  // For non-admins: Show pipeline based on assignee's role if set, otherwise current user's role
                   let roleToUse = viewingUserRole || currentUserRole;
                   
                   if (assignedTo && teamMembers.length > 0) {
@@ -614,7 +646,7 @@ export const EditTaskDialog = ({
           </div>
           <DialogFooter className="flex justify-between items-center pt-4 border-t">
             <div>
-              {isAdmin && (
+              {(isAdmin || currentUserRole === 'admin') && (
                 <Button 
                   type="button" 
                   variant="destructive" 
