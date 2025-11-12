@@ -596,7 +596,7 @@ export const AdminKanbanBoard = () => {
         return;
       }
 
-      console.log('🗑️ Starting delete process for:', taskId);
+      console.log('🗑️ Removing from FOR PRODUCTION:', taskId);
       console.log('🔍 Current user:', user.id);
 
       // Find the task to check if it's a product or regular task
@@ -608,100 +608,59 @@ export const AdminKanbanBoard = () => {
         isProduct: task?.is_product,
         taskStatus: task?.status,
         originalStatus: task?.original_status,
-        parentTaskId: task?.parent_task_id,
-        fullTask: task
+        parentTaskId: task?.parent_task_id
       });
       
       if (!task) {
         console.error('❌ Task not found in state:', taskId);
-        console.log('📋 Available task IDs:', tasks.map(t => t.id));
-        toast.error('Item not found in display');
+        toast.error('Item not found');
         return;
       }
 
       // If it's a product, delete from task_products
       if (task.is_product) {
         console.log('📦 This is a PRODUCT - deleting from task_products table');
-        console.log('📦 Product details:', {
-          productId: taskId,
-          parentTaskId: task.parent_task_id,
-          productData: task.product_data
-        });
         
-        const { data: deleteData, error: productError, count } = await supabase
+        const { error: productError } = await supabase
           .from('task_products')
-          .delete({ count: 'exact' })
+          .delete()
           .eq('id', taskId);
-
-        console.log('📦 Product delete result:', { 
-          error: productError, 
-          count,
-          data: deleteData,
-          errorDetails: productError ? {
-            message: productError.message,
-            details: productError.details,
-            hint: productError.hint,
-            code: productError.code
-          } : null
-        });
 
         if (productError) {
-          console.error('❌ Error deleting product:', productError);
-          toast.error(`Failed to remove product: ${productError.message}`);
+          console.error('❌ Error removing product:', productError);
+          toast.error(`Failed to remove: ${productError.message}`);
           return;
         }
 
-        if (count === 0) {
-          console.error('❌ Product not found in database:', taskId);
-          toast.error('Product not found in database');
-          return;
-        }
-
-        console.log('✅ Successfully deleted product');
-        toast.success("Removed from FOR PRODUCTION");
+        console.log('✅ Product removed successfully');
+        toast.success("Removed successfully");
         await fetchTasks();
       } else {
-        // It's a regular task, soft delete it
-        console.log('📋 This is a TASK - soft deleting from tasks table');
+        // It's a regular task - just change status back to 'done' to hide from FOR PRODUCTION
+        // DO NOT delete it, just hide it from this panel
+        console.log('📋 This is a TASK - changing status back to done');
         console.log('📋 Task details:', {
           taskId,
-          status: task.status,
-          originalStatus: task.original_status,
-          createdBy: task.created_by,
-          assignedTo: task.assigned_to
+          currentStatus: task.status,
+          originalStatus: task.original_status || 'done'
         });
         
-        const { data: updateData, error: taskError, count } = await supabase
+        const { error: taskError } = await supabase
           .from('tasks')
-          .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
+          .update({ 
+            status: 'done',
+            status_changed_at: new Date().toISOString()
+          })
           .eq('id', taskId);
 
-        console.log('📋 Task soft delete result:', { 
-          error: taskError, 
-          count,
-          data: updateData,
-          errorDetails: taskError ? {
-            message: taskError.message,
-            details: taskError.details,
-            hint: taskError.hint,
-            code: taskError.code
-          } : null
-        });
-
         if (taskError) {
-          console.error('❌ Error deleting task:', taskError);
-          toast.error(`Failed to remove task: ${taskError.message}`);
+          console.error('❌ Error removing task:', taskError);
+          toast.error(`Failed to remove: ${taskError.message}`);
           return;
         }
 
-        if (count === 0) {
-          console.error('❌ Task not found in database or no permission:', taskId);
-          toast.error('Task not found or no permission');
-          return;
-        }
-
-        console.log('✅ Successfully deleted task');
-        toast.success("Removed from FOR PRODUCTION");
+        console.log('✅ Task removed from FOR PRODUCTION successfully (status changed to done)');
+        toast.success("Removed successfully");
         await fetchTasks();
       }
     } catch (error: any) {
