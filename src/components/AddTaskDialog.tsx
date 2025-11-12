@@ -62,6 +62,29 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
     }
   }, [defaultAssignedTo]);
 
+  // Auto-select appropriate pipeline when member is selected
+  useEffect(() => {
+    if (selectedMember && teamMembers.length > 0) {
+      const member = teamMembers.find(m => m.id === selectedMember);
+      const memberRole = member?.user_roles?.[0]?.role;
+      
+      // Set default pipeline based on member's role
+      if (memberRole === 'client_service') {
+        setSelectedPipeline('new_calls');
+      } else if (memberRole === 'designer') {
+        setSelectedPipeline('todo');
+      } else if (memberRole === 'estimation') {
+        setSelectedPipeline('todo');
+      } else if (memberRole === 'operations') {
+        setSelectedPipeline('todo');
+      } else if (memberRole === 'technical_head') {
+        setSelectedPipeline('todo');
+      } else {
+        setSelectedPipeline('todo');
+      }
+    }
+  }, [selectedMember, teamMembers]);
+
   const checkUserRole = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;

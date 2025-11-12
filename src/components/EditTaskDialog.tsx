@@ -94,6 +94,27 @@ export const EditTaskDialog = ({
     }
   }, [open]);
 
+  // Auto-select appropriate pipeline when assignee changes
+  useEffect(() => {
+    if (assignedTo && teamMembers.length > 0) {
+      const assignee = teamMembers.find(m => m.id === assignedTo);
+      const assigneeRole = assignee?.user_roles?.[0]?.role;
+      
+      // Set default status based on assignee's role
+      if (assigneeRole === 'client_service' && status !== 'new_calls' && status !== 'follow_up' && status !== 'quotation' && status !== 'done') {
+        setStatus('new_calls');
+      } else if (assigneeRole === 'designer' && status !== 'todo' && status !== 'mockup' && status !== 'with_client' && status !== 'production' && status !== 'done') {
+        setStatus('todo');
+      } else if (assigneeRole === 'estimation' && !['todo', 'supplier_quotes', 'client_approval', 'admin_approval', 'quotation_bill', 'production', 'final_invoice', 'done'].includes(status)) {
+        setStatus('todo');
+      } else if (assigneeRole === 'operations' && !['todo', 'approval', 'production', 'delivery', 'done'].includes(status)) {
+        setStatus('todo');
+      } else if (assigneeRole === 'technical_head' && !['todo', 'developing', 'testing', 'under_review', 'deployed', 'trial_and_error', 'done'].includes(status)) {
+        setStatus('todo');
+      }
+    }
+  }, [assignedTo, teamMembers]);
+
   const checkUserRole = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -492,7 +513,16 @@ export const EditTaskDialog = ({
               </SelectTrigger>
               <SelectContent>
                 {(() => {
-                  const roleToUse = viewingUserRole || currentUserRole;
+                  // If assignedTo is set, show pipeline for the assignee's role
+                  // Otherwise, show pipeline for current user's role
+                  let roleToUse = viewingUserRole || currentUserRole;
+                  
+                  if (assignedTo && teamMembers.length > 0) {
+                    const assignee = teamMembers.find(m => m.id === assignedTo);
+                    if (assignee?.user_roles?.[0]?.role) {
+                      roleToUse = assignee.user_roles[0].role;
+                    }
+                  }
                   
                   if (roleToUse === 'estimation') {
                     return (
