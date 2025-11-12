@@ -42,6 +42,7 @@ type EditTaskDialogProps = {
   onTaskDeleted?: () => void;
   isAdmin?: boolean;
   viewingUserRole?: string;
+  isAdminDashboard?: boolean;
 };
 
 export const EditTaskDialog = ({ 
@@ -51,7 +52,8 @@ export const EditTaskDialog = ({
   onTaskUpdated,
   onTaskDeleted,
   isAdmin,
-  viewingUserRole
+  viewingUserRole,
+  isAdminDashboard
 }: EditTaskDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -543,6 +545,18 @@ export const EditTaskDialog = ({
               </SelectTrigger>
               <SelectContent>
                 {(() => {
+                  // If opened from Admin Dashboard - only show admin-specific columns
+                  if (isAdminDashboard) {
+                    return (
+                      <>
+                        <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>
+                        <SelectItem value="approved">Approve</SelectItem>
+                        <SelectItem value="with_client">With Client</SelectItem>
+                        <SelectItem value="approved_designer">Approved (Designer)</SelectItem>
+                      </>
+                    );
+                  }
+                  
                   // ADMINS SEE ALL PIPELINES - they can move tasks anywhere
                   if (currentUserRole === 'admin' || viewingUserRole === 'admin') {
                     return (

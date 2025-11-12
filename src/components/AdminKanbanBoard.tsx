@@ -746,6 +746,7 @@ export const AdminKanbanBoard = () => {
         onTaskUpdated={handleTaskUpdated}
         onTaskDeleted={handleTaskDeleted}
         isAdmin={true}
+        isAdminDashboard={true}
       />
       
       {sendBackTask && (
