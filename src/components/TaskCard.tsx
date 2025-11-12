@@ -126,9 +126,22 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
     console.log("TaskCard - Getting pipelines for role:", role, "| isAdminOwnPanel:", isAdminOwnPanel);
     let allPipelines: { value: string; label: string }[] = [];
     
-    // ADMINS SEE ALL PIPELINES - they can move any task anywhere
-    if (role?.toLowerCase() === 'admin' || isAdminOwnPanel) {
-      console.log("Admin view - showing all pipelines");
+    // PRIORITY: Special cases for Admin Dashboard - check these FIRST
+    // Special case: Tasks in admin_approval status - only show "Approved" option
+    if (task.status === "admin_approval" && isAdminOwnPanel) {
+      console.log("Admin Dashboard - Task in admin_approval - only showing Approved option");
+      return [{ value: "approved", label: "Approved" }];
+    }
+    
+    // Special case: Tasks in with_client status - only show "Approved" option for admin panel
+    if (task.status === "with_client" && isAdminOwnPanel) {
+      console.log("Admin Dashboard - Designer task in with_client - only showing Approved option");
+      return [{ value: "approved_designer", label: "Approved" }];
+    }
+    
+    // ADMINS SEE ALL PIPELINES in their own task panel (not admin dashboard)
+    if ((role?.toLowerCase() === 'admin' || isAdminOwnPanel) && !isAdminView) {
+      console.log("Admin own panel - showing all pipelines");
       return [
         { value: "todo", label: "To-Do List (GENERAL)" },
         { value: "supplier_quotes", label: "Supplier Quotes" },
@@ -153,18 +166,6 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         { value: "return_to_estimation", label: "→ Return to Estimation" },
         { value: "done", label: "Done" },
       ].filter(pipeline => pipeline.value !== task.status);
-    }
-    
-    // Special case: Tasks in admin_approval status - only show "Approved" option
-    if (task.status === "admin_approval") {
-      console.log("Task in admin_approval - only showing Approved option");
-      return [{ value: "approved", label: "Approved" }];
-    }
-    
-    // Special case: Tasks in with_client status - only show "Approved" option for admin panel
-    if (task.status === "with_client" && isAdminOwnPanel) {
-      console.log("Designer task in with_client (admin panel) - only showing Approved option");
-      return [{ value: "approved_designer", label: "Approved" }];
     }
     
     switch (role?.toLowerCase()) {

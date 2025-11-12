@@ -547,16 +547,7 @@ export const EditTaskDialog = ({
                 {(() => {
                   // PRIORITY: If opened from Admin Dashboard - ONLY show admin-specific columns
                   // This takes precedence over all other role checks
-                  console.log('🔍 EditTaskDialog Pipeline Check:', { 
-                    isAdminDashboard, 
-                    currentUserRole, 
-                    viewingUserRole,
-                    assignedTo 
-                  });
-                  
                   if (isAdminDashboard === true) {
-                    console.log('✅ Showing ADMIN DASHBOARD pipelines only');
-
                     return (
                       <>
                         <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>
