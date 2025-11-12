@@ -90,6 +90,13 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           { id: "production", title: "PRODUCTION", status: "production" },
           { id: "done", title: "Done", status: "done" },
         ];
+      case "client_service":
+        return [
+          { id: "new_calls", title: "New Calls", status: "new_calls" },
+          { id: "follow_up", title: "Follow Up", status: "follow_up" },
+          { id: "quotation", title: "Quotation", status: "quotation" },
+          { id: "done", title: "Done", status: "done" },
+        ];
       case "operations":
         return [
           { id: "todo", title: "To-Do List", status: "todo" },
