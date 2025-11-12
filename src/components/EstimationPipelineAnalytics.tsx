@@ -134,42 +134,52 @@ export function EstimationPipelineAnalytics() {
   const extractRecentTransitions = (logs: any[], limit: number): TaskTransition[] => {
     const transitions: TaskTransition[] = [];
     
-    // Group by task
+    // Group by task to calculate time spent
     const taskLogs = logs.reduce((acc, log) => {
       if (!acc[log.task_id]) acc[log.task_id] = [];
       acc[log.task_id].push(log);
       return acc;
     }, {} as Record<string, any[]>);
 
+    // Process each task's logs
     Object.values(taskLogs).forEach((taskLog: any[]) => {
+      // Sort chronologically
       taskLog.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-      for (let i = 0; i < taskLog.length - 1; i++) {
-        const currentLog = taskLog[i];
-        const nextLog = taskLog[i + 1];
+      
+      // Process each status change
+      taskLog.forEach((log, index) => {
+        const fromStage = log.old_values?.status;
+        const toStage = log.new_values?.status;
         
-        const fromStage = currentLog.new_values?.status;
-        const toStage = nextLog.new_values?.status;
-        
-        // Only include transitions where:
-        // 1. Both stages are in our defined estimation stages
-        // 2. The stages are actually different (real transition)
+        // Only include valid estimation stage transitions
         if (
+          fromStage && 
+          toStage && 
           fromStage !== toStage &&
           stages.some(s => s.value === fromStage) && 
           stages.some(s => s.value === toStage)
         ) {
-          const hoursSpent = (new Date(nextLog.created_at).getTime() - new Date(currentLog.created_at).getTime()) / (1000 * 60 * 60);
+          // Find when the task entered the fromStage (look for previous log)
+          let enteredFromStageTime = new Date(log.created_at);
+          for (let i = index - 1; i >= 0; i--) {
+            if (taskLog[i].new_values?.status === fromStage) {
+              enteredFromStageTime = new Date(taskLog[i].created_at);
+              break;
+            }
+          }
+          
+          // Calculate hours spent in fromStage before transitioning
+          const hoursSpent = (new Date(log.created_at).getTime() - enteredFromStageTime.getTime()) / (1000 * 60 * 60);
           
           transitions.push({
-            taskTitle: currentLog.tasks?.title || 'Unknown Task',
+            taskTitle: log.tasks?.title || 'Unknown Task',
             fromStage: stages.find(s => s.value === fromStage)?.label || fromStage,
             toStage: stages.find(s => s.value === toStage)?.label || toStage,
-            hoursSpent,
-            transitionDate: nextLog.created_at
+            hoursSpent: Math.max(0, hoursSpent),
+            transitionDate: log.created_at
           });
         }
-      }
+      });
     });
 
     return transitions
