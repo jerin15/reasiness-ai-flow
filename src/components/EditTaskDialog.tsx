@@ -150,8 +150,36 @@ export const EditTaskDialog = ({
 
     setLoading(true);
     try {
-      // Check if status changed
-      const statusChanged = status !== task.status;
+      // Check if assignment changed
+      const assignmentChanged = assignedTo && assignedTo !== task.assigned_to;
+      
+      // If task is being reassigned, get the assignee's role and set appropriate pipeline
+      let newStatus = status as any;
+      if (assignmentChanged && (currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation')) {
+        const { data: assigneeData } = await supabase
+          .from('profiles')
+          .select('user_roles(role)')
+          .eq('id', assignedTo)
+          .single();
+        
+        const assigneeRole = assigneeData?.user_roles?.[0]?.role;
+        
+        // Set status to assignee's default pipeline
+        if (assigneeRole === 'client_service') {
+          newStatus = 'new_calls';
+        } else if (assigneeRole === 'designer') {
+          newStatus = 'todo';
+        } else if (assigneeRole === 'estimation') {
+          newStatus = 'todo';
+        } else if (assigneeRole === 'operations') {
+          newStatus = 'production';
+        } else if (assigneeRole === 'technical_head') {
+          newStatus = 'under_review';
+        }
+      }
+      
+      // Check if status changed (either manually or due to reassignment)
+      const statusChanged = newStatus !== task.status;
       
       let updateData: any = {
         title,
@@ -163,14 +191,13 @@ export const EditTaskDialog = ({
         supplier_name: supplierName || null,
         my_status: myStatus as "pending" | "done_from_my_side",
         type: taskType as "quotation" | "invoice" | "design" | "general" | "production",
-        status: status as any,
+        status: newStatus,
         admin_remarks: adminRemarks || null,
         ...(statusChanged && {
           previous_status: task.status as any,
           status_changed_at: new Date().toISOString(),
         }),
         // Allow admin, technical_head, and estimation to reassign tasks
-        // Admins can always reassign to anyone
         ...(assignedTo && (currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && {
           assigned_to: assignedTo
         }),
