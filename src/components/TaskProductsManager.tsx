@@ -74,10 +74,10 @@ export function TaskProductsManager({
   // Determine the effective user role (prioritize userRole prop, fallback to currentUserRole)
   const effectiveRole = userRole || currentUserRole;
   
-  // Determine if user can add/edit products (admins, technical_head, estimation can add)
+  // Determine if user can add/edit products (admins, technical_head, estimation, designer can add)
   const canEdit = !readOnly && (
     isAdmin || 
-    ['admin', 'technical_head', 'estimation'].includes(effectiveRole)
+    ['admin', 'technical_head', 'estimation', 'designer'].includes(effectiveRole)
   );
   
   // ONLY admins can approve/reject products
