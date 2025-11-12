@@ -217,6 +217,7 @@ const Dashboard = () => {
   // Helper function to format role names
   const formatRole = (role: string) => {
     if (role === 'technical_head') return 'Technical Head';
+    if (role === 'client_service') return 'Client Service Executive';
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 

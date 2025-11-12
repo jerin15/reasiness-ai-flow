@@ -67,6 +67,8 @@ export const EditTaskDialog = ({
   const [deleting, setDeleting] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [adminRemarks, setAdminRemarks] = useState("");
+  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
   useEffect(() => {
     if (task) {
@@ -81,12 +83,16 @@ export const EditTaskDialog = ({
       setTaskType(task.type || "general");
       setStatus(task.status || "todo");
       setAdminRemarks(task.admin_remarks || "");
+      setAssignedTo(task.assigned_to || "");
     }
   }, [task]);
 
   useEffect(() => {
-    checkUserRole();
-  }, []);
+    if (open) {
+      checkUserRole();
+      fetchTeamMembers();
+    }
+  }, [open]);
 
   const checkUserRole = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -100,6 +106,20 @@ export const EditTaskDialog = ({
 
     if (roleData) {
       setCurrentUserRole(roleData.role);
+    }
+  };
+
+  const fetchTeamMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, user_roles(role)')
+        .order('full_name');
+
+      if (error) throw error;
+      setTeamMembers(data || []);
+    } catch (error) {
+      console.error('Error fetching team members:', error);
     }
   };
 
@@ -127,6 +147,10 @@ export const EditTaskDialog = ({
         ...(statusChanged && {
           previous_status: task.status as any,
           status_changed_at: new Date().toISOString(),
+        }),
+        // Allow estimation, admin, and technical_head to reassign tasks
+        ...(assignedTo && (currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && {
+          assigned_to: assignedTo
         }),
       };
 
@@ -402,6 +426,32 @@ export const EditTaskDialog = ({
             />
           </div>
 
+          {/* Assign To field - for estimation, admin, and technical_head */}
+          {(currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && (
+            <div className="space-y-2">
+              <Label htmlFor="edit-assignedTo">Assign To</Label>
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((member) => {
+                    const role = member.user_roles?.[0]?.role || 'No role';
+                    const formattedRole = role === 'technical_head' ? 'Technical Head' : 
+                                         role === 'client_service' ? 'Client Service Executive' :
+                                         role === 'No role' ? 'No role' :
+                                         role.charAt(0).toUpperCase() + role.slice(1);
+                    return (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.full_name || member.email} ({formattedRole})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-myStatus">My Status</Label>
@@ -469,6 +519,15 @@ export const EditTaskDialog = ({
                         <SelectItem value="return_to_estimation">→ Return to Estimation (Mockup Done)</SelectItem>
                       </>
                     );
+                  } else if (roleToUse === 'client_service') {
+                    return (
+                      <>
+                        <SelectItem value="new_calls">New Calls</SelectItem>
+                        <SelectItem value="follow_up">Follow Up</SelectItem>
+                        <SelectItem value="quotation">Quotation</SelectItem>
+                        <SelectItem value="done">Done</SelectItem>
+                      </>
+                    );
                   } else if (roleToUse === 'operations') {
                     return (
                       <>
@@ -492,7 +551,7 @@ export const EditTaskDialog = ({
                       </>
                     );
                   } else {
-                    // Admin or default - show all pipelines
+                    // Admin or default - show all pipelines including client_service
                     return (
                       <>
                         <SelectItem value="todo">To-Do List</SelectItem>
@@ -511,6 +570,9 @@ export const EditTaskDialog = ({
                         <SelectItem value="under_review">Under Review</SelectItem>
                         <SelectItem value="deployed">Deployed</SelectItem>
                         <SelectItem value="trial_and_error">Trial and Error</SelectItem>
+                        <SelectItem value="new_calls">New Calls</SelectItem>
+                        <SelectItem value="follow_up">Follow Up</SelectItem>
+                        <SelectItem value="quotation">Quotation</SelectItem>
                         <SelectItem value="done">Done</SelectItem>
                       </>
                     );

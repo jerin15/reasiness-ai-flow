@@ -132,7 +132,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         priority: priority,
         due_date: dueDate || null,
         created_by: user.id,
-        status: (currentUserRole === 'admin' || currentUserRole === 'technical_head') 
+        status: (currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') 
           ? selectedPipeline 
           : "todo",
         assigned_by: assignedBy || null,
@@ -145,8 +145,8 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         original_input: originalInput,
       };
 
-      // Admin and technical_head can assign to selected member, others create self-assigned tasks
-      if ((currentUserRole === 'admin' || currentUserRole === 'technical_head') && selectedMember) {
+      // Admin, technical_head, and estimation can assign to selected member, others create self-assigned tasks
+      if ((currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && selectedMember) {
         taskData.assigned_to = selectedMember;
       } else if (defaultAssignedTo) {
         taskData.assigned_to = defaultAssignedTo;
@@ -344,7 +344,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
               />
             </div>
 
-            {(currentUserRole === 'admin' || currentUserRole === 'technical_head') && (
+            {(currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && (
               <div className="space-y-2">
                 <Label htmlFor="assignedTo">Assign To *</Label>
                 <Select value={selectedMember} onValueChange={setSelectedMember} required>
@@ -355,6 +355,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                     {teamMembers.map((member) => {
                       const role = member.user_roles?.[0]?.role || 'No role';
                       const formattedRole = role === 'technical_head' ? 'Technical Head' : 
+                                           role === 'client_service' ? 'Client Service Executive' :
                                            role === 'No role' ? 'No role' :
                                            role.charAt(0).toUpperCase() + role.slice(1);
                       return (
@@ -367,7 +368,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                 </Select>
               </div>
             )}
-            {(currentUserRole === 'admin' || currentUserRole === 'technical_head') && selectedMember && (
+            {(currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && selectedMember && (
               <div className="space-y-2">
                 <Label htmlFor="pipeline">Pipeline *</Label>
                 <Select value={selectedPipeline} onValueChange={setSelectedPipeline} required>
