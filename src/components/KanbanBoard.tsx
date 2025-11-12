@@ -286,8 +286,13 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           ?.filter(product => {
             const task = product.task as any;
             // Only show products from tasks where designer is creator or assigned
-            // AND parent task is NOT in 'done' status (if it's done, it means all products are done)
-            return (task.created_by === user.id || task.assigned_to === user.id) && task.status !== 'done';
+            // AND parent task is NOT in 'done' status
+            // AND parent task has NOT been sent to operations (no linked_task_id)
+            const isAssignedToDesigner = task.created_by === user.id || task.assigned_to === user.id;
+            const isNotDone = task.status !== 'done';
+            const notSentToOperations = !task.linked_task_id;
+            
+            return isAssignedToDesigner && isNotDone && notSentToOperations;
           })
           .map(product => {
             const parentTask = product.task as any;
