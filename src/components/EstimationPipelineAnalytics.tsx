@@ -150,7 +150,14 @@ export function EstimationPipelineAnalytics() {
         const fromStage = currentLog.new_values?.status;
         const toStage = nextLog.new_values?.status;
         
-        if (stages.some(s => s.value === fromStage) && stages.some(s => s.value === toStage)) {
+        // Only include transitions where:
+        // 1. Both stages are in our defined estimation stages
+        // 2. The stages are actually different (real transition)
+        if (
+          fromStage !== toStage &&
+          stages.some(s => s.value === fromStage) && 
+          stages.some(s => s.value === toStage)
+        ) {
           const hoursSpent = (new Date(nextLog.created_at).getTime() - new Date(currentLog.created_at).getTime()) / (1000 * 60 * 60);
           
           transitions.push({
