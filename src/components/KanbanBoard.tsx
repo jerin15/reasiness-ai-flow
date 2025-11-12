@@ -243,6 +243,20 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           assigned_user_role: assignedUserRole,
           assigned_profile: undefined, // Remove the nested object
         };
+      })
+      // Filter out production tasks that have been sent to operations for non-operations users
+      .filter((task: any) => {
+        // If user is operations role, show all tasks
+        if (roleToCheck === 'operations') return true;
+        
+        // If task is in production AND has a linked_task_id, it means it was sent to operations
+        // Hide it from the original creator's view
+        if (task.status === 'production' && task.linked_task_id) {
+          console.log("🚫 Hiding production task sent to operations:", task.title);
+          return false;
+        }
+        
+        return true;
       });
       
       // FOR DESIGNERS: Fetch approved products and show them as individual items in PRODUCTION column
