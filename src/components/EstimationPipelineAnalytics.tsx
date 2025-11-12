@@ -34,7 +34,9 @@ export function EstimationPipelineAnalytics() {
   const [dailyMetrics, setDailyMetrics] = useState<StageMetrics[]>([]);
   const [weeklyMetrics, setWeeklyMetrics] = useState<StageMetrics[]>([]);
   const [overallMetrics, setOverallMetrics] = useState<StageMetrics[]>([]);
-  const [recentActivities, setRecentActivities] = useState<TaskTransition[]>([]);
+  const [dailyActivities, setDailyActivities] = useState<TaskTransition[]>([]);
+  const [weeklyActivities, setWeeklyActivities] = useState<TaskTransition[]>([]);
+  const [monthlyActivities, setMonthlyActivities] = useState<TaskTransition[]>([]);
 
   const stages = [
     { value: 'rfq_received', label: 'RFQ Received', order: 1 },
@@ -70,12 +72,18 @@ export function EstimationPipelineAnalytics() {
       const daily = calculateStageMetrics(estimationLogs, 1);
       const weekly = calculateStageMetrics(estimationLogs, 7);
       const overall = calculateStageMetrics(estimationLogs, null);
-      const activities = await extractEstimationActivities(15);
+      
+      // Fetch activities for different time periods
+      const dailyAct = await extractEstimationActivities(1);
+      const weeklyAct = await extractEstimationActivities(7);
+      const monthlyAct = await extractEstimationActivities(30);
 
       setDailyMetrics(daily);
       setWeeklyMetrics(weekly);
       setOverallMetrics(overall);
-      setRecentActivities(activities);
+      setDailyActivities(dailyAct);
+      setWeeklyActivities(weeklyAct);
+      setMonthlyActivities(monthlyAct);
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
@@ -138,98 +146,108 @@ export function EstimationPipelineAnalytics() {
     });
   };
 
-  const extractEstimationActivities = async (limit: number): Promise<TaskTransition[]> => {
+  const extractEstimationActivities = async (daysBack: number): Promise<TaskTransition[]> => {
     try {
-      // Get all quotation tasks currently in the estimation pipeline
-      const stageValues = stages.map(s => s.value);
-      const { data: tasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('id, title, status, created_at')
-        .eq('type', 'quotation')
-        .in('status', stageValues as any)
-        .is('deleted_at', null)
-        .order('updated_at', { ascending: false })
-        .limit(limit);
+      const now = new Date();
+      const cutoffDate = new Date(now.getTime() - daysBack * 24 * 60 * 60 * 1000);
+      // Minimum date: November 10, 2024
+      const minDate = new Date('2024-11-10T00:00:00Z');
+      const startDate = cutoffDate < minDate ? minDate : cutoffDate;
 
-      if (tasksError) throw tasksError;
-      if (!tasks) return [];
-
-      // Get audit logs for these tasks
-      const taskIds = tasks.map(t => t.id);
+      // Get audit logs for estimation activities since the cutoff date
       const { data: auditLogs, error: auditError } = await supabase
         .from('task_audit_log')
-        .select('*')
-        .in('task_id', taskIds)
+        .select('*, tasks!inner(title, type)')
         .eq('action', 'status_changed')
-        .order('created_at', { ascending: true });
+        .eq('tasks.type', 'quotation')
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (auditError) throw auditError;
+      if (!auditLogs) return [];
 
-      // Process each task
-      return tasks.map(task => {
-        const taskLogs = (auditLogs || []).filter(log => log.task_id === task.id);
-        const currentStage = task.status;
-        const now = new Date();
+      // Filter for estimation stage changes only
+      const estimationActivities = auditLogs.filter(log => {
+        const fromStage = (log.old_values as any)?.status;
+        const toStage = (log.new_values as any)?.status;
+        return (
+          fromStage && 
+          toStage && 
+          fromStage !== toStage &&
+          (stages.some(s => s.value === fromStage) || stages.some(s => s.value === toStage))
+        );
+      });
+
+      // Group by task to build complete picture
+      const taskActivitiesMap = new Map<string, TaskTransition>();
+
+      for (const log of estimationActivities) {
+        const taskId = log.task_id;
+        const fromStage = (log.old_values as any)?.status;
+        const toStage = (log.new_values as any)?.status;
         
-        // Find when task entered current stage
-        let enteredCurrentStage = new Date(task.created_at);
-        let lastAction = 'Task created in RFQ';
-        
-        for (let i = taskLogs.length - 1; i >= 0; i--) {
-          const log = taskLogs[i];
-          const newStatus = (log.new_values as any)?.status;
-          if (newStatus === currentStage) {
-            enteredCurrentStage = new Date(log.created_at);
-            const fromStage = (log.old_values as any)?.status;
-            lastAction = `Moved from ${stages.find(s => s.value === fromStage)?.label || fromStage} to ${stages.find(s => s.value === currentStage)?.label}`;
-            break;
+        if (!taskActivitiesMap.has(taskId)) {
+          // Get all logs for this task to calculate durations
+          const { data: taskLogs } = await supabase
+            .from('task_audit_log')
+            .select('*')
+            .eq('task_id', taskId)
+            .eq('action', 'status_changed')
+            .order('created_at', { ascending: true });
+
+          const allTaskLogs = taskLogs || [];
+          const stageHistory: Array<{ stage: string; enteredAt: string; duration: number }> = [];
+          
+          // Build stage history
+          for (let i = 0; i < allTaskLogs.length; i++) {
+            const currentLog = allTaskLogs[i];
+            const stage = (currentLog.new_values as any)?.status;
+            
+            if (stage && stages.some(s => s.value === stage)) {
+              const enteredAt = new Date(currentLog.created_at);
+              const nextLog = allTaskLogs[i + 1];
+              const exitTime = nextLog ? new Date(nextLog.created_at) : now;
+              const duration = (exitTime.getTime() - enteredAt.getTime()) / (1000 * 60 * 60);
+              
+              stageHistory.push({
+                stage: stages.find(s => s.value === stage)?.label || stage,
+                enteredAt: currentLog.created_at,
+                duration: Math.max(0, duration)
+              });
+            }
           }
+
+          const taskTitle = (log.tasks as any)?.title || 'Unknown Task';
+          const currentStageLabel = stages.find(s => s.value === toStage)?.label || toStage;
+          const fromStageLabel = stages.find(s => s.value === fromStage)?.label || fromStage;
+          
+          // Calculate time in current stage
+          const currentStageDuration = stageHistory.length > 0 
+            ? stageHistory[stageHistory.length - 1].duration 
+            : 0;
+          
+          // Total time in pipeline
+          const firstLog = allTaskLogs[0];
+          const totalTimeInPipeline = firstLog 
+            ? (now.getTime() - new Date(firstLog.created_at).getTime()) / (1000 * 60 * 60)
+            : 0;
+
+          taskActivitiesMap.set(taskId, {
+            taskId,
+            taskTitle,
+            currentStage: currentStageLabel,
+            currentStageDuration,
+            lastAction: `Moved from ${fromStageLabel} to ${currentStageLabel}`,
+            lastActionTime: log.created_at,
+            totalTimeInPipeline,
+            stageHistory
+          });
         }
-        
-        // Calculate current stage duration
-        const currentStageDuration = (now.getTime() - enteredCurrentStage.getTime()) / (1000 * 60 * 60);
-        
-        // Build stage history
-        const stageHistory: Array<{ stage: string; enteredAt: string; duration: number }> = [];
-        let previousTime = new Date(task.created_at);
-        
-        taskLogs.forEach((log, index) => {
-          const stage = (log.new_values as any)?.status;
-          if (stage && stages.some(s => s.value === stage)) {
-            const enteredAt = new Date(log.created_at);
-            const nextTime = index < taskLogs.length - 1 
-              ? new Date(taskLogs[index + 1].created_at)
-              : now;
-            const duration = (nextTime.getTime() - enteredAt.getTime()) / (1000 * 60 * 60);
-            
-            stageHistory.push({
-              stage: stages.find(s => s.value === stage)?.label || stage,
-              enteredAt: log.created_at,
-              duration
-            });
-            
-            previousTime = enteredAt;
-          }
-        });
-        
-        // Total time in pipeline
-        const totalTimeInPipeline = (now.getTime() - new Date(task.created_at).getTime()) / (1000 * 60 * 60);
-        
-        // Get most recent action
-        const lastLog = taskLogs[taskLogs.length - 1];
-        const lastActionTime = lastLog ? lastLog.created_at : task.created_at;
-        
-        return {
-          taskId: task.id,
-          taskTitle: task.title,
-          currentStage: stages.find(s => s.value === currentStage)?.label || currentStage,
-          currentStageDuration,
-          lastAction,
-          lastActionTime,
-          totalTimeInPipeline,
-          stageHistory
-        };
-      }).sort((a, b) => new Date(b.lastActionTime).getTime() - new Date(a.lastActionTime).getTime());
+      }
+
+      return Array.from(taskActivitiesMap.values())
+        .sort((a, b) => new Date(b.lastActionTime).getTime() - new Date(a.lastActionTime).getTime());
       
     } catch (error) {
       console.error('Error fetching estimation activities:', error);
@@ -322,62 +340,178 @@ export function EstimationPipelineAnalytics() {
       <Card>
         <CardHeader>
           <CardTitle>Estimation Team Activity</CardTitle>
-          <CardDescription>Current tasks in estimation pipeline and their progress</CardDescription>
+          <CardDescription>Estimation activities from November 10, 2024 onwards</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {recentActivities.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active tasks in estimation pipeline</p>
-            ) : (
-              recentActivities.map((activity) => (
-                <div key={activity.taskId} className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1">
-                      <p className="font-medium">{activity.taskTitle}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-medium">
-                          {activity.currentStage}
-                        </span>
-                        <span>•</span>
-                        <span>{activity.lastAction}</span>
+          <Tabs defaultValue="daily" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="daily">Today</TabsTrigger>
+              <TabsTrigger value="weekly">This Week</TabsTrigger>
+              <TabsTrigger value="monthly">This Month</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="daily" className="space-y-4">
+              {dailyActivities.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No estimation activities today</p>
+              ) : (
+                dailyActivities.map((activity) => (
+                  <div key={activity.taskId} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 flex-1">
+                        <p className="font-medium">{activity.taskTitle}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-medium">
+                            {activity.currentStage}
+                          </span>
+                          <span>•</span>
+                          <span>{activity.lastAction}</span>
+                        </div>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <p className="text-sm font-semibold text-primary">
+                          {formatHours(activity.currentStageDuration)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">in stage</p>
                       </div>
                     </div>
-                    <div className="text-right space-y-1">
-                      <p className="text-sm font-semibold text-primary">
-                        {formatHours(activity.currentStageDuration)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">in current stage</p>
-                    </div>
+                    
+                    {activity.stageHistory.length > 0 && (
+                      <div className="pt-2 border-t space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">Stage Journey:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activity.stageHistory.map((stage, idx) => (
+                            <div key={idx} className="flex items-center gap-1">
+                              <span className="text-xs px-2 py-1 rounded bg-muted">
+                                {stage.stage}: {formatHours(stage.duration)}
+                              </span>
+                              {idx < activity.stageHistory.length - 1 && (
+                                <span className="text-muted-foreground">→</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground pt-1">
+                          Total time in pipeline: <span className="font-semibold">{formatHours(activity.totalTimeInPipeline)}</span>
+                        </p>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceStrict(new Date(activity.lastActionTime), new Date(), { addSuffix: true })}
+                    </p>
                   </div>
-                  
-                  {activity.stageHistory.length > 0 && (
-                    <div className="pt-2 border-t space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Stage Journey:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {activity.stageHistory.map((stage, idx) => (
-                          <div key={idx} className="flex items-center gap-1">
-                            <span className="text-xs px-2 py-1 rounded bg-muted">
-                              {stage.stage}: {formatHours(stage.duration)}
-                            </span>
-                            {idx < activity.stageHistory.length - 1 && (
-                              <span className="text-muted-foreground">→</span>
-                            )}
-                          </div>
-                        ))}
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="weekly" className="space-y-4">
+              {weeklyActivities.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No estimation activities this week</p>
+              ) : (
+                weeklyActivities.map((activity) => (
+                  <div key={activity.taskId} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 flex-1">
+                        <p className="font-medium">{activity.taskTitle}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-medium">
+                            {activity.currentStage}
+                          </span>
+                          <span>•</span>
+                          <span>{activity.lastAction}</span>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground pt-1">
-                        Total time in pipeline: <span className="font-semibold">{formatHours(activity.totalTimeInPipeline)}</span>
-                      </p>
+                      <div className="text-right space-y-1">
+                        <p className="text-sm font-semibold text-primary">
+                          {formatHours(activity.currentStageDuration)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">in stage</p>
+                      </div>
                     </div>
-                  )}
-                  
-                  <p className="text-xs text-muted-foreground">
-                    Last updated {formatDistanceStrict(new Date(activity.lastActionTime), new Date(), { addSuffix: true })}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
+                    
+                    {activity.stageHistory.length > 0 && (
+                      <div className="pt-2 border-t space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">Stage Journey:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activity.stageHistory.map((stage, idx) => (
+                            <div key={idx} className="flex items-center gap-1">
+                              <span className="text-xs px-2 py-1 rounded bg-muted">
+                                {stage.stage}: {formatHours(stage.duration)}
+                              </span>
+                              {idx < activity.stageHistory.length - 1 && (
+                                <span className="text-muted-foreground">→</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground pt-1">
+                          Total time in pipeline: <span className="font-semibold">{formatHours(activity.totalTimeInPipeline)}</span>
+                        </p>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceStrict(new Date(activity.lastActionTime), new Date(), { addSuffix: true })}
+                    </p>
+                  </div>
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="monthly" className="space-y-4">
+              {monthlyActivities.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No estimation activities this month</p>
+              ) : (
+                monthlyActivities.map((activity) => (
+                  <div key={activity.taskId} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1 flex-1">
+                        <p className="font-medium">{activity.taskTitle}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-medium">
+                            {activity.currentStage}
+                          </span>
+                          <span>•</span>
+                          <span>{activity.lastAction}</span>
+                        </div>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <p className="text-sm font-semibold text-primary">
+                          {formatHours(activity.currentStageDuration)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">in stage</p>
+                      </div>
+                    </div>
+                    
+                    {activity.stageHistory.length > 0 && (
+                      <div className="pt-2 border-t space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">Stage Journey:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {activity.stageHistory.map((stage, idx) => (
+                            <div key={idx} className="flex items-center gap-1">
+                              <span className="text-xs px-2 py-1 rounded bg-muted">
+                                {stage.stage}: {formatHours(stage.duration)}
+                              </span>
+                              {idx < activity.stageHistory.length - 1 && (
+                                <span className="text-muted-foreground">→</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground pt-1">
+                          Total time in pipeline: <span className="font-semibold">{formatHours(activity.totalTimeInPipeline)}</span>
+                        </p>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceStrict(new Date(activity.lastActionTime), new Date(), { addSuffix: true })}
+                    </p>
+                  </div>
+                ))
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
