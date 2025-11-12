@@ -273,11 +273,14 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
               created_by,
               assigned_to,
               client_name,
-              is_personal_admin_task
+              is_personal_admin_task,
+              linked_task_id
             )
           `)
           .eq('approval_status', 'approved')
-          .eq('designer_completed', false); // Only show products not yet completed by designer
+          .eq('designer_completed', false) // Only show products not yet completed by designer
+          .neq('task.status', 'done') // Exclude products from tasks in 'done' status
+          .is('task.linked_task_id', null); // Exclude products from tasks sent to operations
 
         console.log('🎨 Designer: Approved products (not completed):', approvedProducts?.length);
 
