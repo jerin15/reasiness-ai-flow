@@ -128,6 +128,8 @@ const Dashboard = () => {
         .eq("id", session.user.id)
         .single();
 
+      console.log('📦 Dashboard: Profile query result:', { profile, profileError });
+
       if (profileError) {
         console.error('❌ Dashboard: Profile fetch error:', profileError);
         toast.error("Failed to load profile. Please try logging in again.");
@@ -135,13 +137,13 @@ const Dashboard = () => {
         return;
       }
 
-      console.log('👤 Dashboard: Profile loaded:', profile?.full_name, profile?.user_roles?.[0]?.role);
-
       if (!profile) {
         console.error('❌ Dashboard: Profile is null');
         toast.error("Profile not found. Please contact support.");
         return;
       }
+
+      console.log('👤 Dashboard: Profile loaded:', profile?.full_name, profile?.user_roles?.[0]?.role);
 
       setUserName(profile.full_name || profile.email);
       setUserAvatar(profile.avatar_url || "");
