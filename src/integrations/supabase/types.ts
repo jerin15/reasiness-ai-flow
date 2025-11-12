@@ -1277,6 +1277,7 @@ export type Database = {
         | "designer"
         | "operations"
         | "technical_head"
+        | "client_service"
       my_task_status: "pending" | "done_from_my_side"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status:
@@ -1303,6 +1304,8 @@ export type Database = {
         | "trial_and_error"
         | "mockup"
         | "production_file"
+        | "new_calls"
+        | "follow_up"
       task_type: "quotation" | "invoice" | "general" | "production" | "design"
     }
     CompositeTypes: {
@@ -1437,6 +1440,7 @@ export const Constants = {
         "designer",
         "operations",
         "technical_head",
+        "client_service",
       ],
       my_task_status: ["pending", "done_from_my_side"],
       task_priority: ["low", "medium", "high", "urgent"],
@@ -1464,6 +1468,8 @@ export const Constants = {
         "trial_and_error",
         "mockup",
         "production_file",
+        "new_calls",
+        "follow_up",
       ],
       task_type: ["quotation", "invoice", "general", "production", "design"],
     },

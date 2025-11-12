@@ -401,6 +401,15 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                             <SelectItem value="done">Done</SelectItem>
                           </>
                         );
+                      } else if (memberRole === 'client_service') {
+                        return (
+                          <>
+                            <SelectItem value="new_calls">New Calls</SelectItem>
+                            <SelectItem value="follow_up">Follow Up</SelectItem>
+                            <SelectItem value="quotation">Quotation</SelectItem>
+                            <SelectItem value="done">Done</SelectItem>
+                          </>
+                        );
                       } else if (memberRole === 'operations') {
                         return (
                           <>
