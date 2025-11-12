@@ -595,41 +595,50 @@ export const AdminKanbanBoard = () => {
 
       console.log('🗑️ Attempting to delete from FOR PRODUCTION:', taskId);
 
-      // Try deleting as product first (products are shown with product ID)
-      const { error: productError, count: productCount } = await supabase
-        .from('task_products')
-        .delete({ count: 'exact' })
-        .eq('id', taskId);
+      // Find the task to check if it's a product or regular task
+      const task = tasks.find(t => t.id === taskId) as any;
+      
+      if (!task) {
+        console.error('❌ Task not found in state:', taskId);
+        toast.error('Item not found');
+        return;
+      }
 
-      console.log('📦 Product delete result:', { productError, productCount });
+      // If it's a product, delete from task_products
+      if (task.is_product) {
+        console.log('📦 Deleting product:', taskId);
+        const { error: productError } = await supabase
+          .from('task_products')
+          .delete()
+          .eq('id', taskId);
 
-      // If product delete succeeded, we're done
-      if (!productError && productCount && productCount > 0) {
+        if (productError) {
+          console.error('❌ Error deleting product:', productError);
+          toast.error('Failed to remove product');
+          return;
+        }
+
         console.log('✅ Successfully deleted product');
         toast.success("Removed from FOR PRODUCTION");
         await fetchTasks();
-        return;
-      }
+      } else {
+        // It's a regular task, soft delete it
+        console.log('📋 Soft deleting task:', taskId);
+        const { error: taskError } = await supabase
+          .from('tasks')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', taskId);
 
-      // Only try task delete if product delete found nothing
-      const { error: taskError, count: taskCount } = await supabase
-        .from('tasks')
-        .update({ deleted_at: new Date().toISOString() }, { count: 'exact' })
-        .eq('id', taskId);
+        if (taskError) {
+          console.error('❌ Error deleting task:', taskError);
+          toast.error('Failed to remove task');
+          return;
+        }
 
-      console.log('📋 Task delete result:', { taskError, taskCount });
-
-      // Success if task delete worked
-      if (!taskError && taskCount && taskCount > 0) {
         console.log('✅ Successfully deleted task');
         toast.success("Removed from FOR PRODUCTION");
         await fetchTasks();
-        return;
       }
-
-      // Both failed
-      console.error('❌ Delete failed - item not found:', { productError, taskError });
-      toast.error('Failed to remove. Item not found.');
     } catch (error: any) {
       console.error('❌ Error removing item:', error);
       toast.error('Failed to remove item');
