@@ -30,10 +30,11 @@ export function EstimationPipelineAnalytics() {
   const [recentTransitions, setRecentTransitions] = useState<TaskTransition[]>([]);
 
   const stages = [
-    { value: 'rfq_received', label: 'RFQ Received' },
-    { value: 'supplier_quotes', label: 'Supplier Quotes' },
-    { value: 'client_approval', label: 'Client Approval' },
-    { value: 'quotation_bill', label: 'Quotation Bill' }
+    { value: 'rfq_received', label: 'RFQ Received', order: 1 },
+    { value: 'supplier_quotes', label: 'Supplier Quotes', order: 2 },
+    { value: 'client_approval', label: 'Client Approval', order: 3 },
+    { value: 'admin_cost_approval', label: 'Admin Cost Approval', order: 4 },
+    { value: 'quotation_bill', label: 'Quotation Bill', order: 5 }
   ];
 
   useEffect(() => {
@@ -185,7 +186,7 @@ export function EstimationPipelineAnalytics() {
   };
 
   const MetricsCards = ({ metrics }: { metrics: StageMetrics[] }) => (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
       {metrics.map((metric) => (
         <Card key={metric.stage}>
           <CardHeader className="pb-3">
@@ -225,7 +226,7 @@ export function EstimationPipelineAnalytics() {
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Estimation Pipeline Analytics</h2>
         <p className="text-muted-foreground">
-          Track time spent in each estimation stage: RFQ → Supplier Quotes → Client Approval → Quotation Bill
+          Track time spent in each estimation stage: RFQ → Supplier Quotes → Client Approval → Admin Cost Approval → Quotation Bill
         </p>
       </div>
 
