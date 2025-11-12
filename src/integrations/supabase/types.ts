@@ -818,6 +818,7 @@ export type Database = {
       tasks: {
         Row: {
           admin_remarks: string | null
+          admin_removed_from_production: boolean | null
           ai_confidence_score: number | null
           ai_generated: boolean | null
           assigned_by: string | null
@@ -853,6 +854,7 @@ export type Database = {
         }
         Insert: {
           admin_remarks?: string | null
+          admin_removed_from_production?: boolean | null
           ai_confidence_score?: number | null
           ai_generated?: boolean | null
           assigned_by?: string | null
@@ -888,6 +890,7 @@ export type Database = {
         }
         Update: {
           admin_remarks?: string | null
+          admin_removed_from_production?: boolean | null
           ai_confidence_score?: number | null
           ai_generated?: boolean | null
           assigned_by?: string | null

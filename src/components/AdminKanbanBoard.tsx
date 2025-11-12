@@ -166,6 +166,9 @@ export const AdminKanbanBoard = () => {
                                rolesMap[task.assigned_to || ''] === 'designer';
         if (!isDesignerTask) return false;
 
+        // Exclude tasks that admin removed from FOR PRODUCTION
+        if (task.admin_removed_from_production) return false;
+
         // Only filter by personal tasks - ALL shared tasks visible to ALL admins
         const isAccessible = !task.is_personal_admin_task || task.created_by === user.id;
         
@@ -636,9 +639,9 @@ export const AdminKanbanBoard = () => {
         toast.success("Removed successfully");
         await fetchTasks();
       } else {
-        // It's a regular task - just change status back to 'done' to hide from FOR PRODUCTION
-        // DO NOT delete it, just hide it from this panel
-        console.log('📋 This is a TASK - changing status back to done');
+        // It's a regular task - set flag to permanently hide from FOR PRODUCTION
+        // DO NOT delete it or change status, just mark as removed by admin
+        console.log('📋 This is a TASK - marking as removed from FOR PRODUCTION');
         console.log('📋 Task details:', {
           taskId,
           currentStatus: task.status,
@@ -648,8 +651,7 @@ export const AdminKanbanBoard = () => {
         const { error: taskError } = await supabase
           .from('tasks')
           .update({ 
-            status: 'done',
-            status_changed_at: new Date().toISOString()
+            admin_removed_from_production: true
           })
           .eq('id', taskId);
 
@@ -659,7 +661,7 @@ export const AdminKanbanBoard = () => {
           return;
         }
 
-        console.log('✅ Task removed from FOR PRODUCTION successfully (status changed to done)');
+        console.log('✅ Task removed from FOR PRODUCTION successfully');
         toast.success("Removed successfully");
         await fetchTasks();
       }
