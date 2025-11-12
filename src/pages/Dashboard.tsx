@@ -107,79 +107,79 @@ const Dashboard = () => {
   const checkAuth = async () => {
     console.log('🔐 Dashboard: Starting checkAuth...');
     
-    // Create a timeout promise that will force loading to complete
-    const timeoutPromise = new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('⏰ Dashboard: Auth timeout reached, forcing completion');
-        resolve(null);
-      }, 5000); // 5 second timeout
-    });
-
     try {
-      // Race between actual auth and timeout
-      const authPromise = (async () => {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-        if (!session) {
-          console.log('❌ Dashboard: No session, redirecting to auth');
-          navigate("/auth");
-          return null;
-        }
+      if (!session) {
+        console.log('❌ Dashboard: No session, redirecting to auth');
+        navigate("/auth");
+        return;
+      }
 
-        console.log('✅ Dashboard: Session found for user:', session.user.id);
-        setCurrentUserId(session.user.id);
-        setSelectedUserId(session.user.id);
+      console.log('✅ Dashboard: Session found for user:', session.user.id);
+      setCurrentUserId(session.user.id);
+      setSelectedUserId(session.user.id);
 
-        // Get user profile and role
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("*, user_roles(*)")
-          .eq("id", session.user.id)
-          .single();
+      // Get user profile and role with a timeout
+      console.log('📡 Dashboard: Fetching profile...');
+      const profilePromise = supabase
+        .from("profiles")
+        .select("*, user_roles(*)")
+        .eq("id", session.user.id)
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile query timeout')), 8000);
+      });
 
-        console.log('📦 Dashboard: Profile query result:', { profile, profileError });
+      const { data: profile, error: profileError } = await Promise.race([
+        profilePromise,
+        timeoutPromise
+      ]) as any;
 
-        if (profileError) {
-          console.error('❌ Dashboard: Profile fetch error:', profileError);
-          toast.error("Failed to load profile. Please try logging in again.");
-          setTimeout(() => navigate("/auth"), 2000);
-          return null;
-        }
+      console.log('📦 Dashboard: Profile query result:', { profile, profileError });
 
-        if (!profile) {
-          console.error('❌ Dashboard: Profile is null');
-          toast.error("Profile not found. Please contact support.");
-          return null;
-        }
+      if (profileError) {
+        console.error('❌ Dashboard: Profile fetch error:', profileError);
+        toast.error("Failed to load profile. Please try logging in again.");
+        setTimeout(() => navigate("/auth"), 2000);
+        return;
+      }
 
-        console.log('👤 Dashboard: Profile loaded:', profile?.full_name, profile?.user_roles?.[0]?.role);
+      if (!profile) {
+        console.error('❌ Dashboard: Profile is null');
+        toast.error("Profile not found. Please contact support.");
+        return;
+      }
 
-        setUserName(profile.full_name || profile.email);
-        setUserAvatar(profile.avatar_url || "");
-        const role = profile.user_roles?.[0]?.role || "operations";
-        
-        console.log('🎭 Dashboard: User role set to:', role);
-        setUserRole(role);
-        setSelectedUserRole(role);
+      console.log('👤 Dashboard: Profile loaded:', profile?.full_name, profile?.user_roles?.[0]?.role);
 
-        // If admin or technical_head, fetch all team members (don't await to avoid blocking)
-        if (role === "admin" || role === "technical_head") {
-          console.log('👥 Dashboard: Fetching team members for admin/technical_head');
-          fetchTeamMembers().catch(err => {
-            console.error('❌ Dashboard: fetchTeamMembers background error:', err);
-          });
-        }
-        
-        console.log('✅ Dashboard: checkAuth completed successfully');
-        return profile;
-      })();
+      setUserName(profile.full_name || profile.email);
+      setUserAvatar(profile.avatar_url || "");
+      const role = profile.user_roles?.[0]?.role || "operations";
+      
+      console.log('🎭 Dashboard: User role set to:', role);
+      setUserRole(role);
+      setSelectedUserRole(role);
 
-      await Promise.race([authPromise, timeoutPromise]);
-    } catch (error) {
+      // If admin or technical_head, fetch all team members (don't await to avoid blocking)
+      if (role === "admin" || role === "technical_head") {
+        console.log('👥 Dashboard: Fetching team members for admin/technical_head');
+        fetchTeamMembers().catch(err => {
+          console.error('❌ Dashboard: fetchTeamMembers background error:', err);
+        });
+      }
+      
+      console.log('✅ Dashboard: checkAuth completed successfully');
+    } catch (error: any) {
       console.error("❌ Dashboard: Error checking auth:", error);
-      toast.error("Authentication error. Please try logging in again.");
+      if (error?.message === 'Profile query timeout') {
+        toast.error("Loading taking too long. Please check your connection and try again.");
+      } else {
+        toast.error("Authentication error. Please try logging in again.");
+      }
       setTimeout(() => navigate("/auth"), 2000);
     } finally {
       console.log('🏁 Dashboard: Setting loading to false');
