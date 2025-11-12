@@ -545,8 +545,9 @@ export const EditTaskDialog = ({
               </SelectTrigger>
               <SelectContent>
                 {(() => {
-                  // If opened from Admin Dashboard - only show admin-specific columns
-                  if (isAdminDashboard) {
+                  // PRIORITY: If opened from Admin Dashboard - ONLY show admin-specific columns
+                  // This takes precedence over all other role checks
+                  if (isAdminDashboard === true) {
                     return (
                       <>
                         <SelectItem value="admin_approval">Admin Cost Approval</SelectItem>
@@ -557,8 +558,8 @@ export const EditTaskDialog = ({
                     );
                   }
                   
-                  // ADMINS SEE ALL PIPELINES - they can move tasks anywhere
-                  if (currentUserRole === 'admin' || viewingUserRole === 'admin') {
+                  // ADMINS SEE ALL PIPELINES - they can move tasks anywhere (but NOT from admin dashboard)
+                  if ((currentUserRole === 'admin' || viewingUserRole === 'admin') && !isAdminDashboard) {
                     return (
                       <>
                         <SelectItem value="todo">To-Do List (GENERAL)</SelectItem>
