@@ -9,6 +9,8 @@ import { ListTodo, Plus } from "lucide-react";
 import { AddTaskDialog } from "./AddTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
+import { EstimationPipelineAnalytics } from "./EstimationPipelineAnalytics";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 
 interface Task {
@@ -201,6 +203,14 @@ export const AdminDashboard = () => {
         <p className="text-muted-foreground">Manage tasks and approvals</p>
       </div>
 
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="analytics">Pipeline Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -329,6 +339,12 @@ export const AdminDashboard = () => {
         onOpenChange={setShowAddTask}
         onTaskAdded={fetchTasksAndStats}
       />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <EstimationPipelineAnalytics />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
