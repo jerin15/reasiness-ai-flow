@@ -1306,6 +1306,7 @@ export type Database = {
         | "production_file"
         | "new_calls"
         | "follow_up"
+        | "quotation"
       task_type: "quotation" | "invoice" | "general" | "production" | "design"
     }
     CompositeTypes: {
@@ -1470,6 +1471,7 @@ export const Constants = {
         "production_file",
         "new_calls",
         "follow_up",
+        "quotation",
       ],
       task_type: ["quotation", "invoice", "general", "production", "design"],
     },
