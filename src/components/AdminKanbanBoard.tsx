@@ -563,21 +563,50 @@ export const AdminKanbanBoard = () => {
 
   const handleSendToProduction = async (taskId: string) => {
     try {
-      // Move task from designer's done to production pipeline
-      // Unassign from designer so estimation/operations can see it
-      const { error } = await supabase
-        .from('tasks')
-        .update({ 
-          status: 'production',
-          previous_status: 'done',
-          assigned_to: null,  // Unassign from designer
-          updated_at: new Date().toISOString(),
-          status_changed_at: new Date().toISOString(),
-          came_from_designer_done: true
-        })
-        .eq('id', taskId);
+      // Find the item to check if it's a product or regular task
+      const item = tasks.find(t => t.id === taskId) as any;
+      
+      if (!item) {
+        console.error('❌ Item not found:', taskId);
+        toast.error('Item not found');
+        return;
+      }
 
-      if (error) throw error;
+      // If it's a product, update the parent task to production
+      if (item.is_product && item.parent_task_id) {
+        console.log('📦 Sending product to production via parent task:', item.parent_task_id);
+        
+        const { error } = await supabase
+          .from('tasks')
+          .update({ 
+            status: 'production',
+            previous_status: 'done',
+            assigned_to: null,  // Unassign from designer
+            updated_at: new Date().toISOString(),
+            status_changed_at: new Date().toISOString(),
+            came_from_designer_done: true
+          })
+          .eq('id', item.parent_task_id);
+
+        if (error) throw error;
+      } else {
+        // Regular task - update it directly
+        console.log('📋 Sending regular task to production:', taskId);
+        
+        const { error } = await supabase
+          .from('tasks')
+          .update({ 
+            status: 'production',
+            previous_status: 'done',
+            assigned_to: null,  // Unassign from designer
+            updated_at: new Date().toISOString(),
+            status_changed_at: new Date().toISOString(),
+            came_from_designer_done: true
+          })
+          .eq('id', taskId);
+
+        if (error) throw error;
+      }
 
       toast.success("Task sent to Production pipeline for estimation and operations teams");
       await fetchTasks();
