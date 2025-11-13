@@ -33,6 +33,13 @@ export const VoiceAnnouncementPlayer = () => {
       if (user) setCurrentUserId(user.id);
     };
     initUser();
+
+    // Request notification permission for announcements
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('Announcement notification permission:', permission);
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -74,11 +81,44 @@ export const VoiceAnnouncementPlayer = () => {
             setAnnouncement(data as any);
             playAnnouncement(data.audio_url);
             
+            const senderName = data.profiles?.full_name || 'Someone';
+            const messageText = data.message_text || 'Voice announcement';
+            
+            // Toast notification
             toast({
               title: '📢 Voice Announcement',
-              description: `From ${data.profiles.full_name}`,
-              duration: 5000,
+              description: `From ${senderName}${data.message_text ? ': ' + data.message_text.substring(0, 50) : ''}`,
+              duration: 8000,
             });
+
+            // Browser notification (WhatsApp Web style) - always show
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const notificationOptions = {
+                body: `From ${senderName}${data.message_text ? '\n' + data.message_text : '\nClick to listen'}`,
+                icon: '/rea-logo-icon.png',
+                badge: '/rea-logo-icon.png',
+                tag: `announcement-${data.id}`,
+                requireInteraction: true,
+                vibrate: [300, 100, 300, 100, 300],
+                silent: false
+              };
+
+              try {
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                  navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification('📢 Voice Announcement', notificationOptions);
+                  });
+                } else {
+                  const notification = new Notification('📢 Voice Announcement', notificationOptions);
+                  notification.onclick = () => {
+                    window.focus();
+                    notification.close();
+                  };
+                }
+              } catch (error) {
+                console.error('Error showing announcement notification:', error);
+              }
+            }
           }
         }
       )
@@ -114,11 +154,44 @@ export const VoiceAnnouncementPlayer = () => {
             setAnnouncement(data as any);
             playAnnouncement(data.audio_url);
             
+            const senderName = data.profiles?.full_name || 'Admin';
+            const messageText = data.message_text || 'Team announcement';
+            
+            // Toast notification
             toast({
               title: '📢 Team Announcement',
-              description: `From ${data.profiles.full_name}`,
-              duration: 5000,
+              description: `From ${senderName}${data.message_text ? ': ' + data.message_text.substring(0, 50) : ''}`,
+              duration: 8000,
             });
+
+            // Browser notification (WhatsApp Web style) - always show for broadcasts
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const notificationOptions = {
+                body: `From ${senderName}${data.message_text ? '\n' + data.message_text : '\nClick to listen'}`,
+                icon: '/rea-logo-icon.png',
+                badge: '/rea-logo-icon.png',
+                tag: `broadcast-${data.id}`,
+                requireInteraction: true,
+                vibrate: [300, 100, 300, 100, 300],
+                silent: false
+              };
+
+              try {
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                  navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification('📢 Team Announcement', notificationOptions);
+                  });
+                } else {
+                  const notification = new Notification('📢 Team Announcement', notificationOptions);
+                  notification.onclick = () => {
+                    window.focus();
+                    notification.close();
+                  };
+                }
+              } catch (error) {
+                console.error('Error showing broadcast notification:', error);
+              }
+            }
           }
         }
       )
