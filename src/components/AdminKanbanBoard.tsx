@@ -203,11 +203,10 @@ export const AdminKanbanBoard = () => {
       console.log('✅ Filtered with_client tasks (removed parent tasks):', filteredWithClientTasksFinal.length);
       console.log('✅ Filtered quotation_bill tasks (removed parent tasks):', filteredQuotationBillTasks.length);
 
-      // Map designer done tasks to special status for admin view
+      // Keep designer done tasks as 'done' status
       const designerDoneWithStatus = designerDoneFilteredFinal.map(task => ({
         ...task,
-        status: 'designer_done_production',
-        original_status: 'done',
+        status: 'done',
       }));
 
       // Fetch approved products ONLY from tasks that have approved products
@@ -235,8 +234,7 @@ export const AdminKanbanBoard = () => {
               id: product.id, // Use product ID as unique identifier
               title: `${parentTask.title} - ${product.product_name}`,
               description: product.description || `Qty: ${product.quantity} ${product.unit}`,
-              status: 'designer_done_production',
-              original_status: 'done',
+              status: 'done',
               priority: 'medium',
               due_date: null,
               position: product.position || 0,
@@ -713,7 +711,7 @@ export const AdminKanbanBoard = () => {
       <StatusChangeNotification />
       
       {/* FOR PRODUCTION Section - Separate from regular Kanban */}
-      {tasks.filter(t => t.status === 'designer_done_production').length > 0 && (
+      {tasks.filter(t => t.status === 'done').length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-lg border-2 border-blue-300 dark:border-blue-700 p-4 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -721,7 +719,7 @@ export const AdminKanbanBoard = () => {
                 FOR PRODUCTION
               </h2>
               <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                {tasks.filter(t => t.status === 'designer_done_production').length}
+                {tasks.filter(t => t.status === 'done').length}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">Tasks completed by designer ready for production</p>
@@ -729,7 +727,7 @@ export const AdminKanbanBoard = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto">
             {tasks
-              .filter(t => t.status === 'designer_done_production')
+              .filter(t => t.status === 'done')
               .map(task => (
                 <TaskCard
                   key={task.id}

@@ -428,7 +428,7 @@ export const EditTaskDialog = ({
           </div>
 
           {/* Admin Remarks - Show for admins or if task has been sent back */}
-          {(isAdmin || currentUserRole === 'admin' || task.sent_back_to_designer || task.status === 'designer_done_production') && (
+          {(isAdmin || currentUserRole === 'admin' || task.sent_back_to_designer || task.status === 'done') && (
             <div className="space-y-2">
               <Label htmlFor="edit-adminRemarks" className="flex items-center gap-2">
                 Admin Remarks for Designer
