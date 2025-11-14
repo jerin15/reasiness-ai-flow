@@ -1,23 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Target, TrendingUp, Clock, CheckCircle2 } from 'lucide-react';
+import { Target, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, addDays, subWeeks, addWeeks, isSameDay } from 'date-fns';
 
-interface QuotaStats {
-  completed: number;
-  quota: number;
-  inProgress: number;
-  avgCompletionTime: number;
+interface DailyStats {
+  date: string;
+  count: number;
 }
 
+type ViewMode = 'day' | 'week';
+
 export const EstimationQuotaTracker = () => {
-  const [stats, setStats] = useState<QuotaStats>({
-    completed: 0,
-    quota: 3,
-    inProgress: 0,
-    avgCompletionTime: 0
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [todayCount, setTodayCount] = useState(0);
+  const [weeklyStats, setWeeklyStats] = useState<DailyStats[]>([]);
   const [isEstimation, setIsEstimation] = useState(false);
 
   useEffect(() => {
@@ -26,7 +25,7 @@ export const EstimationQuotaTracker = () => {
     // Refresh every 5 minutes
     const interval = setInterval(checkUserAndFetchStats, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedDate, viewMode]);
 
   const checkUserAndFetchStats = async () => {
     try {
@@ -47,48 +46,58 @@ export const EstimationQuotaTracker = () => {
 
       setIsEstimation(true);
 
-      // Get today's date range
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      if (viewMode === 'day') {
+        // Get quotations for selected day
+        const dayStart = new Date(selectedDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(selectedDate);
+        dayEnd.setHours(23, 59, 59, 999);
 
-      // Get quotations moved to done status today (based on status_changed_at)
-      const { data: completedTasks } = await supabase
-        .from('tasks')
-        .select('completed_at, status_changed_at, created_at')
-        .eq('assigned_to', user.id)
-        .eq('type', 'quotation')
-        .eq('status', 'done')
-        .gte('status_changed_at', today.toISOString())
-        .lt('status_changed_at', tomorrow.toISOString());
+        const { count } = await supabase
+          .from('tasks')
+          .select('*', { count: 'exact', head: true })
+          .eq('assigned_to', user.id)
+          .eq('type', 'quotation')
+          .eq('status', 'done')
+          .gte('status_changed_at', dayStart.toISOString())
+          .lte('status_changed_at', dayEnd.toISOString());
 
-      // Get in-progress quotations
-      const { count: inProgressCount } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('assigned_to', user.id)
-        .eq('type', 'quotation')
-        .in('status', ['todo', 'supplier_quotes', 'client_approval', 'admin_approval'])
-        .is('deleted_at', null);
+        setTodayCount(count || 0);
+      } else {
+        // Get quotations for the week
+        const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday
+        const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 }); // Sunday
 
-      // Calculate average completion time
-      let avgTime = 0;
-      if (completedTasks && completedTasks.length > 0) {
-        const times = completedTasks.map(task => {
-          const start = new Date(task.status_changed_at || task.completed_at);
-          const end = new Date(task.completed_at);
-          return (end.getTime() - start.getTime()) / (1000 * 60 * 60); // hours
+        const { data: weekTasks } = await supabase
+          .from('tasks')
+          .select('status_changed_at')
+          .eq('assigned_to', user.id)
+          .eq('type', 'quotation')
+          .eq('status', 'done')
+          .gte('status_changed_at', weekStart.toISOString())
+          .lte('status_changed_at', weekEnd.toISOString());
+
+        // Group by day
+        const dailyMap: Record<string, number> = {};
+        for (let i = 0; i < 7; i++) {
+          const day = addDays(weekStart, i);
+          dailyMap[format(day, 'yyyy-MM-dd')] = 0;
+        }
+
+        weekTasks?.forEach(task => {
+          const taskDate = format(new Date(task.status_changed_at), 'yyyy-MM-dd');
+          if (dailyMap[taskDate] !== undefined) {
+            dailyMap[taskDate]++;
+          }
         });
-        avgTime = times.reduce((a, b) => a + b, 0) / times.length;
-      }
 
-      setStats({
-        completed: completedTasks?.length || 0,
-        quota: 3,
-        inProgress: inProgressCount || 0,
-        avgCompletionTime: avgTime
-      });
+        const stats: DailyStats[] = Object.entries(dailyMap).map(([date, count]) => ({
+          date,
+          count
+        }));
+
+        setWeeklyStats(stats);
+      }
     } catch (error) {
       console.error('Error fetching quota stats:', error);
     }
@@ -96,69 +105,111 @@ export const EstimationQuotaTracker = () => {
 
   if (!isEstimation) return null;
 
-  const percentage = Math.min((stats.completed / stats.quota) * 100, 100);
-  const remaining = Math.max(0, stats.quota - stats.completed);
+  const handlePrevious = () => {
+    if (viewMode === 'day') {
+      setSelectedDate(prev => addDays(prev, -1));
+    } else {
+      setSelectedDate(prev => subWeeks(prev, 1));
+    }
+  };
+
+  const handleNext = () => {
+    if (viewMode === 'day') {
+      setSelectedDate(prev => addDays(prev, 1));
+    } else {
+      setSelectedDate(prev => addWeeks(prev, 1));
+    }
+  };
+
+  const handleToday = () => {
+    setSelectedDate(new Date());
+  };
 
   return (
     <Card className="border-primary/20">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Target className="h-5 w-5 text-primary" />
-          Today's Quota Progress
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            Quotation Tracker
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === 'day' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('day')}
+            >
+              Day
+            </Button>
+            <Button
+              variant={viewMode === 'week' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('week')}
+            >
+              Week
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl font-bold">
-              {stats.completed} / {stats.quota}
+        <div className="flex items-center justify-between">
+          <Button variant="outline" size="sm" onClick={handlePrevious}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-sm text-muted-foreground flex items-center gap-1">
+              <Calendar className="h-4 w-4" />
+              {viewMode === 'day' 
+                ? format(selectedDate, 'MMMM dd, yyyy')
+                : `Week of ${format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'MMM dd')}`
+              }
             </span>
-            <span className={`text-sm font-medium ${percentage >= 100 ? 'text-green-600' : 'text-muted-foreground'}`}>
-              {percentage.toFixed(0)}%
-            </span>
+            <Button variant="link" size="sm" onClick={handleToday} className="h-auto p-0">
+              Go to Today
+            </Button>
           </div>
-          <Progress value={percentage} className="h-3" />
+          <Button variant="outline" size="sm" onClick={handleNext}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-muted/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span className="text-xs text-muted-foreground">Completed</span>
-            </div>
-            <div className="text-xl font-bold text-green-600">{stats.completed}</div>
-          </div>
-
-          <div className="bg-muted/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="h-4 w-4 text-orange-600" />
-              <span className="text-xs text-muted-foreground">In Progress</span>
-            </div>
-            <div className="text-xl font-bold text-orange-600">{stats.inProgress}</div>
-          </div>
-
-          <div className="bg-muted/50 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="h-4 w-4 text-blue-600" />
-              <span className="text-xs text-muted-foreground">Avg Time</span>
-            </div>
-            <div className="text-xl font-bold text-blue-600">
-              {stats.avgCompletionTime > 0 ? `${stats.avgCompletionTime.toFixed(1)}h` : '--'}
-            </div>
-          </div>
-        </div>
-
-        {remaining > 0 ? (
-          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
-            <p className="text-sm font-medium">
-              🎯 Complete {remaining} more quotation{remaining > 1 ? 's' : ''} to meet today's quota
+        {viewMode === 'day' ? (
+          <div className="text-center">
+            <div className="text-5xl font-bold text-primary">{todayCount}</div>
+            <p className="text-muted-foreground mt-2">
+              Quotation{todayCount !== 1 ? 's' : ''} completed
             </p>
           </div>
         ) : (
-          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-            <p className="text-sm font-medium">
-              🎉 Great work! You've met today's quota!
-            </p>
+          <div className="space-y-2">
+            {weeklyStats.map((stat) => {
+              const statDate = new Date(stat.date);
+              const isToday = isSameDay(statDate, new Date());
+              return (
+                <div 
+                  key={stat.date} 
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    isToday ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                >
+                  <span className="font-medium">
+                    {format(statDate, 'EEE, MMM dd')}
+                    {isToday && <span className="text-xs text-primary ml-2">(Today)</span>}
+                  </span>
+                  <span className={`text-2xl font-bold ${stat.count > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {stat.count}
+                  </span>
+                </div>
+              );
+            })}
+            <div className="pt-3 border-t mt-3">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Weekly Total:</span>
+                <span className="text-3xl font-bold text-primary">
+                  {weeklyStats.reduce((sum, stat) => sum + stat.count, 0)}
+                </span>
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
