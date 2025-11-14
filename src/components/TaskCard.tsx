@@ -374,7 +374,6 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         task.sent_to_designer_mockup && task.status === 'mockup' && "border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/20 shadow-lg shadow-amber-500/50 animate-pulse",
         task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20 shadow-lg shadow-green-500/50",
         task.came_from_designer_done && task.status === 'production' && "border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 shadow-lg shadow-purple-500/50",
-        task.status === 'designer_done_production' && "border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/20 shadow-lg shadow-blue-500/50",
         task.sent_back_to_designer && task.status === 'todo' && "border-2 border-red-500 bg-red-50 dark:bg-red-950/20 shadow-lg shadow-red-500/50 animate-pulse"
       )}
     >
@@ -410,7 +409,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
               </div>
               <div className="flex gap-1">
                 {/* Show Send to Production button for admin in FOR PRODUCTION pipeline */}
-                {userRole === 'admin' && task.status === 'designer_done_production' && (
+                {userRole === 'admin' && task.status === 'done' && (
                   <Button
                     variant="default"
                     size="sm"
@@ -423,14 +422,18 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                       try {
                         console.log('🚀 Sending task to production:', task.id, task.title);
                         
-                        // Batch fetch both users in parallel
-                        const [estimationResult, operationsResult] = await Promise.all([
-                          supabase.from('user_roles').select('user_id').eq('role', 'estimation').limit(1),
-                          supabase.from('user_roles').select('user_id').eq('role', 'operations').limit(1)
-                        ]);
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (!user) {
+                          toast.error("Not authenticated", { id: loadingToast });
+                          return;
+                        }
 
-                        const estimationUsers = estimationResult.data;
-                        const operationsUsers = operationsResult.data;
+                        // Fetch estimation user
+                        const { data: estimationUsers } = await supabase
+                          .from('user_roles')
+                          .select('user_id')
+                          .eq('role', 'estimation')
+                          .limit(1);
 
                         if (!estimationUsers || estimationUsers.length === 0) {
                           toast.error("No estimation user found", { id: loadingToast });
@@ -438,7 +441,6 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                         }
 
                         console.log('👤 Estimation user:', estimationUsers[0].user_id);
-                        console.log('👤 Operations user:', operationsUsers?.[0]?.user_id);
 
                         const now = new Date().toISOString();
                         
@@ -459,34 +461,32 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
 
                         console.log('✅ Estimation task updated successfully');
 
-                        // Create operations task (await to ensure it completes)
-                        if (operationsUsers && operationsUsers.length > 0) {
-                          const { error: insertError } = await supabase.from("tasks").insert([{
-                            title: task.title,
-                            description: task.description,
-                            status: 'production' as any,
-                            priority: task.priority as any,
-                            due_date: task.due_date,
-                            type: task.type as any,
-                            client_name: task.client_name,
-                            supplier_name: task.supplier_name,
-                            created_by: operationsUsers[0].user_id,
-                            assigned_to: null,
-                            linked_task_id: task.id,
-                            position: task.position,
-                            status_changed_at: now,
-                            came_from_designer_done: true,
-                            previous_status: 'done' as any,
-                          }]);
+                         // Create operations task with current user as creator
+                        const { error: insertError } = await supabase.from("tasks").insert([{
+                          title: task.title,
+                          description: task.description,
+                          status: 'production' as any,
+                          priority: task.priority as any,
+                          due_date: task.due_date,
+                          type: task.type as any,
+                          client_name: task.client_name,
+                          supplier_name: task.supplier_name,
+                          created_by: user.id,
+                          assigned_to: null,
+                          linked_task_id: task.id,
+                          position: task.position,
+                          status_changed_at: now,
+                          came_from_designer_done: true,
+                          previous_status: 'done' as any,
+                        }]);
 
-                          if (insertError) {
-                            console.error('❌ Operations task insert error:', insertError);
-                            toast.error("Failed to create operations task", { id: loadingToast });
-                            return;
-                          }
-
-                          console.log('✅ Operations task created successfully');
+                        if (insertError) {
+                          console.error('❌ Operations task insert error:', insertError);
+                          toast.error("Failed to create operations task", { id: loadingToast });
+                          return;
                         }
+
+                        console.log('✅ Operations task created successfully');
                         
                         toast.success("Task sent to Estimation & Operations production!", { id: loadingToast });
                         
@@ -509,7 +509,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                 )}
                 
                 {/* Send Back to Designer button for admin in FOR PRODUCTION pipeline */}
-                {userRole === 'admin' && task.status === 'designer_done_production' && onSendBack && (
+                {userRole === 'admin' && task.status === 'done' && onSendBack && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -657,14 +657,6 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                   className="text-xs bg-gradient-to-r from-purple-500 to-violet-500 text-white hover:from-purple-600 hover:to-violet-600 animate-pulse"
                 >
                   🎨 From Designer Done
-                </Badge>
-              )}
-              {task.status === 'designer_done_production' && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 animate-pulse"
-                >
-                  🎨 Ready for Production
                 </Badge>
               )}
               {task.assigned_by && (
