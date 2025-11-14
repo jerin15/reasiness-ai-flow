@@ -11,6 +11,18 @@ export const useTaskActivity = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Check if task exists and is not deleted before logging activity
+      const { data: task } = await supabase
+        .from('tasks')
+        .select('id, deleted_at')
+        .eq('id', taskId)
+        .maybeSingle();
+
+      if (!task || task.deleted_at) {
+        console.log(`⏭️ Skipping activity log for deleted/non-existent task ${taskId}`);
+        return;
+      }
+
       await supabase
         .from('task_activity_log')
         .insert({

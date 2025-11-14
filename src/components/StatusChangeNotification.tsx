@@ -524,19 +524,23 @@ export const StatusChangeNotification = () => {
               }
             } catch (error) {
               console.error('❌ Error showing notification:', error);
-              // Fallback to basic notification
-              new Notification(`🔔 Task Update: ${taskData.title}`, {
-                body: `${changedByName} - ${browserNotificationBody}`,
-                icon: '/rea-logo-icon.png'
-              });
+              // Fallback to basic notification if supported
+              try {
+                new Notification(`🔔 Task Update: ${taskData.title}`, {
+                  body: `${changedByName} - ${browserNotificationBody}`,
+                  icon: '/rea-logo-icon.png'
+                });
+              } catch (fallbackError) {
+                console.error('❌ Browser notifications not supported:', fallbackError);
+              }
             }
-          } else if (Notification.permission === 'default') {
+          } else if ('Notification' in window && Notification.permission === 'default') {
             // Request permission if not yet asked
             Notification.requestPermission().then(permission => {
               if (permission === 'granted') {
                 toast.info('✅ Notifications enabled! You will now receive alerts.', { duration: 3000 });
               }
-            });
+            }).catch(err => console.error('Notification permission error:', err));
           }
         }
       )
