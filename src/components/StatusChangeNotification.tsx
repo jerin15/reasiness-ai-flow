@@ -27,6 +27,8 @@ export const StatusChangeNotification = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Track processed notification IDs to prevent duplicates
+  const processedNotificationsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const initUser = async () => {
@@ -239,6 +241,19 @@ export const StatusChangeNotification = () => {
           console.log('📢 Task change detected:', payload);
           const auditLog = payload.new;
           
+          // Deduplication check - prevent processing the same notification twice
+          if (processedNotificationsRef.current.has(auditLog.id)) {
+            console.log('⏭️ Duplicate notification prevented:', auditLog.id);
+            return;
+          }
+          processedNotificationsRef.current.add(auditLog.id);
+          
+          // Clear old entries periodically (keep last 100)
+          if (processedNotificationsRef.current.size > 100) {
+            const entries = Array.from(processedNotificationsRef.current);
+            processedNotificationsRef.current = new Set(entries.slice(-100));
+          }
+          
           // Only handle status_changed, assigned, created, and updated actions
           if (!['status_changed', 'assigned', 'created', 'updated'].includes(auditLog.action)) return;
 
@@ -441,10 +456,18 @@ export const StatusChangeNotification = () => {
             return; // Unknown action type
           }
 
-          // Play alarm sound
+          // Play alarm sound - louder and repeat for urgent/high priority tasks
           if (audioRef.current) {
-            audioRef.current.volume = 0.8;
-            audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+            audioRef.current.volume = 1.0; // Full volume
+            
+            // For task creation with urgent/high priority, play sound twice
+            const priority = (auditLog.new_values as any)?.priority;
+            if (auditLog.action === 'created' && ['urgent', 'high'].includes(priority)) {
+              audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+              setTimeout(() => audioRef.current?.play().catch(e => console.log('Audio play failed:', e)), 1000);
+            } else {
+              audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+            }
           }
 
           // Add to notifications list (avoid duplicates)
@@ -461,21 +484,32 @@ export const StatusChangeNotification = () => {
             : <Bell className="h-5 w-5 text-accent" />;
 
           toast.info(toastMessage, {
-            duration: 8000,
+            duration: 10000, // Longer duration (10 seconds)
             icon: toastIcon,
+            action: {
+              label: 'View',
+              onClick: () => {
+                window.focus();
+                // Navigate to task or open task details if needed
+              }
+            }
           });
 
-          // Show browser notification with mobile-friendly options
+          // Show browser notification (WhatsApp Web style) - always show, even when tab is active
           if ('Notification' in window && Notification.permission === 'granted') {
             const notificationOptions = {
               body: `${changedByName} - ${browserNotificationBody}`,
               icon: '/rea-logo-icon.png',
               badge: '/rea-logo-icon.png',
               tag: notification.id,
-              requireInteraction: false,
-              vibrate: [200, 100, 200], // Vibration pattern for mobile
+              requireInteraction: true, // Keep visible until clicked (WhatsApp style)
+              vibrate: [300, 100, 300, 100, 300], // Stronger vibration pattern
               silent: false,
-              renotify: true
+              renotify: true,
+              actions: [ // Add action buttons (if supported by browser)
+                { action: 'view', title: 'View Task' },
+                { action: 'dismiss', title: 'Dismiss' }
+              ]
             };
             
             try {

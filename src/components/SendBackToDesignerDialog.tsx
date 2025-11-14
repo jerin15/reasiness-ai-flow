@@ -4,7 +4,6 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { logTaskAction } from "@/lib/auditLogger";
 
 type SendBackToDesignerDialogProps = {
   open: boolean;
@@ -47,19 +46,6 @@ export const SendBackToDesignerDialog = ({
       const designerUserId = designerUsers[0].user_id;
 
       // Update task status to todo, assign to designer, mark as sent back
-      // Log the action with device tracking
-      await logTaskAction({
-        task_id: taskId,
-        action: 'status_changed',
-        old_values: { status: 'done' },
-        new_values: { 
-          status: 'todo', 
-          assigned_to: designerUserId,
-          sent_back_to_designer: true,
-          admin_remarks: remarks 
-        },
-      });
-
       const { error: updateError } = await supabase
         .from("tasks")
         .update({
