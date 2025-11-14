@@ -141,9 +141,9 @@ export const EstimationForcedCheckIn = () => {
       setAction('');
       setNotes('');
       setCurrentTask(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting check-in:', error);
-      toast.error('Failed to record check-in');
+      toast.error(error.message || 'Failed to record check-in');
     } finally {
       setIsSubmitting(false);
     }
