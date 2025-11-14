@@ -598,10 +598,6 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       return;
     }
 
-    if (!confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
-      return;
-    }
-
     try {
       console.log('🗑️ Admin deleting task:', taskId);
       console.log('📍 Viewing user:', viewingUserId);
