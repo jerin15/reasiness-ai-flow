@@ -590,6 +590,40 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     setEditingTask(null);
   };
 
+  const handleDeleteTask = async (taskId: string) => {
+    // Only allow admins to delete tasks from team members' views
+    if (!isAdmin || !viewingUserId) {
+      toast.error('Only admins can delete tasks from team member views');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      console.log('🗑️ Admin deleting task:', taskId);
+      
+      const { error } = await supabase
+        .from('tasks')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('Error deleting task:', error);
+        toast.error(`Failed to delete: ${error.message}`);
+        return;
+      }
+
+      console.log('✅ Task deleted successfully');
+      toast.success('Task deleted successfully');
+      await fetchTasks();
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      toast.error(`Failed to delete: ${error.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -664,6 +698,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                     onTaskUpdated={fetchTasks}
                     userRole={(isAdmin && viewingUserRole) ? viewingUserRole : userRole}
                     isAdminOwnPanel={isAdmin && (!viewingUserId || viewingUserId === currentUserId)}
+                    onDeleteTask={isAdmin && viewingUserId ? handleDeleteTask : undefined}
                   />
                 );
               })}

@@ -37,9 +37,10 @@ type KanbanColumnProps = {
   userRole?: string;
   userRolesMap?: Record<string, string>;
   isAdminOwnPanel?: boolean;
+  onDeleteTask?: (taskId: string) => void;
 };
 
-export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated, userRole, userRolesMap, isAdminOwnPanel }: KanbanColumnProps) => {
+export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated, userRole, userRolesMap, isAdminOwnPanel, onDeleteTask }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -72,6 +73,7 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTask
                 key={task.id} 
                 task={task} 
                 onEdit={onEditTask} 
+                onDelete={onDeleteTask}
                 isAdminView={isAdminView}
                 onTaskUpdated={onTaskUpdated}
                 userRole={userRole}
