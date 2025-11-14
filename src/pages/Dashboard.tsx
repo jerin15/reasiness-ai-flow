@@ -26,6 +26,7 @@ import { Menu } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { AddTaskDialog } from "@/components/AddTaskDialog";
 import { CreateUserDialog } from "@/components/CreateUserDialog";
+import { EstimationQuotaTracker } from "@/components/EstimationQuotaTracker";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -411,6 +412,11 @@ const Dashboard = () => {
           </header>
 
           <main className="container mx-auto px-4 py-6 relative">
+            {userRole === "estimation" && (
+              <div className="mb-6">
+                <EstimationQuotaTracker />
+              </div>
+            )}
             {showPersonalAnalytics && userRole !== "admin" && (
               <div className="mb-6">
                 <PersonalAnalytics userId={currentUserId} userRole={userRole} />
