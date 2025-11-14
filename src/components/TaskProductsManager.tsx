@@ -51,24 +51,14 @@ export function TaskProductsManager({
   });
   const [showAddForm, setShowAddForm] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string>('');
-  const [currentUserId, setCurrentUserId] = useState<string>('');
-  const [taskDetails, setTaskDetails] = useState<{ created_by: string; assigned_to: string | null } | null>(null);
 
   useEffect(() => {
     fetchCurrentUserRole();
   }, []);
 
-  useEffect(() => {
-    if (taskId) {
-      fetchTaskDetails();
-    }
-  }, [taskId]);
-
   const fetchCurrentUserRole = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    setCurrentUserId(user.id);
 
     const { data: roleData } = await supabase
       .from('user_roles')
@@ -81,40 +71,13 @@ export function TaskProductsManager({
     }
   };
 
-  const fetchTaskDetails = async () => {
-    if (!taskId) return;
-    
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('created_by, assigned_to')
-      .eq('id', taskId)
-      .single();
-
-    if (!error && data) {
-      setTaskDetails(data);
-    }
-  };
-
   // Determine the effective user role (prioritize userRole prop, fallback to currentUserRole)
-  // If neither is available yet, default to empty string (permissions will be false until role loads)
   const effectiveRole = userRole || currentUserRole || '';
   
-  // Check if user is task creator or assignee
-  const isTaskOwner = taskDetails && currentUserId && (
-    taskDetails.created_by === currentUserId || 
-    taskDetails.assigned_to === currentUserId
-  );
-  
-  // Determine if user can add/edit products
-  // Allow: admins, technical_head, estimation, designer, OR users who created/are assigned to the task
-  const canEdit = !readOnly && (
-    isAdmin || 
-    effectiveRole === 'admin' ||
-    effectiveRole === 'technical_head' ||
-    effectiveRole === 'estimation' ||
-    effectiveRole === 'designer' ||
-    isTaskOwner
-  );
+  // Simplified permission check: If a task is visible to the user (showing on their panel),
+  // they can add/edit products. The RLS policy on task_products handles the actual security.
+  // This allows anyone who can view a task to manage its products.
+  const canEdit = !readOnly && !!taskId;
   
   // ONLY admins can approve/reject products
   const canApprove = !readOnly && (

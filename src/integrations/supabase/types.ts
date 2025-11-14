@@ -254,6 +254,71 @@ export type Database = {
         }
         Relationships: []
       }
+      estimation_check_ins: {
+        Row: {
+          action_taken: string
+          check_in_time: string | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          action_taken: string
+          check_in_time?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          action_taken?: string
+          check_in_time?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimation_check_ins_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimation_stage_limits: {
+        Row: {
+          created_at: string | null
+          id: string
+          stage_status: string
+          time_limit_hours: number
+          updated_at: string | null
+          warning_threshold_hours: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          stage_status: string
+          time_limit_hours: number
+          updated_at?: string | null
+          warning_threshold_hours: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          stage_status?: string
+          time_limit_hours?: number
+          updated_at?: string | null
+          warning_threshold_hours?: number
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string
@@ -1251,7 +1316,28 @@ export type Database = {
     Functions: {
       check_due_date_reminders: { Args: never; Returns: undefined }
       cleanup_old_completed_tasks: { Args: never; Returns: undefined }
+      get_least_busy_estimation_member: {
+        Args: never
+        Returns: {
+          active_task_count: number
+          full_name: string
+          user_id: string
+        }[]
+      }
+      get_stuck_quotation_tasks: {
+        Args: never
+        Returns: {
+          assigned_to: string
+          assigned_user_name: string
+          hours_idle: number
+          id: string
+          status: string
+          time_limit: number
+          title: string
+        }[]
+      }
       get_task_age_hours: { Args: { task_id: string }; Returns: number }
+      get_task_hours_idle: { Args: { task_id: string }; Returns: number }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1263,6 +1349,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_stuck_quotation_tasks: { Args: { user_id: string }; Returns: boolean }
       is_group_admin: {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
