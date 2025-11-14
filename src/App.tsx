@@ -11,6 +11,8 @@ import { VoiceAnnouncementPlayer } from "@/components/VoiceAnnouncementPlayer";
 import { UrgentNotificationModal } from "@/components/UrgentNotificationModal";
 import { AppUpdateNotifier } from "@/components/AppUpdateNotifier";
 import { DailyTaskReviewDialog } from "@/components/DailyTaskReviewDialog";
+import { EstimationBlockingModal } from "@/components/EstimationBlockingModal";
+import { EstimationForcedCheckIn } from "@/components/EstimationForcedCheckIn";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
@@ -55,6 +57,8 @@ const App = () => (
         <VoiceAnnouncementPlayer />
         <UrgentNotificationModal />
         <DailyTaskReviewDialog />
+        <EstimationBlockingModal />
+        <EstimationForcedCheckIn />
         <OfflineIndicator />
         <BrowserRouter>
           <AppContent />

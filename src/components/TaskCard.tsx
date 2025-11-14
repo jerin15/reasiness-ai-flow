@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import { TaskAgingIndicator } from "./TaskAgingIndicator";
+import { EstimationTaskTimer } from "./EstimationTaskTimer";
 import { useTaskActivity } from "@/hooks/useTaskActivity";
 
 type Task = {
@@ -609,6 +610,13 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                 <TaskAgingIndicator 
                   lastActivityAt={task.last_activity_at}
                   priority={task.priority}
+                />
+              )}
+              {task.last_activity_at && task.type === 'quotation' && (
+                <EstimationTaskTimer
+                  lastActivityAt={task.last_activity_at}
+                  status={task.status}
+                  type={task.type}
                 />
               )}
               {task.mockup_completed_by_designer && (
