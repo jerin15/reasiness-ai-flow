@@ -9,7 +9,6 @@ import { format, formatDistanceToNow } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { logTaskAction } from "@/lib/auditLogger";
 import { useState, useEffect } from "react";
 import { TaskAgingIndicator } from "./TaskAgingIndicator";
 import { useTaskActivity } from "@/hooks/useTaskActivity";
@@ -327,14 +326,6 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         };
         console.log('✅ Returning task to estimation user:', originalAssignedTo);
       }
-
-      // Log the action with device tracking before updating
-      await logTaskAction({
-        task_id: task.id,
-        action: 'status_changed',
-        old_values: { status: task.status, ...task },
-        new_values: { status: finalStatus, ...updateData },
-      });
 
       const { error } = await supabase
         .from("tasks")

@@ -11,7 +11,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { TaskProductsManager } from "./TaskProductsManager";
 import { enrichLatestAuditLog } from "@/lib/enrichAuditLog";
-import { logTaskAction } from "@/lib/auditLogger";
 import { TaskActivityTimeline } from "./TaskActivityTimeline";
 
 type Task = {
@@ -263,14 +262,6 @@ export const EditTaskDialog = ({
           status_changed_at: new Date().toISOString(),
         };
       }
-      
-      // Log the action with device tracking
-      await logTaskAction({
-        task_id: task.id,
-        action: statusChanged ? 'status_changed' : 'updated',
-        old_values: task,
-        new_values: updateData,
-      });
 
       const { error } = await supabase
         .from("tasks")
@@ -307,14 +298,6 @@ export const EditTaskDialog = ({
 
     setDeleting(true);
     try {
-      // Log the deletion with device tracking
-      await logTaskAction({
-        task_id: task.id,
-        action: 'deleted',
-        old_values: task,
-        new_values: null,
-      });
-
       const { error } = await supabase
         .from("tasks")
         .delete()
