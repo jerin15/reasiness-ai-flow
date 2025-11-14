@@ -127,6 +127,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
   const fetchTasks = async () => {
     try {
+      console.log('🔄 KanbanBoard: fetchTasks called - Admin:', isAdmin, 'Viewing:', viewingUserId);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -603,6 +604,10 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
     try {
       console.log('🗑️ Admin deleting task:', taskId);
+      console.log('📍 Viewing user:', viewingUserId);
+      
+      // Optimistically remove from state immediately
+      setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
       
       const { error } = await supabase
         .from('tasks')
@@ -610,17 +615,25 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         .eq('id', taskId);
 
       if (error) {
-        console.error('Error deleting task:', error);
+        console.error('❌ Error deleting task:', error);
         toast.error(`Failed to delete: ${error.message}`);
+        // Refetch to restore state on error
+        await fetchTasks();
         return;
       }
 
-      console.log('✅ Task deleted successfully');
+      console.log('✅ Task marked as deleted in database');
       toast.success('Task deleted successfully');
+      
+      // Force a fresh fetch to ensure state is in sync
+      console.log('🔄 Forcing fresh fetch after delete...');
       await fetchTasks();
+      console.log('✅ Refetch completed');
     } catch (error: any) {
-      console.error('Error deleting task:', error);
+      console.error('❌ Unexpected error deleting task:', error);
       toast.error(`Failed to delete: ${error.message}`);
+      // Refetch to restore consistent state
+      await fetchTasks();
     }
   };
 
