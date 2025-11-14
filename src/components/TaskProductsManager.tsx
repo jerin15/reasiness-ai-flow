@@ -96,7 +96,8 @@ export function TaskProductsManager({
   };
 
   // Determine the effective user role (prioritize userRole prop, fallback to currentUserRole)
-  const effectiveRole = userRole || currentUserRole;
+  // If neither is available yet, default to empty string (permissions will be false until role loads)
+  const effectiveRole = userRole || currentUserRole || '';
   
   // Check if user is task creator or assignee
   const isTaskOwner = taskDetails && currentUserId && (
@@ -108,7 +109,10 @@ export function TaskProductsManager({
   // Allow: admins, technical_head, estimation, designer, OR users who created/are assigned to the task
   const canEdit = !readOnly && (
     isAdmin || 
-    ['admin', 'technical_head', 'estimation', 'designer'].includes(effectiveRole) ||
+    effectiveRole === 'admin' ||
+    effectiveRole === 'technical_head' ||
+    effectiveRole === 'estimation' ||
+    effectiveRole === 'designer' ||
     isTaskOwner
   );
   
