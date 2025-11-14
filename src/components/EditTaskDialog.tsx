@@ -571,15 +571,9 @@ export const EditTaskDialog = ({
                     );
                   }
                   
-                  // For non-admins: Show pipeline based on assignee's role if set, otherwise current user's role
-                  let roleToUse = viewingUserRole || currentUserRole;
-                  
-                  if (assignedTo && teamMembers.length > 0) {
-                    const assignee = teamMembers.find(m => m.id === assignedTo);
-                    if (assignee?.user_roles?.[0]?.role) {
-                      roleToUse = assignee.user_roles[0].role;
-                    }
-                  }
+                  // For non-admins: ALWAYS show pipeline options based on CURRENT user's role
+                  // (the person editing the task), not the assignee's role
+                  const roleToUse = viewingUserRole || currentUserRole;
                   
                   if (roleToUse === 'estimation') {
                     return (
