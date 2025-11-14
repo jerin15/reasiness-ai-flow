@@ -50,15 +50,18 @@ export const EstimationQuotaTracker = () => {
       // Get today's date range
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-      // Get completed quotations today
+      // Get quotations moved to done status today (based on status_changed_at)
       const { data: completedTasks } = await supabase
         .from('tasks')
-        .select('completed_at, status_changed_at')
+        .select('completed_at, status_changed_at, created_at')
         .eq('assigned_to', user.id)
         .eq('type', 'quotation')
         .eq('status', 'done')
-        .gte('completed_at', today.toISOString());
+        .gte('status_changed_at', today.toISOString())
+        .lt('status_changed_at', tomorrow.toISOString());
 
       // Get in-progress quotations
       const { count: inProgressCount } = await supabase
