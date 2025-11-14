@@ -559,6 +559,23 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                     <Edit2 className="h-3 w-3" />
                   </Button>
                 )}
+                {/* Delete button for admins viewing team member pipelines */}
+                {isAdminView && onDelete && !showFullCrud && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+                        onDelete(task.id);
+                      }
+                    }}
+                    title="Delete task"
+                  >
+                    ✕
+                  </Button>
+                )}
                 {/* Remove button for FOR PRODUCTION pipeline */}
                 {showFullCrud && onDelete && (
                   <Button
