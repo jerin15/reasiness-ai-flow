@@ -144,6 +144,29 @@ export const UrgentNotificationModal = () => {
 
       if (!notification) return;
 
+      // Check if this is an estimation-specific broadcast
+      const isEstimationBroadcast = notification.is_broadcast && 
+        (notification.title?.includes('ESTIMATION') || 
+         notification.title?.includes('PROGRESS UPDATE') ||
+         notification.title?.includes('GOOD MORNING') ||
+         notification.message?.includes('quotations'));
+
+      // If it's an estimation broadcast, check if user has estimation role
+      if (isEstimationBroadcast && currentUserId) {
+        const { data: userRole } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', currentUserId)
+          .eq('role', 'estimation')
+          .maybeSingle();
+
+        // Skip this notification if user doesn't have estimation role
+        if (!userRole) {
+          console.log('⏭️ Skipping estimation broadcast for non-estimation user');
+          return;
+        }
+      }
+
       // Fetch sender profile separately with error handling
       const { data: profile } = await supabase
         .from('profiles')
