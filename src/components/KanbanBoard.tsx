@@ -250,9 +250,16 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         if (roleToCheck === 'operations') return true;
         
         // If task is in production AND has a linked_task_id, it means it was sent to operations
-        // Hide it from the original creator's view
+        // Hide it from the CREATOR's view, but SHOW it to the ASSIGNED user (e.g., designer)
         if (task.status === 'production' && task.linked_task_id) {
-          console.log("🚫 Hiding production task sent to operations:", task.title);
+          const actualUserId = (isAdmin && viewingUserId) ? viewingUserId : user.id;
+          // Show if user is assigned to this task
+          if (task.assigned_to === actualUserId) {
+            console.log("✅ Showing production task to assigned user:", task.title);
+            return true;
+          }
+          // Hide if user is only the creator
+          console.log("🚫 Hiding production task sent to operations from creator:", task.title);
           return false;
         }
         

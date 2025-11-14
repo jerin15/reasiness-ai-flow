@@ -104,7 +104,7 @@ export const EstimationForcedCheckIn = () => {
 
       // Record check-in
       const { error: checkInError } = await supabase
-        .from('estimation_check_ins')
+        .from('estimation_check_ins' as any)
         .insert({
           task_id: currentTask.id,
           user_id: user.id,
