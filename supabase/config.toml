@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.ai-task-parser]
 verify_jwt = false
+
+[functions.admin-quotation-report]
+verify_jwt = false
