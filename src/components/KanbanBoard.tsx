@@ -592,8 +592,11 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   };
 
   const handleDeleteTask = async (taskId: string) => {
+    console.log('🔍 handleDeleteTask called with:', { taskId, isAdmin, viewingUserId });
+    
     // Only allow admins to delete tasks from team members' views
     if (!isAdmin || !viewingUserId) {
+      console.error('❌ Delete blocked - isAdmin:', isAdmin, 'viewingUserId:', viewingUserId);
       toast.error('Only admins can delete tasks from team member views');
       return;
     }
@@ -707,7 +710,17 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                     onTaskUpdated={fetchTasks}
                     userRole={(isAdmin && viewingUserRole) ? viewingUserRole : userRole}
                     isAdminOwnPanel={isAdmin && (!viewingUserId || viewingUserId === currentUserId)}
-                    onDeleteTask={isAdmin && viewingUserId ? handleDeleteTask : undefined}
+                    onDeleteTask={(() => {
+                      const deleteHandler = isAdmin && viewingUserId ? handleDeleteTask : undefined;
+                      if (column.id === 'production') {
+                        console.log(`🔍 KanbanBoard: Passing onDeleteTask to ${column.title}:`, {
+                          isAdmin,
+                          viewingUserId,
+                          hasDeleteHandler: !!deleteHandler
+                        });
+                      }
+                      return deleteHandler;
+                    })()}
                   />
                 );
               })}

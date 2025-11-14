@@ -60,6 +60,13 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
   const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
   const { logActivity } = useTaskActivity();
 
+  // Debug logging for delete button visibility
+  useEffect(() => {
+    if (isAdminView) {
+      console.log(`🔍 TaskCard [${task.title}]: onDelete=${!!onDelete}, isAdminView=${isAdminView}, showFullCrud=${showFullCrud}, shouldShowDelete=${isAdminView && onDelete && !showFullCrud}`);
+    }
+  }, [isAdminView, onDelete, showFullCrud, task.title]);
+
   useEffect(() => {
     fetchProductStats();
     // Log task view
