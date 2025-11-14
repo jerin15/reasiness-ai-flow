@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Bell, X, UserPlus, ArrowRightLeft } from "lucide-react";
+import { Bell, X, UserPlus, ArrowRightLeft, BellOff } from "lucide-react";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { ScrollArea } from "./ui/scroll-area";
@@ -26,6 +26,10 @@ export const StatusChangeNotification = () => {
   const [notifications, setNotifications] = useState<TaskNotification[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isMuted, setIsMuted] = useState(() => {
+    // Load mute state from localStorage
+    return localStorage.getItem('notifications_muted') === 'true';
+  });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // Track processed notification IDs to prevent duplicates
   const processedNotificationsRef = useRef<Set<string>>(new Set());
@@ -456,27 +460,29 @@ export const StatusChangeNotification = () => {
             return; // Unknown action type
           }
 
-          // Play alarm sound - louder and repeat for urgent/high priority tasks
-          if (audioRef.current) {
-            audioRef.current.volume = 1.0; // Full volume
-            
-            // For task creation with urgent/high priority, play sound twice
-            const priority = (auditLog.new_values as any)?.priority;
-            if (auditLog.action === 'created' && ['urgent', 'high'].includes(priority)) {
-              audioRef.current.play().catch(e => console.log('Audio play failed:', e));
-              setTimeout(() => audioRef.current?.play().catch(e => console.log('Audio play failed:', e)), 1000);
-            } else {
-              audioRef.current.play().catch(e => console.log('Audio play failed:', e));
-            }
-          }
-
-          // Add to notifications list (avoid duplicates)
+          // Add to notifications list (avoid duplicates) - ALWAYS add to history
           setNotifications(prev => {
             if (prev.some(n => n.id === notification.id)) return prev;
             return [notification, ...prev];
           });
 
-          // Show toast
+          // Only show toast and play sound if NOT muted
+          if (!isMuted) {
+            // Play alarm sound - louder and repeat for urgent/high priority tasks
+            if (audioRef.current) {
+              audioRef.current.volume = 1.0; // Full volume
+              
+              // For task creation with urgent/high priority, play sound twice
+              const priority = (auditLog.new_values as any)?.priority;
+              if (auditLog.action === 'created' && ['urgent', 'high'].includes(priority)) {
+                audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+                setTimeout(() => audioRef.current?.play().catch(e => console.log('Audio play failed:', e)), 1000);
+              } else {
+                audioRef.current.play().catch(e => console.log('Audio play failed:', e));
+              }
+            }
+
+            // Show toast
           const toastIcon = notification.type === 'status_change' 
             ? <ArrowRightLeft className="h-5 w-5 text-accent" />
             : notification.type === 'assignment_change'
@@ -495,8 +501,8 @@ export const StatusChangeNotification = () => {
             }
           });
 
-          // Show browser notification (WhatsApp Web style) - always show, even when tab is active
-          if ('Notification' in window && Notification.permission === 'granted') {
+            // Show browser notification (WhatsApp Web style) - only if not muted
+            if ('Notification' in window && Notification.permission === 'granted') {
             const notificationOptions = {
               body: `${changedByName} - ${browserNotificationBody}`,
               icon: '/rea-logo-icon.png',
@@ -534,13 +540,16 @@ export const StatusChangeNotification = () => {
                 console.error('❌ Browser notifications not supported:', fallbackError);
               }
             }
-          } else if ('Notification' in window && Notification.permission === 'default') {
-            // Request permission if not yet asked
-            Notification.requestPermission().then(permission => {
-              if (permission === 'granted') {
-                toast.info('✅ Notifications enabled! You will now receive alerts.', { duration: 3000 });
-              }
-            }).catch(err => console.error('Notification permission error:', err));
+            } else if ('Notification' in window && Notification.permission === 'default') {
+              // Request permission if not yet asked
+              Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                  toast.info('✅ Notifications enabled! You will now receive alerts.', { duration: 3000 });
+                }
+              }).catch(err => console.error('Notification permission error:', err));
+            }
+          } else {
+            console.log('🔇 Notifications muted - added to history only');
           }
         }
       )
@@ -549,8 +558,16 @@ export const StatusChangeNotification = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser, isAdmin]);
+  }, [currentUser, isAdmin, isMuted]);
 
+  const toggleMute = () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    localStorage.setItem('notifications_muted', String(newMutedState));
+    toast.success(newMutedState ? '🔇 Notifications muted' : '🔔 Notifications unmuted', {
+      duration: 2000
+    });
+  };
 
   const formatStatus = (status: string): string => {
     return status
@@ -587,11 +604,23 @@ export const StatusChangeNotification = () => {
             <Bell className="h-5 w-5 text-accent" />
             <h3 className="font-semibold">Task Updates</h3>
           </div>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearAllNotifications}>
-              Clear All
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleMute}
+                title={isMuted ? "Unmute notifications" : "Mute notifications"}
+              >
+                {isMuted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              </Button>
+            )}
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearAllNotifications}>
+                Clear All
+              </Button>
+            )}
+          </div>
         </div>
         <ScrollArea className="h-[400px]">
           {notifications.length === 0 ? (
