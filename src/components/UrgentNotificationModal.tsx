@@ -46,18 +46,26 @@ export const UrgentNotificationModal = () => {
 
     // Request notification permission immediately for urgent notifications
     const requestNotificationPermission = async () => {
-      if ('Notification' in window && Notification.permission === 'default') {
-        console.log('🔔 Requesting notification permission for urgent alerts...');
-        const permission = await Notification.requestPermission();
-        console.log('🔔 Notification permission:', permission);
-        
-        if (permission === 'granted') {
-          console.log('✅ Urgent notifications enabled!');
-        } else {
-          console.warn('⚠️ Notification permission denied. Urgent alerts will only show when app is active.');
+      if ('Notification' in window) {
+        if (Notification.permission === 'default') {
+          console.log('🔔 Requesting notification permission for urgent alerts...');
+          try {
+            const permission = await Notification.requestPermission();
+            console.log('🔔 Notification permission:', permission);
+            
+            if (permission === 'granted') {
+              console.log('✅ Urgent notifications enabled!');
+            } else {
+              console.warn('⚠️ Notification permission denied. Urgent alerts will only show when app is active.');
+            }
+          } catch (error) {
+            console.warn('⚠️ Notification API not supported on this device:', error);
+          }
+        } else if (Notification.permission === 'granted') {
+          console.log('✅ Notification permission already granted');
         }
-      } else if (Notification.permission === 'granted') {
-        console.log('✅ Notification permission already granted');
+      } else {
+        console.log('ℹ️ Notification API not available on this device');
       }
     };
     
@@ -193,7 +201,7 @@ export const UrgentNotificationModal = () => {
 
       // Show browser notification with error handling
       try {
-        if (Notification.permission === 'granted') {
+        if ('Notification' in window && Notification.permission === 'granted') {
           console.log('🚨 Showing urgent browser notification:', data.title);
           const browserNotification = new Notification('🚨 URGENT: ' + data.title, {
             body: data.message,
