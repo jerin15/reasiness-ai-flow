@@ -538,6 +538,13 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
       if (newStatus === "done") {
         updates.completed_at = new Date().toISOString();
+        
+        // If designer is completing a task, flag it for admin's FOR PRODUCTION panel
+        const effectiveRole = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
+        if (effectiveRole === "designer") {
+          updates.came_from_designer_done = true;
+          console.log("✅ Designer completing task - flagging for admin FOR PRODUCTION panel");
+        }
       }
 
       console.log("📤 Estimation updating task:", taskId, "from", task.status, "to status:", newStatus);
