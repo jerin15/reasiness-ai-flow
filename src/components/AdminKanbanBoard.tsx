@@ -148,24 +148,19 @@ export const AdminKanbanBoard = () => {
       console.log('🚫 ALL tasks with approved products (will be excluded everywhere):', tasksWithApprovedProducts.length, tasksWithApprovedProducts);
 
       // Fetch tasks from designer's done pipeline for production
-      // Show tasks that are:
-      // 1. Either visible_to is null (visible to all) OR visible_to equals current admin
-      // 2. Either NOT personal tasks OR personal tasks created by current admin
+      // Show ALL tasks with status='done' AND came_from_designer_done=true
+      // This is the correct flow: Designer moves to DONE -> Shows in admin FOR PRODUCTION
       const { data: designerDoneTasks, error: designerDoneError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'done')
+        .eq('came_from_designer_done', true)
         .is('deleted_at', null)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
-      // Filter in JavaScript for better control over complex conditions
+      // Filter in JavaScript for additional conditions
       const designerDoneFiltered = designerDoneTasks?.filter(task => {
-        // Must be created/assigned to a designer
-        const isDesignerTask = rolesMap[task.created_by] === 'designer' || 
-                               rolesMap[task.assigned_to || ''] === 'designer';
-        if (!isDesignerTask) return false;
-
         // Exclude tasks that admin removed from FOR PRODUCTION
         if (task.admin_removed_from_production) return false;
 
