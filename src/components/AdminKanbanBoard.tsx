@@ -176,6 +176,7 @@ export const AdminKanbanBoard = () => {
       );
 
       console.log('🎨 Designer Done for Production tasks:', designerDoneFilteredFinal.length, designerDoneFilteredFinal);
+      console.log('🎨 These tasks have came_from_designer_done=true and will show in FOR PRODUCTION panel');
       if (designerDoneError) {
         console.error('❌ Error fetching designer done tasks:', designerDoneError);
       }
@@ -706,7 +707,7 @@ export const AdminKanbanBoard = () => {
       <StatusChangeNotification />
       
       {/* FOR PRODUCTION Section - Separate from regular Kanban */}
-      {tasks.filter(t => t.status === 'done').length > 0 && (
+      {tasks.filter(t => t.status === 'done' && t.came_from_designer_done).length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-lg border-2 border-blue-300 dark:border-blue-700 p-3 md:p-4 shadow-lg">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
@@ -714,7 +715,7 @@ export const AdminKanbanBoard = () => {
                 FOR PRODUCTION
               </h2>
               <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                {tasks.filter(t => t.status === 'done').length}
+                {tasks.filter(t => t.status === 'done' && t.came_from_designer_done).length}
               </span>
             </div>
             <p className="text-xs text-muted-foreground hidden sm:block">Tasks completed by designer ready for production</p>
@@ -722,7 +723,7 @@ export const AdminKanbanBoard = () => {
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto">
             {tasks
-              .filter(t => t.status === 'done')
+              .filter(t => t.status === 'done' && t.came_from_designer_done)
               .map(task => (
                 <TaskCard
                   key={task.id}
