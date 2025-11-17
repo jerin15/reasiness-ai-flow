@@ -81,26 +81,32 @@ export const ReminderNotification = () => {
 
       const now = new Date().toISOString();
       
-      let query = supabase
+      // CRITICAL: Only fetch reminders for tasks assigned to current user
+      // This prevents estimation team members from getting reminders for tasks not assigned to them
+      const { data: reminders, error } = await supabase
         .from("task_reminders")
-        .select("*, tasks(title, status)")
+        .select(`
+          id,
+          task_id,
+          reminder_time,
+          is_snoozed,
+          is_dismissed,
+          tasks!inner (
+            title,
+            status,
+            assigned_to
+          )
+        `)
         .eq("user_id", user.id)
         .eq("is_dismissed", false)
-        .lte("reminder_time", now);
-
-      // For estimation users, only show reminders from supplier_quotes and client_approval
-      if (roleData?.role === 'estimation') {
-        query = query.in("tasks.status", ["supplier_quotes", "client_approval"]);
-      }
-
-      const { data: reminders, error } = await query
+        .lte("reminder_time", now)
         .order("reminder_time", { ascending: true })
         .limit(1);
 
       if (error) throw error;
 
       if (reminders && reminders.length > 0) {
-        const reminder = reminders[0] as Reminder;
+        const reminder = reminders[0] as any;
         
         // If the task was deleted, auto-dismiss the reminder
         if (!reminder.tasks) {
@@ -108,11 +114,32 @@ export const ReminderNotification = () => {
             .from("task_reminders")
             .update({ is_dismissed: true })
             .eq("id", reminder.id);
-          console.log("Auto-dismissed reminder for deleted task");
+          console.log("⏭️ Auto-dismissed reminder for deleted task");
           return;
         }
+
+        // Double-check: Only show reminder if task is actually assigned to user
+        // This prevents reminders from showing for tasks that were reassigned
+        if (reminder.tasks.assigned_to !== user.id) {
+          console.log('⏭️ Skipping reminder - task no longer assigned to user');
+          await supabase
+            .from("task_reminders")
+            .update({ is_dismissed: true })
+            .eq("id", reminder.id);
+          return;
+        }
+
+        // Role-based filtering for estimation users
+        if (roleData?.role === 'estimation') {
+          const allowedStatuses = ['supplier_quotes', 'client_approval', 'admin_cost_approval', 'todo'];
+          if (!allowedStatuses.includes(reminder.tasks.status)) {
+            console.log('⏭️ Skipping reminder - not in estimation workflow');
+            return;
+          }
+        }
         
-        setActiveReminder(reminder);
+        console.log('🔔 Showing reminder for:', reminder.tasks.title);
+        setActiveReminder(reminder as Reminder);
       }
     } catch (error) {
       console.error("Error checking reminders:", error);

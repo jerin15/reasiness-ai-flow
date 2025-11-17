@@ -429,7 +429,43 @@ export const AdminKanbanBoard = () => {
     if (task.status === newStatus) return;
 
     try {
-      // Handle estimation approval flow: admin_approval → approved → quotation_bill
+      // Handle COST APPROVAL flow: admin_cost_approval → quotation_bill
+      // This is when estimation submits supplier quotes for cost approval
+      if (task.status === 'admin_cost_approval' && newStatus === 'approved') {
+        console.log('💰 Admin approving COST - moving back to quotation_bill for estimation');
+        
+        // CRITICAL: Assign back to the estimation user who created the task
+        // This completes the loop: estimation → admin cost approval → estimation (quotation_bill)
+        const assignTo = task.created_by;
+        
+        console.log('📝 Assigning back to original estimation user:', assignTo);
+        
+        const updates = {
+          status: 'quotation_bill' as any,
+          previous_status: 'admin_cost_approval' as any,
+          assigned_to: assignTo,
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString()
+        };
+        
+        const { error } = await updateTaskOffline(taskId, updates);
+
+        if (error) throw error;
+        
+        await fetchTasks();
+        
+        console.log('✅ Cost approved - task sent back to estimation for quotation');
+        
+        if (!navigator.onLine) {
+          toast.success("Cost approved (offline - will sync when online)");
+        } else {
+          toast.success("💰 Cost approved! Task sent back to estimation for quotation");
+        }
+        return;
+      }
+
+      // Handle GENERAL APPROVAL flow: admin_approval → quotation_bill
+      // This is for general estimation task approval
       if (task.status === 'admin_approval' && newStatus === 'approved') {
         console.log('✅ Admin approving estimation task - moving to quotation_bill');
         
@@ -470,9 +506,10 @@ export const AdminKanbanBoard = () => {
         if (!navigator.onLine) {
           toast.success("Task approved (offline - will sync when online)");
         } else {
-          toast.success("Task approved! Moved to Quotation Bill in estimation's panel");
+          toast.success("✅ Task approved! Moved to Quotation Bill in estimation's panel");
         }
-      } 
+        return;
+      }
       // Handle designer approval flow: with_client → approved_designer → production (NOT production_file)
       else if (task.status === 'with_client' && newStatus === 'approved_designer') {
         console.log('✅ Admin approving designer task - moving to production');
