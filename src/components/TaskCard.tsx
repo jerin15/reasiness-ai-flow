@@ -508,8 +508,8 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                   </Button>
                 )}
                 
-                {/* Send Back to Designer button for admin in FOR PRODUCTION pipeline */}
-                {userRole === 'admin' && task.status === 'done' && onSendBack && (
+                {/* Send Back to Designer button for admin in FOR PRODUCTION and WITH CLIENT pipelines */}
+                {userRole === 'admin' && (task.status === 'done' || task.status === 'with_client') && onSendBack && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -519,6 +519,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                       onSendBack(task);
                     }}
                     disabled={isMoving}
+                    title="Send back to designer"
                   >
                     <RotateCcw className="h-3 w-3" />
                   </Button>
