@@ -105,14 +105,18 @@ export const StatusChangeNotification = () => {
 
         if (!taskData) continue;
 
-        // Show notification if user is admin, task creator, or assigned
+        // CRITICAL: Proper notification filtering
+        // Admins get ALL notifications
+        // Team members ONLY get notifications for their CURRENT tasks
         const shouldNotify = userIsAdmin || 
-                            taskData.created_by === userId || 
                             taskData.assigned_to === userId ||
-                            (auditLog.old_values as any)?.assigned_to === userId;
+                            (taskData.created_by === userId && (!taskData.assigned_to || taskData.assigned_to === userId));
 
-        console.log('📌 Task:', taskData.title, 'Should notify:', shouldNotify, 'Is admin:', userIsAdmin);
-        if (!shouldNotify) continue;
+        console.log('📌 Task:', taskData.title, 'Should notify:', shouldNotify, 'Is admin:', userIsAdmin, 'Assigned to user:', taskData.assigned_to === userId);
+        if (!shouldNotify) {
+          console.log('⏭️ User not currently involved - skipping historical notification');
+          continue;
+        }
 
         // Get the person who made the change
         const { data: changedByProfile } = await supabase
@@ -276,16 +280,15 @@ export const StatusChangeNotification = () => {
             return;
           }
 
-          // SIMPLIFIED NOTIFICATION LOGIC:
-          // 1. ALL admins get notified of ALL task activities (except their own)
-          // 2. Task creator gets notified of ALL changes to their task (except their own)
-          // 3. Current assignee gets notified of ALL changes to their task (except their own)
-          // 4. Previous assignee gets notified if they're removed from a task
+          // CRITICAL NOTIFICATION FILTERING:
+          // Admins: Get ALL notifications
+          // Team members: ONLY get notifications for:
+          //   - Tasks they CURRENTLY have assigned to them
+          //   - Tasks they created (only if still involved)
           
           let shouldNotify = false;
           const isTaskCreator = taskData.created_by === currentUser.id;
           const isCurrentAssignee = taskData.assigned_to === currentUser.id;
-          const wasPreviouslyAssigned = (auditLog.old_values as any)?.assigned_to === currentUser.id;
 
           console.log('🔍 Checking notification eligibility:', {
             task: taskData.title,
@@ -293,37 +296,28 @@ export const StatusChangeNotification = () => {
             currentUserIsAdmin: isAdmin,
             isTaskCreator,
             isCurrentAssignee,
-            wasPreviouslyAssigned,
             currentUserId: currentUser.id,
             changedBy: auditLog.changed_by
           });
 
-          // Rule 1: Admins get notified of everything
+          // Rule 1: Admins get notified of EVERYTHING
           if (isAdmin) {
             shouldNotify = true;
             console.log('✅ Notifying: User is admin');
           }
-          
-          // Rule 2: Task creator gets notified of all changes to their task
-          if (isTaskCreator) {
+          // Rule 2: Current assignee gets notified (not past assignees)
+          else if (isCurrentAssignee) {
             shouldNotify = true;
-            console.log('✅ Notifying: User is task creator');
+            console.log('✅ Notifying: User is currently assigned to task');
           }
-          
-          // Rule 3: Current assignee gets notified
-          if (isCurrentAssignee) {
+          // Rule 3: Task creator ONLY if they're still involved (assigned or no assignee)
+          else if (isTaskCreator && (isCurrentAssignee || !taskData.assigned_to)) {
             shouldNotify = true;
-            console.log('✅ Notifying: User is current assignee');
-          }
-          
-          // Rule 4: Previous assignee gets notified if they were removed
-          if (wasPreviouslyAssigned && auditLog.action === 'assigned') {
-            shouldNotify = true;
-            console.log('✅ Notifying: User was previously assigned');
+            console.log('✅ Notifying: User created task and still involved');
           }
 
           if (!shouldNotify) {
-            console.log('❌ Skipping notification - user not involved in this task');
+            console.log('❌ Skipping notification - user not currently involved in this task');
             return;
           }
           
