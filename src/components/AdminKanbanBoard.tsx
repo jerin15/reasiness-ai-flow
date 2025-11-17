@@ -35,6 +35,7 @@ type Task = {
   came_from_designer_done?: boolean;
   sent_back_to_designer?: boolean;
   admin_remarks?: string | null;
+  admin_removed_from_production?: boolean;
 };
 
 type Column = {
@@ -147,14 +148,21 @@ export const AdminKanbanBoard = () => {
       
       console.log('🚫 ALL tasks with approved products (will be excluded everywhere):', tasksWithApprovedProducts.length, tasksWithApprovedProducts);
 
-      // Fetch tasks from designer's done pipeline for production
-      // Show ALL tasks with status='done' AND came_from_designer_done=true
-      // This is the correct flow: Designer moves to DONE -> Shows in admin FOR PRODUCTION
+      // Fetch tasks from designer's DONE pipeline
+      // These are tasks that designers see in their DONE column
+      // Show EXACTLY what designer sees: status='done' AND assigned_to=designer
+      const { data: designerUsers } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'designer');
+      
+      const designerUserIds = designerUsers?.map(u => u.user_id) || [];
+      
       const { data: designerDoneTasks, error: designerDoneError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'done')
-        .eq('came_from_designer_done', true)
+        .in('assigned_to', designerUserIds)
         .is('deleted_at', null)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
@@ -175,8 +183,8 @@ export const AdminKanbanBoard = () => {
         task => !tasksWithApprovedProducts.includes(task.id)
       );
 
-      console.log('🎨 Designer Done for Production tasks:', designerDoneFilteredFinal.length, designerDoneFilteredFinal);
-      console.log('🎨 These tasks have came_from_designer_done=true and will show in FOR PRODUCTION panel');
+      console.log('🎨 Designer DONE pipeline tasks (what designers see):', designerDoneFilteredFinal.length, designerDoneFilteredFinal);
+      console.log('🎨 These are the EXACT tasks in designer\'s DONE column that will show in FOR PRODUCTION');
       if (designerDoneError) {
         console.error('❌ Error fetching designer done tasks:', designerDoneError);
       }
@@ -706,8 +714,8 @@ export const AdminKanbanBoard = () => {
     <div className="h-full flex flex-col gap-6">
       <StatusChangeNotification />
       
-      {/* FOR PRODUCTION Section - Separate from regular Kanban */}
-      {tasks.filter(t => t.status === 'done' && t.came_from_designer_done).length > 0 && (
+      {/* FOR PRODUCTION Section - Shows EXACT tasks from designer's DONE pipeline */}
+      {tasks.filter(t => t.status === 'done' && !t.admin_removed_from_production).length > 0 && (
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-lg border-2 border-blue-300 dark:border-blue-700 p-3 md:p-4 shadow-lg">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
@@ -715,15 +723,15 @@ export const AdminKanbanBoard = () => {
                 FOR PRODUCTION
               </h2>
               <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                {tasks.filter(t => t.status === 'done' && t.came_from_designer_done).length}
+                {tasks.filter(t => t.status === 'done' && !t.admin_removed_from_production).length}
               </span>
             </div>
-            <p className="text-xs text-muted-foreground hidden sm:block">Tasks completed by designer ready for production</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">Tasks from designer's DONE pipeline ready for production</p>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto">
             {tasks
-              .filter(t => t.status === 'done' && t.came_from_designer_done)
+              .filter(t => t.status === 'done' && !t.admin_removed_from_production)
               .map(task => (
                 <TaskCard
                   key={task.id}
