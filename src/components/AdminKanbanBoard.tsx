@@ -578,7 +578,7 @@ export const AdminKanbanBoard = () => {
             assigned_to: null,  // Unassign from designer
             updated_at: new Date().toISOString(),
             status_changed_at: new Date().toISOString(),
-            came_from_designer_done: true
+            came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
           })
           .eq('id', item.parent_task_id);
 
@@ -595,7 +595,7 @@ export const AdminKanbanBoard = () => {
             assigned_to: null,  // Unassign from designer
             updated_at: new Date().toISOString(),
             status_changed_at: new Date().toISOString(),
-            came_from_designer_done: true
+            came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
           })
           .eq('id', taskId);
 
