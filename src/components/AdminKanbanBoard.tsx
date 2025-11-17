@@ -821,6 +821,10 @@ export const AdminKanbanBoard = () => {
                     onTaskUpdated={fetchTasks}
                     userRole="admin"
                     isAdminOwnPanel={true}
+                    onSendBack={column.status === 'with_client' ? (task) => {
+                      setSendBackTask(task);
+                      setSendBackDialogOpen(true);
+                    } : undefined}
                   />
                 );
               })}
