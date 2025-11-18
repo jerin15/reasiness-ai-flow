@@ -152,12 +152,17 @@ export const UrgentNotificationModal = () => {
 
       if (!notification) return;
 
-      // Check if this is an estimation-specific broadcast
+      // Check if this is an estimation-specific broadcast (case-insensitive)
+      const titleLower = notification.title?.toLowerCase() || '';
+      const messageLower = notification.message?.toLowerCase() || '';
       const isEstimationBroadcast = notification.is_broadcast && 
-        (notification.title?.includes('ESTIMATION') || 
-         notification.title?.includes('PROGRESS UPDATE') ||
-         notification.title?.includes('GOOD MORNING') ||
-         notification.message?.includes('quotations'));
+        (titleLower.includes('estimation') || 
+         titleLower.includes('progress update') ||
+         titleLower.includes('good morning') ||
+         titleLower.includes('quotation') ||
+         titleLower.includes('rfq') ||
+         messageLower.includes('quotation') ||
+         messageLower.includes('estimation'));
 
       // If it's an estimation broadcast, check if user has estimation role
       if (isEstimationBroadcast && currentUserId) {
