@@ -153,16 +153,13 @@ export const UrgentNotificationModal = () => {
       if (!notification) return;
 
       // Check if this is an estimation-specific broadcast (case-insensitive)
+      // Note: Don't include 'quotation' or 'rfq' as these are part of client_service workflow too
       const titleLower = notification.title?.toLowerCase() || '';
       const messageLower = notification.message?.toLowerCase() || '';
       const isEstimationBroadcast = notification.is_broadcast && 
-        (titleLower.includes('estimation') || 
+        (titleLower.includes('estimation team') || 
          titleLower.includes('progress update') ||
-         titleLower.includes('good morning') ||
-         titleLower.includes('quotation') ||
-         titleLower.includes('rfq') ||
-         messageLower.includes('quotation') ||
-         messageLower.includes('estimation'));
+         titleLower.includes('good morning estimation'));
 
       // If it's an estimation broadcast, check if user has estimation role
       if (isEstimationBroadcast && currentUserId) {
