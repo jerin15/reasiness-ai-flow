@@ -160,14 +160,27 @@ export function DashboardSidebar({
                   </span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              {isAdminOrHead && (
-                <SidebarMenuItem>
-                  <div className="px-2">
-                    <AdminCommunicationPanel />
-                  </div>
-                </SidebarMenuItem>
-              )}
             </SidebarMenu>
+            
+            {/* Admin Communication Panel */}
+            {isAdminOrHead && (
+              <div className="px-2 mt-2">
+                <AdminCommunicationPanel />
+              </div>
+            )}
+
+            {/* Team Status */}
+            <div className="mt-3 px-2">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">Team Status</div>
+              <UserPresenceIndicator />
+            </div>
+
+            {/* Notifications */}
+            <div className="mt-3 px-2 flex flex-col gap-2">
+              <div className="text-xs font-semibold text-muted-foreground mb-1">Notifications</div>
+              <StatusChangeNotification />
+              <WalkieTalkieNotification />
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -214,7 +227,6 @@ export function DashboardSidebar({
                 </SidebarMenuItem>
               )}
 
-
               {/* Estimation Report */}
               {isAdminOrHead && (
                 <SidebarMenuItem>
@@ -235,23 +247,6 @@ export function DashboardSidebar({
                 </SidebarMenuItem>
               )}
             </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Notifications */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Notifications</SidebarGroupLabel>
-          <SidebarGroupContent className="flex flex-col gap-2 px-2">
-            <StatusChangeNotification />
-            <WalkieTalkieNotification />
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Team Status */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Team Status</SidebarGroupLabel>
-          <SidebarGroupContent className="px-2">
-            <UserPresenceIndicator />
           </SidebarGroupContent>
         </SidebarGroup>
 
