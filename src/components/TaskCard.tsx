@@ -247,8 +247,8 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
     return allPipelines.filter(pipeline => pipeline.value !== task.status);
   };
 
-  const pipelines = getRolePipelines(task.assigned_user_role || userRole || "operations");
-  console.log("TaskCard - Task:", task.title, "| Assigned User Role:", task.assigned_user_role, "| Viewing Role:", userRole, "| Current status:", task.status, "| Available pipelines:", pipelines.length);
+  const pipelines = getRolePipelines(userRole || task.assigned_user_role || "operations");
+  console.log("TaskCard - Task:", task.title, "| Viewing Role:", userRole, "| Assigned User Role:", task.assigned_user_role, "| Current status:", task.status, "| Available pipelines:", pipelines.length);
 
   const handleMoveTask = async (newStatus: string) => {
     if (newStatus === task.status || isMoving) return;
