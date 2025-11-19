@@ -198,6 +198,8 @@ export const ModernChatInterface = ({
       );
       
       setMessages(messagesWithReplies);
+      // Scroll to bottom after messages are loaded
+      setTimeout(scrollToBottom, 100);
     } catch (error: any) {
       console.error("Error fetching messages:", error);
       toast.error("Failed to load messages");
