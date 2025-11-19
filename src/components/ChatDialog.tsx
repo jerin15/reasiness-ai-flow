@@ -160,6 +160,9 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
       
       // Mark ALL unread messages as read immediately and atomically
       await markMessagesAsRead();
+      
+      // Scroll to bottom after messages are loaded
+      scrollToBottom();
     } catch (error: any) {
       console.error('Error fetching messages:', error);
       toast.error('Failed to load messages');
