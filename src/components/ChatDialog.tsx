@@ -144,7 +144,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
       if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
-    }, 100);
+    }, 150);
   };
 
   const fetchMessages = async () => {
