@@ -199,7 +199,7 @@ export const ModernChatInterface = ({
       
       setMessages(messagesWithReplies);
       // Scroll to bottom after messages are loaded
-      setTimeout(scrollToBottom, 100);
+      setTimeout(scrollToBottom, 200);
     } catch (error: any) {
       console.error("Error fetching messages:", error);
       toast.error("Failed to load messages");
@@ -230,9 +230,11 @@ export const ModernChatInterface = ({
   };
 
   const scrollToBottom = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    }, 100);
   };
 
   const handleSendMessage = async () => {
