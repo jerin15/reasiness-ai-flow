@@ -140,11 +140,14 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
   }, [messages]);
 
   const scrollToBottom = () => {
-    setTimeout(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    // Use scrollIntoView on the last message for reliable scrolling
+    const messagesContainer = scrollRef.current;
+    if (messagesContainer) {
+      const lastMessage = messagesContainer.querySelector('[data-message-container]:last-child');
+      if (lastMessage) {
+        lastMessage.scrollIntoView({ behavior: 'auto', block: 'end' });
       }
-    }, 150);
+    }
   };
 
   const fetchMessages = async () => {
@@ -162,7 +165,9 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
       await markMessagesAsRead();
       
       // Scroll to bottom after messages are loaded
-      scrollToBottom();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(scrollToBottom);
+      });
     } catch (error: any) {
       console.error('Error fetching messages:', error);
       toast.error('Failed to load messages');
@@ -319,6 +324,7 @@ export const ChatDialog = ({ open, onOpenChange, recipientId, recipientName }: C
               return (
                 <div
                   key={msg.id}
+                  data-message-container
                   className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                 >
                    <div

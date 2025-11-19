@@ -198,8 +198,10 @@ export const ModernChatInterface = ({
       );
       
       setMessages(messagesWithReplies);
-      // Scroll to bottom after messages are loaded
-      setTimeout(scrollToBottom, 200);
+      // Scroll to bottom after messages are loaded - use requestAnimationFrame for reliability
+      requestAnimationFrame(() => {
+        requestAnimationFrame(scrollToBottom);
+      });
     } catch (error: any) {
       console.error("Error fetching messages:", error);
       toast.error("Failed to load messages");
@@ -230,11 +232,14 @@ export const ModernChatInterface = ({
   };
 
   const scrollToBottom = () => {
-    setTimeout(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    // Use scrollIntoView on the last message for reliable scrolling
+    const messagesContainer = scrollRef.current;
+    if (messagesContainer) {
+      const lastMessage = messagesContainer.querySelector('[data-message-container]:last-child');
+      if (lastMessage) {
+        lastMessage.scrollIntoView({ behavior: 'auto', block: 'end' });
       }
-    }, 100);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -393,6 +398,7 @@ export const ModernChatInterface = ({
               return (
                 <div
                   key={message.id}
+                  data-message-container
                   className={`flex ${isSent ? "justify-end" : "justify-start"} group`}
                 >
                   <div
