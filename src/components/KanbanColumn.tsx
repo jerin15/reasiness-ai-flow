@@ -41,6 +41,64 @@ type KanbanColumnProps = {
   onSendBack?: (task: Task) => void;
 };
 
+// Get subtle background color for column header based on title
+const getColumnHeaderColor = (columnTitle: string): string => {
+  const titleLower = columnTitle.toLowerCase();
+  
+  // RFQ / Quotation related - Soft Blue
+  if (titleLower.includes('rfq') || titleLower === 'quotation') {
+    return 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200/30 dark:border-blue-800/30';
+  }
+  
+  // General / To-Do - Soft Purple
+  if (titleLower.includes('general') || titleLower.includes('to-do')) {
+    return 'bg-purple-50/50 dark:bg-purple-950/20 border-purple-200/30 dark:border-purple-800/30';
+  }
+  
+  // Supplier / Quotes - Soft Amber
+  if (titleLower.includes('supplier') || titleLower.includes('quotes')) {
+    return 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/30 dark:border-amber-800/30';
+  }
+  
+  // Client related - Soft Cyan
+  if (titleLower.includes('client') || titleLower.includes('with client')) {
+    return 'bg-cyan-50/50 dark:bg-cyan-950/20 border-cyan-200/30 dark:border-cyan-800/30';
+  }
+  
+  // Admin / Approval - Soft Rose
+  if (titleLower.includes('admin') || titleLower.includes('approval')) {
+    return 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/30 dark:border-rose-800/30';
+  }
+  
+  // Production / Mockup - Soft Orange
+  if (titleLower.includes('production') || titleLower.includes('mockup')) {
+    return 'bg-orange-50/50 dark:bg-orange-950/20 border-orange-200/30 dark:border-orange-800/30';
+  }
+  
+  // Invoice / Billing - Soft Emerald
+  if (titleLower.includes('invoice') || titleLower.includes('bill')) {
+    return 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/30 dark:border-emerald-800/30';
+  }
+  
+  // New Calls - Soft Indigo
+  if (titleLower.includes('new calls') || titleLower.includes('calls')) {
+    return 'bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200/30 dark:border-indigo-800/30';
+  }
+  
+  // Follow Up - Soft Violet
+  if (titleLower.includes('follow')) {
+    return 'bg-violet-50/50 dark:bg-violet-950/20 border-violet-200/30 dark:border-violet-800/30';
+  }
+  
+  // Done - Soft Green
+  if (titleLower.includes('done')) {
+    return 'bg-green-50/50 dark:bg-green-950/20 border-green-200/30 dark:border-green-800/30';
+  }
+  
+  // Default - Soft Gray
+  return 'bg-card border';
+};
+
 export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated, userRole, userRolesMap, isAdminOwnPanel, onDeleteTask, onSendBack }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -49,10 +107,13 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTask
       ref={setNodeRef}
       className="flex flex-col min-w-[280px] max-w-[320px] flex-1"
     >
-      <div className="bg-card border rounded-lg p-3 mb-2 shadow-sm sticky top-0 z-10">
+      <div className={cn(
+        "rounded-lg p-3 mb-2 shadow-sm sticky top-0 z-10 transition-colors",
+        getColumnHeaderColor(title)
+      )}>
         <h3 className="font-semibold text-sm flex items-center justify-between">
           <span>{title}</span>
-          <span className="text-xs bg-muted px-2 py-1 rounded-full">
+          <span className="text-xs bg-background/60 backdrop-blur-sm px-2 py-1 rounded-full">
             {tasks.length}
           </span>
         </h3>
