@@ -12,7 +12,11 @@ type Card = {
   matched: boolean;
 };
 
-export const MemoryGame = () => {
+interface MemoryGameProps {
+  roomId?: string;
+}
+
+export const MemoryGame = ({ roomId }: MemoryGameProps) => {
   const { toast } = useToast();
   const [cards, setCards] = useState<Card[]>([]);
   const [flippedCards, setFlippedCards] = useState<number[]>([]);

@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Brain, Loader2, ArrowLeft } from "lucide-react";
+import { GameLobby } from "@/components/games/GameLobby";
 import { SudokuGame } from "@/components/games/SudokuGame";
 import { ChessGame } from "@/components/games/ChessGame";
 import { MemoryGame } from "@/components/games/MemoryGame";
@@ -14,6 +16,8 @@ const BrainGames = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
+  const [activeGameRoom, setActiveGameRoom] = useState<string | null>(null);
+  const [currentTab, setCurrentTab] = useState("sudoku");
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -54,6 +58,18 @@ const BrainGames = () => {
     return null;
   }
 
+  const handleStartGame = (roomId: string, isMultiplayer: boolean) => {
+    if (isMultiplayer && roomId) {
+      setActiveGameRoom(roomId);
+    } else {
+      setActiveGameRoom(null);
+    }
+  };
+
+  const handleBackToLobby = () => {
+    setActiveGameRoom(null);
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
@@ -65,7 +81,7 @@ const BrainGames = () => {
           <p className="text-muted-foreground">Sharpen your mind with challenging puzzles and games</p>
         </div>
 
-        <Tabs defaultValue="sudoku" className="w-full">
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="sudoku">Sudoku</TabsTrigger>
             <TabsTrigger value="chess">Chess</TabsTrigger>
@@ -77,11 +93,23 @@ const BrainGames = () => {
           <TabsContent value="sudoku">
             <Card>
               <CardHeader>
-                <CardTitle>Sudoku</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  Sudoku
+                  {activeGameRoom && (
+                    <Button variant="outline" size="sm" onClick={handleBackToLobby}>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back to Lobby
+                    </Button>
+                  )}
+                </CardTitle>
                 <CardDescription>Fill the 9×9 grid with digits so each column, row, and 3×3 box contains 1-9</CardDescription>
               </CardHeader>
               <CardContent>
-                <SudokuGame />
+                {!activeGameRoom ? (
+                  <GameLobby gameType="sudoku" onStartGame={handleStartGame} />
+                ) : (
+                  <SudokuGame roomId={activeGameRoom} />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -89,11 +117,23 @@ const BrainGames = () => {
           <TabsContent value="chess">
             <Card>
               <CardHeader>
-                <CardTitle>Chess</CardTitle>
-                <CardDescription>Play chess against yourself or practice strategies</CardDescription>
+                <CardTitle className="flex items-center justify-between">
+                  Chess
+                  {activeGameRoom && (
+                    <Button variant="outline" size="sm" onClick={handleBackToLobby}>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back to Lobby
+                    </Button>
+                  )}
+                </CardTitle>
+                <CardDescription>Play chess against another player or practice strategies</CardDescription>
               </CardHeader>
               <CardContent>
-                <ChessGame />
+                {!activeGameRoom ? (
+                  <GameLobby gameType="chess" onStartGame={handleStartGame} />
+                ) : (
+                  <ChessGame roomId={activeGameRoom} />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -101,11 +141,23 @@ const BrainGames = () => {
           <TabsContent value="memory">
             <Card>
               <CardHeader>
-                <CardTitle>Memory Match</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  Memory Match
+                  {activeGameRoom && (
+                    <Button variant="outline" size="sm" onClick={handleBackToLobby}>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back to Lobby
+                    </Button>
+                  )}
+                </CardTitle>
                 <CardDescription>Find matching pairs by remembering card positions</CardDescription>
               </CardHeader>
               <CardContent>
-                <MemoryGame />
+                {!activeGameRoom ? (
+                  <GameLobby gameType="memory" onStartGame={handleStartGame} />
+                ) : (
+                  <MemoryGame roomId={activeGameRoom} />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -113,11 +165,23 @@ const BrainGames = () => {
           <TabsContent value="wordsearch">
             <Card>
               <CardHeader>
-                <CardTitle>Word Search</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  Word Search
+                  {activeGameRoom && (
+                    <Button variant="outline" size="sm" onClick={handleBackToLobby}>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back to Lobby
+                    </Button>
+                  )}
+                </CardTitle>
                 <CardDescription>Find hidden words in the letter grid</CardDescription>
               </CardHeader>
               <CardContent>
-                <WordSearchGame />
+                {!activeGameRoom ? (
+                  <GameLobby gameType="wordsearch" onStartGame={handleStartGame} />
+                ) : (
+                  <WordSearchGame roomId={activeGameRoom} />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -125,11 +189,23 @@ const BrainGames = () => {
           <TabsContent value="math">
             <Card>
               <CardHeader>
-                <CardTitle>Math Puzzle</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                  Math Puzzle
+                  {activeGameRoom && (
+                    <Button variant="outline" size="sm" onClick={handleBackToLobby}>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back to Lobby
+                    </Button>
+                  )}
+                </CardTitle>
                 <CardDescription>Solve mathematical equations as fast as you can</CardDescription>
               </CardHeader>
               <CardContent>
-                <MathPuzzleGame />
+                {!activeGameRoom ? (
+                  <GameLobby gameType="math" onStartGame={handleStartGame} />
+                ) : (
+                  <MathPuzzleGame roomId={activeGameRoom} />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
