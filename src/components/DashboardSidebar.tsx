@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus, Brain } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { StatusChangeNotification } from "./StatusChangeNotification";
@@ -62,6 +63,7 @@ export function DashboardSidebar({
   formatRole,
 }: DashboardSidebarProps) {
   const { open } = useSidebar();
+  const navigate = useNavigate();
   const isAdminOrHead = userRole === "admin" || userRole === "technical_head";
   const isAdminOrEstimation = userRole === "admin" || userRole === "estimation";
 
@@ -195,6 +197,16 @@ export function DashboardSidebar({
                   <SidebarMenuButton onClick={onAnalyticsClick}>
                     <BarChart3 className="h-4 w-4" />
                     <span>Analytics</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+              {/* Brain Games */}
+              {isAdminOrHead && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => navigate('/brain-games')}>
+                    <Brain className="h-4 w-4" />
+                    <span>Brain Games</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
