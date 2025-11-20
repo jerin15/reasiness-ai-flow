@@ -364,6 +364,48 @@ export type Database = {
         }
         Relationships: []
       }
+      game_scores: {
+        Row: {
+          completion_time_seconds: number | null
+          created_at: string | null
+          difficulty: string | null
+          game_type: string
+          id: string
+          is_multiplayer: boolean | null
+          moves_count: number | null
+          opponent_id: string | null
+          score: number
+          user_id: string
+          won: boolean | null
+        }
+        Insert: {
+          completion_time_seconds?: number | null
+          created_at?: string | null
+          difficulty?: string | null
+          game_type: string
+          id?: string
+          is_multiplayer?: boolean | null
+          moves_count?: number | null
+          opponent_id?: string | null
+          score?: number
+          user_id: string
+          won?: boolean | null
+        }
+        Update: {
+          completion_time_seconds?: number | null
+          created_at?: string | null
+          difficulty?: string | null
+          game_type?: string
+          id?: string
+          is_multiplayer?: boolean | null
+          moves_count?: number | null
+          opponent_id?: string | null
+          score?: number
+          user_id?: string
+          won?: boolean | null
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string
@@ -1356,7 +1398,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      game_leaderboard: {
+        Row: {
+          avg_score: number | null
+          best_score: number | null
+          email: string | null
+          fastest_time: number | null
+          full_name: string | null
+          game_type: string | null
+          games_played: number | null
+          rank_by_score: number | null
+          rank_by_speed: number | null
+          total_wins: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_due_date_reminders: { Args: never; Returns: undefined }
