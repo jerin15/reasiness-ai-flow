@@ -159,7 +159,9 @@ export const UrgentNotificationModal = () => {
       const isEstimationBroadcast = notification.is_broadcast && 
         (titleLower.includes('estimation team') || 
          titleLower.includes('progress update') ||
-         titleLower.includes('good morning estimation'));
+         titleLower.includes('good morning estimation') ||
+         titleLower.includes('team alert') ||
+         titleLower.includes('quotation task stuck'));
 
       // If it's an estimation broadcast, check if user has estimation role
       if (isEstimationBroadcast && currentUserId) {
