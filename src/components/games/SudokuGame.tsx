@@ -4,35 +4,86 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { RotateCcw, Lightbulb } from "lucide-react";
 
-const generateSudoku = () => {
-  const base = 3;
-  const side = base * base;
+// Check if a number is valid in a position
+const isValid = (board: number[][], row: number, col: number, num: number): boolean => {
+  // Check row
+  for (let x = 0; x < 9; x++) {
+    if (board[row][x] === num) return false;
+  }
   
-  // Generate a valid complete board
-  const board = Array(side).fill(0).map(() => Array(side).fill(0));
+  // Check column
+  for (let x = 0; x < 9; x++) {
+    if (board[x][col] === num) return false;
+  }
   
-  const pattern = (r: number, c: number) => (base * (r % base) + Math.floor(r / base) + c) % side;
-  const shuffle = (s: number[]) => s.sort(() => Math.random() - 0.5);
-  
-  const rBase = Array.from({ length: base }, (_, i) => i);
-  const rows = shuffle([...Array.from({ length: base }, () => shuffle([...rBase]))].flat());
-  const cols = shuffle([...Array.from({ length: base }, () => shuffle([...rBase]))].flat());
-  const nums = shuffle(Array.from({ length: side }, (_, i) => i + 1));
-  
-  for (let r = 0; r < side; r++) {
-    for (let c = 0; c < side; c++) {
-      board[rows[r]][cols[c]] = nums[pattern(r, c)];
+  // Check 3x3 box
+  const boxRow = Math.floor(row / 3) * 3;
+  const boxCol = Math.floor(col / 3) * 3;
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      if (board[boxRow + i][boxCol + j] === num) return false;
     }
   }
   
-  // Remove numbers to create puzzle
-  const squares = side * side;
-  const empties = Math.floor(squares * 0.5);
+  return true;
+};
+
+// Solve sudoku using backtracking
+const solveSudoku = (board: number[][]): boolean => {
+  for (let row = 0; row < 9; row++) {
+    for (let col = 0; col < 9; col++) {
+      if (board[row][col] === 0) {
+        for (let num = 1; num <= 9; num++) {
+          if (isValid(board, row, col, num)) {
+            board[row][col] = num;
+            if (solveSudoku(board)) return true;
+            board[row][col] = 0;
+          }
+        }
+        return false;
+      }
+    }
+  }
+  return true;
+};
+
+// Generate a valid complete Sudoku board
+const generateCompleteSudoku = (): number[][] => {
+  const board = Array(9).fill(0).map(() => Array(9).fill(0));
   
-  for (let i = 0; i < empties; i++) {
-    const r = Math.floor(Math.random() * side);
-    const c = Math.floor(Math.random() * side);
-    board[r][c] = 0;
+  // Fill diagonal 3x3 boxes first (they don't depend on each other)
+  for (let box = 0; box < 9; box += 3) {
+    const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9].sort(() => Math.random() - 0.5);
+    let idx = 0;
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        board[box + i][box + j] = nums[idx++];
+      }
+    }
+  }
+  
+  // Solve the rest
+  solveSudoku(board);
+  return board;
+};
+
+const generateSudoku = () => {
+  // Generate a complete valid board
+  const completeBoard = generateCompleteSudoku();
+  const board = JSON.parse(JSON.stringify(completeBoard));
+  
+  // Remove numbers to create puzzle (remove ~40-50 cells for medium difficulty)
+  const cellsToRemove = 45;
+  let removed = 0;
+  
+  while (removed < cellsToRemove) {
+    const row = Math.floor(Math.random() * 9);
+    const col = Math.floor(Math.random() * 9);
+    
+    if (board[row][col] !== 0) {
+      board[row][col] = 0;
+      removed++;
+    }
   }
   
   return board;
@@ -149,6 +200,17 @@ export const SudokuGame = ({ roomId }: SudokuGameProps) => {
     if (!selectedCell) return;
     
     const [row, col] = selectedCell;
+    
+    // Validate the move
+    if (!isValid(userBoard, row, col, num)) {
+      toast({
+        title: "Invalid move!",
+        description: "This number conflicts with Sudoku rules",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const newBoard = [...userBoard];
     newBoard[row][col] = num;
     setUserBoard(newBoard);
