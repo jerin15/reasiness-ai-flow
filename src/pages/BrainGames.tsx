@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Brain, Loader2, ArrowLeft, Trophy } from "lucide-react";
+import { Brain, Loader2, ArrowLeft, Trophy, Home } from "lucide-react";
 import { GameLobby } from "@/components/games/GameLobby";
 import { GameLeaderboard } from "@/components/games/GameLeaderboard";
 import { SudokuGame } from "@/components/games/SudokuGame";
@@ -117,10 +117,16 @@ const BrainGames = () => {
             </div>
             <p className="text-muted-foreground">Sharpen your mind with challenging puzzles and games</p>
           </div>
-          <Button onClick={() => setShowLeaderboard(true)} variant="outline">
-            <Trophy className="h-4 w-4 mr-2" />
-            Leaderboard
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => navigate('/')} variant="outline">
+              <Home className="h-4 w-4 mr-2" />
+              Dashboard
+            </Button>
+            <Button onClick={() => setShowLeaderboard(true)} variant="outline">
+              <Trophy className="h-4 w-4 mr-2" />
+              Leaderboard
+            </Button>
+          </div>
         </div>
 
         <Tabs value={currentTab} onValueChange={(val) => {

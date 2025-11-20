@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog,
@@ -26,12 +27,16 @@ interface UrgentNotification {
 }
 
 export const UrgentNotificationModal = () => {
+  const location = useLocation();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [notification, setNotification] = useState<UrgentNotification | null>(null);
   const [notificationQueue, setNotificationQueue] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [lastAlertTime, setLastAlertTime] = useState(0);
+
+  // Don't show notifications on brain games page
+  const isOnBrainGamesPage = location.pathname === '/brain-games';
 
   useEffect(() => {
     const initUser = async () => {
@@ -98,7 +103,7 @@ export const UrgentNotificationModal = () => {
   }, [notificationQueue, isProcessing, notification]);
 
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!currentUserId || isOnBrainGamesPage) return;
 
     // Subscribe to urgent notifications
     const channel = supabase
