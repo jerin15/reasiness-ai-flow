@@ -53,7 +53,8 @@ export const SudokuGame = ({ roomId }: SudokuGameProps) => {
   useEffect(() => {
     if (isMultiplayer && roomId) {
       loadMultiplayerGame();
-      subscribeToGameUpdates();
+      const cleanup = subscribeToGameUpdates();
+      return cleanup;
     } else {
       newGame();
     }
@@ -152,16 +153,39 @@ export const SudokuGame = ({ roomId }: SudokuGameProps) => {
     newBoard[row][col] = num;
     setUserBoard(newBoard);
     
-    if (isMultiplayer) {
+    if (isMultiplayer && roomId) {
       await syncGameState();
     }
     
     // Check if puzzle is complete
-    if (newBoard.every((row, i) => row.every((cell, j) => cell === solution[i][j]))) {
+    const isComplete = newBoard.every((row, i) => row.every((cell, j) => cell === solution[i][j]));
+    if (isComplete) {
+      await saveScore();
       toast({
         title: "Congratulations! 🎉",
         description: "You've solved the puzzle!",
       });
+    }
+  };
+
+  const saveScore = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Calculate score based on time and hints used (simplified)
+      const score = 1000; // Base score for completion
+
+      await supabase.from('game_scores').insert({
+        user_id: user.id,
+        game_type: 'sudoku',
+        score: score,
+        completion_time_seconds: Math.floor((Date.now() - Date.now()) / 1000), // Would need to track start time
+        won: true,
+        is_multiplayer: isMultiplayer,
+      });
+    } catch (error) {
+      console.error('Error saving score:', error);
     }
   };
 
