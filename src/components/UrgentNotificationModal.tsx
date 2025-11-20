@@ -157,31 +157,44 @@ export const UrgentNotificationModal = () => {
 
       if (!notification) return;
 
-      // Check if this is an estimation-specific broadcast (case-insensitive)
-      // Note: Don't include 'quotation' or 'rfq' as these are part of client_service workflow too
+      // Get current user's role first
+      const { data: userRole } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', currentUserId)
+        .maybeSingle();
+
+      const currentRole = userRole?.role;
+
+      // Check if this is an estimation-specific notification (case-insensitive)
       const titleLower = notification.title?.toLowerCase() || '';
       const messageLower = notification.message?.toLowerCase() || '';
+      
+      const isEstimationRelated = 
+        titleLower.includes('estimation') || 
+        titleLower.includes('quotation') ||
+        titleLower.includes('rfq') ||
+        titleLower.includes('mockup completed') ||
+        titleLower.includes('ready for review') ||
+        messageLower.includes('estimation') ||
+        messageLower.includes('quotation task stuck') ||
+        messageLower.includes('progress update');
+
+      // Filter out estimation notifications for non-estimation users
+      if (isEstimationRelated && currentRole !== 'estimation') {
+        console.log('⏭️ Skipping estimation notification for', currentRole, 'user');
+        return;
+      }
+
+      // Additional filter for broadcast messages
       const isEstimationBroadcast = notification.is_broadcast && 
         (titleLower.includes('estimation team') || 
-         titleLower.includes('progress update') ||
          titleLower.includes('good morning estimation') ||
-         titleLower.includes('team alert') ||
-         titleLower.includes('quotation task stuck'));
+         titleLower.includes('team alert'));
 
-      // If it's an estimation broadcast, check if user has estimation role
-      if (isEstimationBroadcast && currentUserId) {
-        const { data: userRole } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', currentUserId)
-          .eq('role', 'estimation')
-          .maybeSingle();
-
-        // Skip this notification if user doesn't have estimation role
-        if (!userRole) {
-          console.log('⏭️ Skipping estimation broadcast for non-estimation user');
-          return;
-        }
+      if (isEstimationBroadcast && currentRole !== 'estimation') {
+        console.log('⏭️ Skipping estimation broadcast for non-estimation user');
+        return;
       }
 
       // Fetch sender profile separately with error handling

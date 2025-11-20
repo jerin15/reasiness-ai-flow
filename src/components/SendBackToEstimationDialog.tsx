@@ -33,28 +33,37 @@ export const SendBackToEstimationDialog = ({
 
     try {
       // Find an estimation user
-      const { data: estimationUsers } = await supabase
+      const { data: estimationUsers, error: roleError } = await supabase
         .from("user_roles")
         .select("user_id")
         .eq("role", "estimation")
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (!estimationUsers) {
+      if (roleError) {
+        console.error("Error fetching estimation user:", roleError);
+        toast.error("Failed to find estimation user");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!estimationUsers || estimationUsers.length === 0) {
         toast.error("No estimation user found");
         setIsSubmitting(false);
         return;
       }
+
+      const estimationUserId = estimationUsers[0].user_id;
 
       // Update the task
       const { error: updateError } = await supabase
         .from("tasks")
         .update({
           status: "todo",
-          assigned_to: estimationUsers.user_id,
+          assigned_to: estimationUserId,
           mockup_completed_by_designer: true,
           came_from_designer_done: true,
-          description: remarks,
+          admin_remarks: remarks,
+          status_changed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq("id", taskId);
@@ -67,7 +76,7 @@ export const SendBackToEstimationDialog = ({
       const { error: notifError } = await supabase
         .from("urgent_notifications")
         .insert({
-          recipient_id: estimationUsers.user_id,
+          recipient_id: estimationUserId,
           sender_id: userData.user?.id,
           title: "🎨 Mockup Completed - Ready for Review",
           message: `Task: ${taskTitle}\n\n✅ Designer has completed the mockup and sent it for review.\n\n📝 Designer's Notes:\n${remarks}\n\n⚠️ Please review and proceed accordingly.`,
