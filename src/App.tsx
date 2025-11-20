@@ -32,6 +32,7 @@ const AppContent = () => {
 
   return (
     <>
+      <UrgentNotificationModal />
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/auth" element={<Auth />} />
@@ -55,7 +56,6 @@ const App = () => (
         <ChatNotification />
         <VoiceCallNotification />
         <VoiceAnnouncementPlayer />
-        <UrgentNotificationModal />
         <DailyTaskReviewDialog />
         <EstimationBlockingModal />
         <EstimationForcedCheckIn />
