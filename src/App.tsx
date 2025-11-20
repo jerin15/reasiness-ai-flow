@@ -17,7 +17,7 @@ import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
-
+import BrainGames from "./pages/BrainGames";
 import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 
@@ -35,7 +35,7 @@ const AppContent = () => {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/auth" element={<Auth />} />
-        
+        <Route path="/brain-games" element={<BrainGames />} />
         <Route path="/analytics" element={<Analytics />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
