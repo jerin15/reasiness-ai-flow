@@ -7,6 +7,10 @@ type Piece = {
   color: 'w' | 'b';
 } | null;
 
+interface ChessGameProps {
+  roomId?: string;
+}
+
 const initialBoard: Piece[][] = [
   [{ type: 'r', color: 'b' }, { type: 'n', color: 'b' }, { type: 'b', color: 'b' }, { type: 'q', color: 'b' }, { type: 'k', color: 'b' }, { type: 'b', color: 'b' }, { type: 'n', color: 'b' }, { type: 'r', color: 'b' }],
   [{ type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }, { type: 'p', color: 'b' }],
@@ -23,7 +27,7 @@ const pieceSymbols: Record<string, string> = {
   'bk': '♚', 'bq': '♛', 'br': '♜', 'bb': '♝', 'bn': '♞', 'bp': '♟',
 };
 
-export const ChessGame = () => {
+export const ChessGame = ({ roomId }: ChessGameProps) => {
   const [board, setBoard] = useState<Piece[][]>(JSON.parse(JSON.stringify(initialBoard)));
   const [selectedSquare, setSelectedSquare] = useState<[number, number] | null>(null);
   const [currentTurn, setCurrentTurn] = useState<'w' | 'b'>('w');

@@ -319,6 +319,51 @@ export type Database = {
         }
         Relationships: []
       }
+      game_rooms: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          current_turn: string | null
+          game_state: Json
+          game_type: string
+          id: string
+          player1_id: string
+          player2_id: string | null
+          room_name: string
+          status: string
+          updated_at: string | null
+          winner_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          current_turn?: string | null
+          game_state?: Json
+          game_type: string
+          id?: string
+          player1_id: string
+          player2_id?: string | null
+          room_name: string
+          status?: string
+          updated_at?: string | null
+          winner_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          current_turn?: string | null
+          game_state?: Json
+          game_type?: string
+          id?: string
+          player1_id?: string
+          player2_id?: string | null
+          room_name?: string
+          status?: string
+          updated_at?: string | null
+          winner_id?: string | null
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string

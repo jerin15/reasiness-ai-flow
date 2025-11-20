@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { RotateCcw, Lightbulb } from "lucide-react";
 
 const generateSudoku = () => {
@@ -37,16 +38,96 @@ const generateSudoku = () => {
   return board;
 };
 
-export const SudokuGame = () => {
+interface SudokuGameProps {
+  roomId?: string;
+}
+
+export const SudokuGame = ({ roomId }: SudokuGameProps) => {
   const { toast } = useToast();
   const [puzzle, setPuzzle] = useState<number[][]>([]);
   const [solution, setSolution] = useState<number[][]>([]);
   const [userBoard, setUserBoard] = useState<number[][]>([]);
   const [selectedCell, setSelectedCell] = useState<[number, number] | null>(null);
+  const [isMultiplayer] = useState(!!roomId);
 
   useEffect(() => {
-    newGame();
-  }, []);
+    if (isMultiplayer && roomId) {
+      loadMultiplayerGame();
+      subscribeToGameUpdates();
+    } else {
+      newGame();
+    }
+  }, [roomId, isMultiplayer]);
+
+  const loadMultiplayerGame = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('game_rooms')
+        .select('game_state')
+        .eq('id', roomId)
+        .single();
+
+      if (error) throw error;
+
+      if (data?.game_state && Object.keys(data.game_state).length > 0) {
+        const state = data.game_state as any;
+        setPuzzle(state.puzzle);
+        setSolution(state.solution);
+        setUserBoard(state.userBoard);
+      } else {
+        newGame();
+      }
+    } catch (error) {
+      console.error('Error loading multiplayer game:', error);
+      newGame();
+    }
+  };
+
+  const subscribeToGameUpdates = () => {
+    if (!roomId) return;
+
+    const channel = supabase
+      .channel(`game_room_${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'game_rooms',
+          filter: `id=eq.${roomId}`
+        },
+        (payload) => {
+          const state = payload.new.game_state as any;
+          if (state?.userBoard) {
+            setUserBoard(state.userBoard);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
+
+  const syncGameState = async () => {
+    if (!isMultiplayer || !roomId) return;
+
+    try {
+      await supabase
+        .from('game_rooms')
+        .update({
+          game_state: {
+            puzzle,
+            solution,
+            userBoard
+          }
+        })
+        .eq('id', roomId);
+    } catch (error) {
+      console.error('Error syncing game state:', error);
+    }
+  };
 
   const newGame = () => {
     const newPuzzle = generateSudoku();
@@ -63,13 +144,17 @@ export const SudokuGame = () => {
     }
   };
 
-  const handleNumberInput = (num: number) => {
+  const handleNumberInput = async (num: number) => {
     if (!selectedCell) return;
     
     const [row, col] = selectedCell;
     const newBoard = [...userBoard];
     newBoard[row][col] = num;
     setUserBoard(newBoard);
+    
+    if (isMultiplayer) {
+      await syncGameState();
+    }
     
     // Check if puzzle is complete
     if (newBoard.every((row, i) => row.every((cell, j) => cell === solution[i][j]))) {

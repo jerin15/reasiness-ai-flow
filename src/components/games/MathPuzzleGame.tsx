@@ -9,6 +9,10 @@ type Puzzle = {
   answer: number;
 };
 
+interface MathPuzzleGameProps {
+  roomId?: string;
+}
+
 const generatePuzzle = (): Puzzle => {
   const operations = ['+', '-', '*'];
   const op = operations[Math.floor(Math.random() * operations.length)];
@@ -41,7 +45,7 @@ const generatePuzzle = (): Puzzle => {
   return { question, answer };
 };
 
-export const MathPuzzleGame = () => {
+export const MathPuzzleGame = ({ roomId }: MathPuzzleGameProps) => {
   const { toast } = useToast();
   const [puzzle, setPuzzle] = useState<Puzzle>(generatePuzzle());
   const [userAnswer, setUserAnswer] = useState('');

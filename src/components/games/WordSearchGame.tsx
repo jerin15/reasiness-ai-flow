@@ -5,6 +5,10 @@ import { RotateCcw } from "lucide-react";
 
 const words = ['REACT', 'CODE', 'DEBUG', 'CLOUD', 'TASKS', 'ADMIN', 'DESIGN', 'BUILD'];
 
+interface WordSearchGameProps {
+  roomId?: string;
+}
+
 const createGrid = () => {
   const size = 12;
   const grid = Array(size).fill(0).map(() => Array(size).fill(''));
@@ -61,7 +65,7 @@ const createGrid = () => {
   return grid;
 };
 
-export const WordSearchGame = () => {
+export const WordSearchGame = ({ roomId }: WordSearchGameProps) => {
   const { toast } = useToast();
   const [grid, setGrid] = useState<string[][]>([]);
   const [foundWords, setFoundWords] = useState<Set<string>>(new Set());
