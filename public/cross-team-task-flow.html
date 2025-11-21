@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REA Hub - Current Cross-Team Task Flow</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .diagram-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .download-btn {
+            background: #0066cc;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .download-btn:hover {
+            background: #0052a3;
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <h1>REA Hub - Current Cross-Team Task Flow</h1>
+    <p class="subtitle">Real-time Task Synchronization Between Teams</p>
+    
+    <div class="diagram-container">
+        <div class="mermaid">
+graph TB
+    subgraph Client_Service["👔 Client Service (Daksh)"]
+        CS_NewCalls["📞 New Calls"]
+        CS_FollowUp["🔄 Follow Up"]
+        CS_Quotation["💰 Quotation"]
+        CS_Done["✅ Done"]
+    end
+
+    subgraph Estimation["💼 Estimation Team"]
+        EST_RFQ["📋 RFQ"]
+        EST_General["📝 General"]
+        EST_SupplierQuotes["💵 Supplier Quotes"]
+        EST_ClientApproval["👍 Client Approval"]
+        EST_AdminCost["⚖️ Admin Cost Approval"]
+        EST_QuotationBill["📄 Quotation Bill"]
+        EST_Production["🏭 Production"]
+        EST_PendingInvoice["📑 Pending Invoices"]
+        EST_Done["✅ Done"]
+    end
+
+    subgraph Designer["🎨 Designer Team"]
+        DES_Todo["📝 To-Do"]
+        DES_Mockup["🖼️ Mockup"]
+        DES_WithClient["👤 With Client"]
+        DES_Production["🏭 Production"]
+        DES_Done["✅ Done"]
+    end
+
+    subgraph Operations["⚙️ Operations Team"]
+        OPS_Todo["📝 To-Do"]
+        OPS_Approval["✅ Approval"]
+        OPS_Production["🏭 Production"]
+        OPS_Delivery["🚚 Delivery"]
+        OPS_Done["✅ Done"]
+    end
+
+    subgraph Admin["👑 Admin"]
+        ADMIN_Direct["📌 Direct Task Assignment"]
+    end
+
+    %% Client Service → Estimation Sync
+    CS_Quotation -->|"Auto-creates linked RFQ task<br/>Trigger: status = 'quotation'"| EST_RFQ
+    CS_Quotation -.->|Original task continues| CS_Done
+
+    %% Estimation → Operations Sync
+    EST_Production -->|"Auto-creates linked production task<br/>Trigger: status = 'production'"| OPS_Production
+    EST_Production -.->|Original task continues| EST_PendingInvoice
+    EST_PendingInvoice --> EST_Done
+
+    %% Designer → Estimation Return Flow
+    DES_Done -->|"Send back to Estimation<br/>(via SendBackToEstimationDialog)"| EST_RFQ
+    DES_Done -.->|Can also proceed normally| DES_Done
+
+    %% Admin Direct Assignment
+    ADMIN_Direct -->|Can assign to any team| EST_RFQ
+    ADMIN_Direct -->|Can assign to any team| DES_Todo
+    ADMIN_Direct -->|Can assign to any team| OPS_Todo
+    ADMIN_Direct -->|"Creates production task"| OPS_Production
+
+    %% Normal Designer Flow
+    DES_Todo --> DES_Mockup
+    DES_Mockup --> DES_WithClient
+    DES_WithClient --> DES_Production
+    DES_Production --> DES_Done
+
+    %% Normal Estimation Flow
+    EST_RFQ --> EST_General
+    EST_General --> EST_SupplierQuotes
+    EST_SupplierQuotes --> EST_ClientApproval
+    EST_ClientApproval --> EST_AdminCost
+    EST_AdminCost --> EST_QuotationBill
+    EST_QuotationBill --> EST_Production
+
+    %% Normal Operations Flow
+    OPS_Todo --> OPS_Approval
+    OPS_Approval --> OPS_Production
+    OPS_Production --> OPS_Delivery
+    OPS_Delivery --> OPS_Done
+
+    %% Normal Client Service Flow
+    CS_NewCalls --> CS_FollowUp
+    CS_FollowUp --> CS_Quotation
+
+    style CS_Quotation fill:#ff9800,stroke:#f57c00,stroke-width:3px
+    style EST_RFQ fill:#2196f3,stroke:#1976d2,stroke-width:3px
+    style EST_Production fill:#4caf50,stroke:#388e3c,stroke-width:3px
+    style OPS_Production fill:#4caf50,stroke:#388e3c,stroke-width:3px
+    style DES_Done fill:#9c27b0,stroke:#7b1fa2,stroke-width:3px
+    style ADMIN_Direct fill:#f44336,stroke:#d32f2f,stroke-width:3px
+        </div>
+    </div>
+
+    <button class="download-btn" onclick="downloadAsSVG()">📥 Download as SVG</button>
+    <button class="download-btn" onclick="window.print()">🖨️ Print/Save as PDF</button>
+
+    <div class="instructions">
+        <strong>💡 How to save this diagram:</strong>
+        <ul>
+            <li><strong>As SVG:</strong> Click "Download as SVG" button above</li>
+            <li><strong>As PDF:</strong> Click "Print/Save as PDF" and select "Save as PDF"</li>
+            <li><strong>As Image:</strong> Take a screenshot or right-click the diagram → "Save image as"</li>
+        </ul>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+
+        function downloadAsSVG() {
+            const svg = document.querySelector('.mermaid svg');
+            if (!svg) {
+                alert('Diagram not loaded yet. Please wait a moment and try again.');
+                return;
+            }
+            
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const svgUrl = URL.createObjectURL(svgBlob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = svgUrl;
+            downloadLink.download = 'REA-Hub-Cross-Team-Task-Flow.svg';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(svgUrl);
+        }
+
+        // Print styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @media print {
+                body { background: white; }
+                .download-btn, .instructions { display: none; }
+                .diagram-container { box-shadow: none; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
