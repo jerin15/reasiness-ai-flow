@@ -109,8 +109,7 @@ const Analytics = () => {
           created_at,
           user_id,
           task_id,
-          tasks!inner(title, status, type),
-          profiles!inner(full_name, email)
+          tasks!inner(title, status, type)
         `)
         .gte("created_at", fromDate)
         .lte("created_at", toDate)
@@ -127,15 +126,30 @@ const Analytics = () => {
       const { data: activityData, error: activityError } = await activityQuery;
       if (activityError) throw activityError;
 
+      // Fetch all user profiles
+      const userIds = Array.from(new Set((activityData || []).map((log: any) => log.user_id)));
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+
+      if (profileError) throw profileError;
+
+      // Create a map of user profiles for quick lookup
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
       // Process activities
-      const processedActivities: ActivityLog[] = (activityData || []).map((log: any) => ({
-        id: log.id,
-        action: log.action,
-        task_title: log.tasks?.title || "Unknown Task",
-        user_name: log.profiles?.full_name || log.profiles?.email || "Unknown",
-        created_at: log.created_at,
-        details: log.details,
-      }));
+      const processedActivities: ActivityLog[] = (activityData || []).map((log: any) => {
+        const profile = profileMap.get(log.user_id);
+        return {
+          id: log.id,
+          action: log.action,
+          task_title: log.tasks?.title || "Unknown Task",
+          user_name: profile?.full_name || profile?.email || "Unknown",
+          created_at: log.created_at,
+          details: log.details,
+        };
+      });
 
       setActivities(processedActivities);
 
@@ -144,7 +158,8 @@ const Analytics = () => {
 
       (activityData || []).forEach((log: any) => {
         const userId = log.user_id;
-        const userName = log.profiles?.full_name || log.profiles?.email || "Unknown";
+        const profile = profileMap.get(userId);
+        const userName = profile?.full_name || profile?.email || "Unknown";
 
         if (!userMetricsMap.has(userId)) {
           userMetricsMap.set(userId, {
