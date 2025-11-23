@@ -52,16 +52,35 @@ export const EstimationMockupTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Get user role to determine filtering
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      let query = supabase
         .from('tasks')
         .select('id, title, client_name, sent_to_designer_mockup, mockup_completed_by_designer, status, updated_at, created_at')
         .eq('sent_to_designer_mockup', true)
         .eq('mockup_completed_by_designer', false)
-        .is('deleted_at', null)
+        .is('deleted_at', null);
+
+      // Estimation users only see tasks they created
+      if (roleData?.role === 'estimation') {
+        query = query.eq('created_by', user.id);
+      }
+
+      const { data, error } = await query
         .order('updated_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching mockup tasks:', error);
+        throw error;
+      }
+      
+      console.log('Mockup tasks fetched:', data);
       setMockupTasks(data || []);
     } catch (error) {
       console.error('Error fetching mockup tasks:', error);
