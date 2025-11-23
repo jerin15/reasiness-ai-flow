@@ -55,7 +55,8 @@ export const EstimationMockupTracker = () => {
       const { data, error } = await supabase
         .from('tasks')
         .select('id, title, client_name, sent_to_designer_mockup, mockup_completed_by_designer, status, updated_at, created_at')
-        .in('status', ['mockup_pending', 'mockup'])
+        .eq('sent_to_designer_mockup', true)
+        .eq('mockup_completed_by_designer', false)
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
         .limit(10);
