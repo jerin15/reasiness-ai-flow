@@ -252,7 +252,7 @@ export function DashboardSidebar({
               {/* Cost Sheet Approval */}
               {isAdminOrEstimation && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => window.open('https://reacostsheet.netlify.app/', '_blank')}>
+                  <SidebarMenuButton onClick={() => window.open('https://costsheet.animatech.solutions', '_blank')}>
                     <FileCheck className="h-4 w-4" />
                     <span>Cost Sheet Approval</span>
                   </SidebarMenuButton>
