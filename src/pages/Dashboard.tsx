@@ -27,6 +27,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { AddTaskDialog } from "@/components/AddTaskDialog";
 import { CreateUserDialog } from "@/components/CreateUserDialog";
 import { EstimationQuotaTracker } from "@/components/EstimationQuotaTracker";
+import { EstimationMockupTracker } from "@/components/EstimationMockupTracker";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -413,8 +414,9 @@ const Dashboard = () => {
 
           <main className="container mx-auto px-4 py-6 relative">
             {userRole === "estimation" && (
-              <div className="mb-6">
+              <div className="space-y-6 mb-6">
                 <EstimationQuotaTracker />
+                <EstimationMockupTracker />
               </div>
             )}
             {showPersonalAnalytics && userRole !== "admin" && (
