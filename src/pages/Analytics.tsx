@@ -99,35 +99,45 @@ const Analytics = () => {
       const fromDate = startOfDay(new Date(dateFrom)).toISOString();
       const toDate = endOfDay(new Date(dateTo)).toISOString();
 
-      // Fetch task activity logs
-      let activityQuery = supabase
-        .from("task_activity_log")
+      // Fetch task audit logs (which has proper workflow tracking)
+      let auditQuery = supabase
+        .from("task_audit_log")
         .select(`
           id,
           action,
-          details,
+          old_values,
+          new_values,
           created_at,
-          user_id,
+          changed_by,
           task_id,
-          tasks!inner(title, status, type)
+          role
         `)
         .gte("created_at", fromDate)
         .lte("created_at", toDate)
         .order("created_at", { ascending: false });
 
       if (selectedUser !== "all") {
-        activityQuery = activityQuery.eq("user_id", selectedUser);
+        auditQuery = auditQuery.eq("changed_by", selectedUser);
       }
 
       if (activityType !== "all") {
-        activityQuery = activityQuery.eq("action", activityType);
+        auditQuery = auditQuery.eq("action", activityType);
       }
 
-      const { data: activityData, error: activityError } = await activityQuery;
-      if (activityError) throw activityError;
+      const { data: auditData, error: auditError } = await auditQuery;
+      if (auditError) throw auditError;
+
+      // Fetch task details for all audit logs
+      const taskIds = Array.from(new Set((auditData || []).map((log: any) => log.task_id)));
+      const { data: tasks, error: tasksError } = await supabase
+        .from("tasks")
+        .select("id, title, type, status")
+        .in("id", taskIds);
+
+      if (tasksError) throw tasksError;
 
       // Fetch all user profiles
-      const userIds = Array.from(new Set((activityData || []).map((log: any) => log.user_id)));
+      const userIds = Array.from(new Set((auditData || []).map((log: any) => log.changed_by)));
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
         .select("id, full_name, email")
@@ -135,19 +145,25 @@ const Analytics = () => {
 
       if (profileError) throw profileError;
 
-      // Create a map of user profiles for quick lookup
+      // Create maps for quick lookup
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      const taskMap = new Map(tasks?.map(t => [t.id, t]) || []);
 
       // Process activities
-      const processedActivities: ActivityLog[] = (activityData || []).map((log: any) => {
-        const profile = profileMap.get(log.user_id);
+      const processedActivities: ActivityLog[] = (auditData || []).map((log: any) => {
+        const profile = profileMap.get(log.changed_by);
+        const task = taskMap.get(log.task_id);
         return {
           id: log.id,
           action: log.action,
-          task_title: log.tasks?.title || "Unknown Task",
+          task_title: task?.title || "Unknown Task",
           user_name: profile?.full_name || profile?.email || "Unknown",
           created_at: log.created_at,
-          details: log.details,
+          details: {
+            old_status: log.old_values?.status,
+            new_status: log.new_values?.status,
+            task_type: task?.type,
+          },
         };
       });
 
@@ -156,10 +172,11 @@ const Analytics = () => {
       // Calculate metrics per user
       const userMetricsMap = new Map<string, ActivityMetric>();
 
-      (activityData || []).forEach((log: any) => {
-        const userId = log.user_id;
+      (auditData || []).forEach((log: any) => {
+        const userId = log.changed_by;
         const profile = profileMap.get(userId);
         const userName = profile?.full_name || profile?.email || "Unknown";
+        const task = taskMap.get(log.task_id);
 
         if (!userMetricsMap.has(userId)) {
           userMetricsMap.set(userId, {
@@ -175,24 +192,28 @@ const Analytics = () => {
 
         const metric = userMetricsMap.get(userId)!;
 
-        // Count specific actions
-        if (log.action === "sent_to_designer_mockup" || log.action === "created" && log.tasks?.type === "quotation") {
+        // Count RFQs sent (created action on quotation type tasks)
+        if (log.action === "created" && task?.type === "quotation") {
           metric.rfqs_sent++;
         }
 
-        if (log.action === "mockup_completed" || log.action === "designer_completed_mockup") {
-          metric.mockups_created++;
-        }
-
-        if (log.action === "follow_up" || log.action === "quick_action" && log.details?.action === "follow_up") {
-          metric.follow_ups++;
-        }
-
-        if (log.action === "completed" || log.action === "status_changed" && log.details?.new_status === "done") {
-          metric.tasks_completed++;
-        }
-
+        // Count mockups created (status changed to mockup-related statuses)
         if (log.action === "status_changed") {
+          const newStatus = log.new_values?.status;
+          if (newStatus === "mockup" || newStatus === "mockup_pending" || newStatus === "production_file") {
+            metric.mockups_created++;
+          }
+
+          // Count follow-ups (status changed to follow_up)
+          if (newStatus === "follow_up") {
+            metric.follow_ups++;
+          }
+
+          // Count completed tasks
+          if (newStatus === "done") {
+            metric.tasks_completed++;
+          }
+
           metric.status_changes++;
         }
       });
@@ -349,11 +370,7 @@ const Analytics = () => {
                     <SelectItem value="all">All Activities</SelectItem>
                     <SelectItem value="created">Task Created</SelectItem>
                     <SelectItem value="status_changed">Status Changed</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="sent_to_designer_mockup">Sent to Designer</SelectItem>
-                    <SelectItem value="mockup_completed">Mockup Completed</SelectItem>
-                    <SelectItem value="follow_up">Follow Up</SelectItem>
-                    <SelectItem value="quick_action">Quick Action</SelectItem>
+                    <SelectItem value="updated">Task Updated</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
