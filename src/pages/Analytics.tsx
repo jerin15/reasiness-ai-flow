@@ -99,7 +99,7 @@ const Analytics = () => {
       const fromDate = startOfDay(new Date(dateFrom)).toISOString();
       const toDate = endOfDay(new Date(dateTo)).toISOString();
 
-      // Fetch task audit logs (which has proper workflow tracking)
+      // Fetch task audit logs with proper filtering
       let auditQuery = supabase
         .from("task_audit_log")
         .select(`
@@ -131,7 +131,7 @@ const Analytics = () => {
       const taskIds = Array.from(new Set((auditData || []).map((log: any) => log.task_id)));
       const { data: tasks, error: tasksError } = await supabase
         .from("tasks")
-        .select("id, title, type, status")
+        .select("id, title, type, status, client_name")
         .in("id", taskIds);
 
       if (tasksError) throw tasksError;
@@ -149,13 +149,27 @@ const Analytics = () => {
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
       const taskMap = new Map(tasks?.map(t => [t.id, t]) || []);
 
-      // Process activities
+      // Process activities with detailed information
       const processedActivities: ActivityLog[] = (auditData || []).map((log: any) => {
         const profile = profileMap.get(log.changed_by);
         const task = taskMap.get(log.task_id);
+        
+        let actionDescription = log.action;
+        if (log.action === "created" && log.new_values?.type === "quotation") {
+          actionDescription = "RFQ Created";
+        } else if (log.action === "updated" && log.new_values?.sent_to_designer_mockup === true) {
+          actionDescription = "Sent to Designer";
+        } else if (log.action === "status_changed") {
+          const newStatus = log.new_values?.status;
+          if (newStatus === "follow_up") actionDescription = "Follow Up";
+          else if (newStatus === "done") actionDescription = "Completed";
+          else if (newStatus === "mockup") actionDescription = "Mockup Status";
+          else actionDescription = `Status: ${newStatus}`;
+        }
+
         return {
           id: log.id,
-          action: log.action,
+          action: actionDescription,
           task_title: task?.title || "Unknown Task",
           user_name: profile?.full_name || profile?.email || "Unknown",
           created_at: log.created_at,
@@ -163,13 +177,14 @@ const Analytics = () => {
             old_status: log.old_values?.status,
             new_status: log.new_values?.status,
             task_type: task?.type,
+            client_name: task?.client_name,
           },
         };
       });
 
       setActivities(processedActivities);
 
-      // Calculate metrics per user
+      // Calculate comprehensive metrics per user
       const userMetricsMap = new Map<string, ActivityMetric>();
 
       (auditData || []).forEach((log: any) => {
@@ -192,28 +207,28 @@ const Analytics = () => {
 
         const metric = userMetricsMap.get(userId)!;
 
-        // Count RFQs sent (created action on quotation type tasks)
-        if (log.action === "created" && task?.type === "quotation") {
+        // Count RFQs sent (quotation tasks created)
+        if (log.action === "created" && log.new_values?.type === "quotation") {
           metric.rfqs_sent++;
         }
 
-        // Count mockups created (status changed to mockup-related statuses)
+        // Count mockups sent to designer
+        if (log.action === "updated" && log.new_values?.sent_to_designer_mockup === true && log.old_values?.sent_to_designer_mockup !== true) {
+          metric.mockups_created++;
+        }
+
+        // Count follow-ups
+        if (log.action === "status_changed" && log.new_values?.status === "follow_up") {
+          metric.follow_ups++;
+        }
+
+        // Count completed tasks
+        if (log.action === "status_changed" && log.new_values?.status === "done") {
+          metric.tasks_completed++;
+        }
+
+        // Count all status changes
         if (log.action === "status_changed") {
-          const newStatus = log.new_values?.status;
-          if (newStatus === "mockup" || newStatus === "mockup_pending" || newStatus === "production_file") {
-            metric.mockups_created++;
-          }
-
-          // Count follow-ups (status changed to follow_up)
-          if (newStatus === "follow_up") {
-            metric.follow_ups++;
-          }
-
-          // Count completed tasks
-          if (newStatus === "done") {
-            metric.tasks_completed++;
-          }
-
           metric.status_changes++;
         }
       });
