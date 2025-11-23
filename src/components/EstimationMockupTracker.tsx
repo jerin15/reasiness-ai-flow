@@ -56,11 +56,10 @@ export const EstimationMockupTracker = () => {
         .from('tasks')
         .select('id, title, client_name, sent_to_designer_mockup, mockup_completed_by_designer, status, updated_at, created_at')
         .eq('created_by', user.id)
-        .eq('sent_to_designer_mockup', true)
-        .eq('mockup_completed_by_designer', false)
+        .in('status', ['mockup_pending', 'mockup'])
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
       if (error) throw error;
       setMockupTasks(data || []);
