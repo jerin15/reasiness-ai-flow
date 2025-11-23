@@ -95,11 +95,21 @@ const Analytics = () => {
     try {
       setLoading(true);
 
-      // Build date range filters
       const fromDate = startOfDay(new Date(dateFrom)).toISOString();
       const toDate = endOfDay(new Date(dateTo)).toISOString();
 
-      // Fetch task audit logs with proper filtering
+      // Fetch ALL quotation tasks in the date range to track RFQs received
+      const { data: quotationTasks, error: quotationError } = await supabase
+        .from("tasks")
+        .select("id, created_at, assigned_to, created_by, title, type, status")
+        .eq("type", "quotation")
+        .gte("created_at", fromDate)
+        .lte("created_at", toDate)
+        .is("deleted_at", null);
+
+      if (quotationError) throw quotationError;
+
+      // Fetch task audit logs for detailed activity tracking
       let auditQuery = supabase
         .from("task_audit_log")
         .select(`
@@ -127,25 +137,29 @@ const Analytics = () => {
       const { data: auditData, error: auditError } = await auditQuery;
       if (auditError) throw auditError;
 
-      // Fetch task details for all audit logs
+      // Fetch task details for audit logs
       const taskIds = Array.from(new Set((auditData || []).map((log: any) => log.task_id)));
       const { data: tasks, error: tasksError } = await supabase
         .from("tasks")
-        .select("id, title, type, status, client_name")
+        .select("id, title, type, status, client_name, assigned_to, sent_to_designer_mockup")
         .in("id", taskIds);
 
       if (tasksError) throw tasksError;
 
       // Fetch all user profiles
-      const userIds = Array.from(new Set((auditData || []).map((log: any) => log.changed_by)));
+      const allUserIds = Array.from(new Set([
+        ...(auditData || []).map((log: any) => log.changed_by),
+        ...(quotationTasks || []).map((t: any) => t.assigned_to).filter(Boolean),
+        ...(quotationTasks || []).map((t: any) => t.created_by).filter(Boolean),
+      ]));
+      
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
         .select("id, full_name, email")
-        .in("id", userIds);
+        .in("id", allUserIds);
 
       if (profileError) throw profileError;
 
-      // Create maps for quick lookup
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
       const taskMap = new Map(tasks?.map(t => [t.id, t]) || []);
 
@@ -187,6 +201,30 @@ const Analytics = () => {
       // Calculate comprehensive metrics per user
       const userMetricsMap = new Map<string, ActivityMetric>();
 
+      // First, count RFQs assigned to each user
+      (quotationTasks || []).forEach((task: any) => {
+        if (task.assigned_to) {
+          const userId = task.assigned_to;
+          const profile = profileMap.get(userId);
+          const userName = profile?.full_name || profile?.email || "Unknown";
+
+          if (!userMetricsMap.has(userId)) {
+            userMetricsMap.set(userId, {
+              user_id: userId,
+              user_name: userName,
+              rfqs_sent: 0,
+              mockups_created: 0,
+              follow_ups: 0,
+              tasks_completed: 0,
+              status_changes: 0,
+            });
+          }
+
+          userMetricsMap.get(userId)!.rfqs_sent++;
+        }
+      });
+
+      // Then process all audit activities
       (auditData || []).forEach((log: any) => {
         const userId = log.changed_by;
         const profile = profileMap.get(userId);
@@ -206,11 +244,6 @@ const Analytics = () => {
         }
 
         const metric = userMetricsMap.get(userId)!;
-
-        // Count RFQs sent (quotation tasks created)
-        if (log.action === "created" && log.new_values?.type === "quotation") {
-          metric.rfqs_sent++;
-        }
 
         // Count mockups sent to designer
         if (log.action === "updated" && log.new_values?.sent_to_designer_mockup === true && log.old_values?.sent_to_designer_mockup !== true) {
@@ -233,7 +266,13 @@ const Analytics = () => {
         }
       });
 
-      setMetrics(Array.from(userMetricsMap.values()).sort((a, b) => 
+      // Filter metrics based on selected user
+      let filteredMetrics = Array.from(userMetricsMap.values());
+      if (selectedUser !== "all") {
+        filteredMetrics = filteredMetrics.filter(m => m.user_id === selectedUser);
+      }
+
+      setMetrics(filteredMetrics.sort((a, b) => 
         (b.rfqs_sent + b.mockups_created + b.follow_ups + b.tasks_completed) - 
         (a.rfqs_sent + a.mockups_created + a.follow_ups + a.tasks_completed)
       ));
