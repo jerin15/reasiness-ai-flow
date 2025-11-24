@@ -61,12 +61,26 @@ const Dashboard = () => {
   useEffect(() => {
     console.log('🚀 Dashboard: Initial useEffect triggered');
     
-    // Small delay to allow session to fully initialize after redirect from auth
-    const timer = setTimeout(() => {
-      checkAuth();
-    }, 100);
+    // Set up auth state listener first
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        console.log('🔄 Dashboard: Auth state changed - no session, redirecting');
+        navigate("/auth");
+      } else {
+        console.log('✅ Dashboard: Auth state changed - session found');
+        // Only call checkAuth if we have a session
+        if (!currentUserId) {
+          checkAuth();
+        }
+      }
+    });
     
-    return () => clearTimeout(timer);
+    // Then check for existing session
+    checkAuth();
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
 
@@ -112,30 +126,16 @@ const Dashboard = () => {
     }
   }, [userRole, currentUserId]);
 
-  const checkAuth = async (retryCount = 0) => {
-    console.log('🔐 Dashboard: Starting checkAuth... (attempt', retryCount + 1, ')');
+  const checkAuth = async () => {
+    console.log('🔐 Dashboard: Starting checkAuth...');
     
     try {
       const {
         data: { session },
-        error: sessionError
       } = await supabase.auth.getSession();
 
-      console.log('🔍 Dashboard: Session check result:', { 
-        hasSession: !!session, 
-        userId: session?.user?.id,
-        error: sessionError 
-      });
-
       if (!session) {
-        // Retry once after a short delay in case session is still initializing
-        if (retryCount === 0) {
-          console.log('⏳ Dashboard: No session found, retrying once...');
-          setTimeout(() => checkAuth(1), 500);
-          return;
-        }
-        
-        console.log('❌ Dashboard: No session after retry, redirecting to auth');
+        console.log('❌ Dashboard: No session, redirecting to auth');
         navigate("/auth");
         return;
       }
