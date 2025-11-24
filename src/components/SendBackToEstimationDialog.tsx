@@ -54,12 +54,13 @@ export const SendBackToEstimationDialog = ({
 
       const estimationUserId = estimationUsers[0].user_id;
 
-      // Update the task
+      // Update the task - reset mockup flags and send back to estimation
       const { error: updateError } = await supabase
         .from("tasks")
         .update({
           status: "todo",
           assigned_to: estimationUserId,
+          sent_to_designer_mockup: false,
           mockup_completed_by_designer: true,
           came_from_designer_done: true,
           admin_remarks: remarks,
