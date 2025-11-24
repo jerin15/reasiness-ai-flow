@@ -59,28 +59,7 @@ const Dashboard = () => {
   const unreadCount = useUnreadMessageCount(currentUserId);
 
   useEffect(() => {
-    console.log('🚀 Dashboard: Initial useEffect triggered');
-    
-    // Set up auth state listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        console.log('🔄 Dashboard: Auth state changed - no session, redirecting');
-        navigate("/auth");
-      } else {
-        console.log('✅ Dashboard: Auth state changed - session found');
-        // Only call checkAuth if we have a session
-        if (!currentUserId) {
-          checkAuth();
-        }
-      }
-    });
-    
-    // Then check for existing session
     checkAuth();
-    
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
 
@@ -127,84 +106,44 @@ const Dashboard = () => {
   }, [userRole, currentUserId]);
 
   const checkAuth = async () => {
-    console.log('🔐 Dashboard: Starting checkAuth...');
-    
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (!session) {
-        console.log('❌ Dashboard: No session, redirecting to auth');
         navigate("/auth");
         return;
       }
 
-      console.log('✅ Dashboard: Session found for user:', session.user.id);
       setCurrentUserId(session.user.id);
       setSelectedUserId(session.user.id);
 
-      // Get user profile and role with a timeout
-      console.log('📡 Dashboard: Fetching profile...');
-      const profilePromise = supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("*, user_roles(*)")
         .eq("id", session.user.id)
         .single();
-      
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Profile query timeout')), 8000);
-      });
-
-      const { data: profile, error: profileError } = await Promise.race([
-        profilePromise,
-        timeoutPromise
-      ]) as any;
-
-      console.log('📦 Dashboard: Profile query result:', { profile, profileError });
 
       if (profileError) {
-        console.error('❌ Dashboard: Profile fetch error:', profileError);
-        toast.error("Failed to load profile. Please try logging in again.");
-        setTimeout(() => navigate("/auth"), 2000);
+        console.error("Error fetching profile:", profileError);
+        toast.error("Failed to load profile");
         return;
       }
-
-      if (!profile) {
-        console.error('❌ Dashboard: Profile is null');
-        toast.error("Profile not found. Please contact support.");
-        return;
-      }
-
-      console.log('👤 Dashboard: Profile loaded:', profile?.full_name, profile?.user_roles?.[0]?.role);
 
       setUserName(profile.full_name || profile.email);
       setUserAvatar(profile.avatar_url || "");
       const role = profile.user_roles?.[0]?.role || "operations";
-      
-      console.log('🎭 Dashboard: User role set to:', role);
       setUserRole(role);
       setSelectedUserRole(role);
 
-      // If admin or technical_head, fetch all team members (don't await to avoid blocking)
       if (role === "admin" || role === "technical_head") {
-        console.log('👥 Dashboard: Fetching team members for admin/technical_head');
-        fetchTeamMembers().catch(err => {
-          console.error('❌ Dashboard: fetchTeamMembers background error:', err);
-        });
+        fetchTeamMembers();
       }
-      
-      console.log('✅ Dashboard: checkAuth completed successfully');
-    } catch (error: any) {
-      console.error("❌ Dashboard: Error checking auth:", error);
-      if (error?.message === 'Profile query timeout') {
-        toast.error("Loading taking too long. Please check your connection and try again.");
-      } else {
-        toast.error("Authentication error. Please try logging in again.");
-      }
-      setTimeout(() => navigate("/auth"), 2000);
+    } catch (error) {
+      console.error("Error checking auth:", error);
+      toast.error("Authentication error");
     } finally {
-      console.log('🏁 Dashboard: Setting loading to false');
       setLoading(false);
     }
   };
