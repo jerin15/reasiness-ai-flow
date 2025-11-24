@@ -60,7 +60,13 @@ const Dashboard = () => {
 
   useEffect(() => {
     console.log('🚀 Dashboard: Initial useEffect triggered');
-    checkAuth();
+    
+    // Small delay to allow session to fully initialize after redirect from auth
+    const timer = setTimeout(() => {
+      checkAuth();
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
 
 
@@ -106,16 +112,30 @@ const Dashboard = () => {
     }
   }, [userRole, currentUserId]);
 
-  const checkAuth = async () => {
-    console.log('🔐 Dashboard: Starting checkAuth...');
+  const checkAuth = async (retryCount = 0) => {
+    console.log('🔐 Dashboard: Starting checkAuth... (attempt', retryCount + 1, ')');
     
     try {
       const {
         data: { session },
+        error: sessionError
       } = await supabase.auth.getSession();
 
+      console.log('🔍 Dashboard: Session check result:', { 
+        hasSession: !!session, 
+        userId: session?.user?.id,
+        error: sessionError 
+      });
+
       if (!session) {
-        console.log('❌ Dashboard: No session, redirecting to auth');
+        // Retry once after a short delay in case session is still initializing
+        if (retryCount === 0) {
+          console.log('⏳ Dashboard: No session found, retrying once...');
+          setTimeout(() => checkAuth(1), 500);
+          return;
+        }
+        
+        console.log('❌ Dashboard: No session after retry, redirecting to auth');
         navigate("/auth");
         return;
       }
