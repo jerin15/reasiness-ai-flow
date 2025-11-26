@@ -68,19 +68,32 @@ export const OperationsTaskDetails = ({
 
   const fetchOperationsUsers = async () => {
     try {
-      const { data } = await supabase
+      // Get all user IDs with operations role
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
-        .select('user_id, profiles(id, full_name, email)')
+        .select('user_id')
         .eq('role', 'operations');
+
+      if (roleError) throw roleError;
       
-      if (data) {
-        const users = data
-          .map(d => d.profiles)
-          .filter(Boolean) as OperationsUser[];
-        setOperationsUsers(users);
+      if (roleData && roleData.length > 0) {
+        const userIds = roleData.map(r => r.user_id);
+        
+        // Fetch profiles for those user IDs
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', userIds);
+          
+        if (profileError) throw profileError;
+        
+        if (profileData) {
+          setOperationsUsers(profileData as OperationsUser[]);
+        }
       }
     } catch (error) {
       console.error('Error fetching operations users:', error);
+      toast.error("Failed to load operations team members");
     }
   };
 
