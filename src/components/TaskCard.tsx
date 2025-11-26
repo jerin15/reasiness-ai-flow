@@ -626,6 +626,67 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
               </p>
             )}
             
+            {/* OPERATIONS TEAM: Prominent Task Details Section */}
+            {userRole === 'operations' && task.status === 'production' && (
+              <div className="mb-3 p-3 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-lg border-2 border-orange-300 dark:border-orange-700 shadow-md">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-orange-600" />
+                    <span className="text-sm font-bold text-orange-900 dark:text-orange-100">
+                      OPERATIONS DETAILS
+                    </span>
+                  </div>
+                  {(!task.suppliers || task.suppliers.length === 0) && (
+                    <Badge variant="destructive" className="animate-pulse">
+                      ⚠️ Required
+                    </Badge>
+                  )}
+                </div>
+                
+                {/* Show existing details or prompt to add */}
+                {task.suppliers && task.suppliers.length > 0 ? (
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-start gap-1">
+                      <Truck className="h-3 w-3 text-orange-600 mt-0.5" />
+                      <div className="flex-1">
+                        <span className="font-medium">Route: </span>
+                        {task.suppliers.map((s, i) => (
+                          <span key={i}>
+                            {i > 0 && ' → '}
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {task.delivery_address && (
+                      <div className="flex items-start gap-1">
+                        <MapPin className="h-3 w-3 text-orange-600 mt-0.5" />
+                        <span className="font-medium">Deliver: </span>
+                        <span>{task.delivery_address}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-orange-700 dark:text-orange-300 mb-2">
+                    ⚠️ Add supplier route, delivery address & instructions
+                  </p>
+                )}
+                
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="w-full h-8 mt-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowOperationsDetails(true);
+                  }}
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  {task.suppliers && task.suppliers.length > 0 ? 'Edit' : 'Add'} Operations Details
+                </Button>
+              </div>
+            )}
+            
             {task.sent_back_to_designer && task.admin_remarks && (
               <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded p-2 mb-2">
                 <p className="text-xs font-semibold text-red-700 dark:text-red-300 mb-1">
