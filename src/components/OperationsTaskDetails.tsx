@@ -5,9 +5,10 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Package, Truck, MapPin, ClipboardList, Plus, X, Calendar } from "lucide-react";
+import { Package, Truck, MapPin, ClipboardList, Plus, X, Calendar, User } from "lucide-react";
 import { TaskProductsManager } from "./TaskProductsManager";
 
 type OperationsTask = {
@@ -20,6 +21,13 @@ type OperationsTask = {
   due_date: string | null;
   client_name: string | null;
   status: string;
+  assigned_to: string | null;
+};
+
+type OperationsUser = {
+  id: string;
+  full_name: string | null;
+  email: string;
 };
 
 type OperationsTaskDetailsProps = {
@@ -40,7 +48,13 @@ export const OperationsTaskDetails = ({
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
+  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [operationsUsers, setOperationsUsers] = useState<OperationsUser[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchOperationsUsers();
+  }, []);
 
   useEffect(() => {
     if (task) {
@@ -48,8 +62,27 @@ export const OperationsTaskDetails = ({
       setDeliveryInstructions(task.delivery_instructions || "");
       setDeliveryAddress(task.delivery_address || "");
       setDeliveryDate(task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : "");
+      setAssignedTo(task.assigned_to || "");
     }
   }, [task]);
+
+  const fetchOperationsUsers = async () => {
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('user_id, profiles(id, full_name, email)')
+        .eq('role', 'operations');
+      
+      if (data) {
+        const users = data
+          .map(d => d.profiles)
+          .filter(Boolean) as OperationsUser[];
+        setOperationsUsers(users);
+      }
+    } catch (error) {
+      console.error('Error fetching operations users:', error);
+    }
+  };
 
   const handleAddSupplier = () => {
     if (newSupplier.trim()) {
@@ -75,6 +108,7 @@ export const OperationsTaskDetails = ({
           delivery_instructions: deliveryInstructions || null,
           delivery_address: deliveryAddress || null,
           due_date: deliveryDate || null,
+          assigned_to: assignedTo || null,
         })
         .eq("id", task.id);
 
@@ -119,6 +153,30 @@ export const OperationsTaskDetails = ({
             <Badge variant={task.status === 'production' ? 'default' : 'secondary'}>
               {task.status === 'production' ? 'In Production' : 'Done'}
             </Badge>
+          </div>
+
+          {/* Assignment Section */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-primary" />
+              <Label htmlFor="assigned-to">Assigned To</Label>
+            </div>
+            <Select value={assignedTo} onValueChange={setAssignedTo}>
+              <SelectTrigger id="assigned-to" className="w-full">
+                <SelectValue placeholder="Select team member" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Unassigned</SelectItem>
+                {operationsUsers.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name || user.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Assign this task to a specific operations team member
+            </p>
           </div>
 
           {/* Supplier Workflow Chain */}

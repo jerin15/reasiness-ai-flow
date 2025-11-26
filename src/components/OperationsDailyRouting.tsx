@@ -168,7 +168,7 @@ export const OperationsDailyRouting = () => {
             
             return (
               <Card key={userId} className="border-2">
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-3 bg-muted/30">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <User className="h-5 w-5 text-primary" />
@@ -176,8 +176,8 @@ export const OperationsDailyRouting = () => {
                         {user ? user.full_name || user.email : 'Unassigned Tasks'}
                       </CardTitle>
                     </div>
-                    <Badge variant="secondary" className="text-sm">
-                      {userTasks.length} {userTasks.length === 1 ? 'task' : 'tasks'}
+                    <Badge variant="secondary" className="text-sm font-semibold">
+                      {userTasks.length} {userTasks.length === 1 ? 'delivery' : 'deliveries'}
                     </Badge>
                   </div>
                 </CardHeader>
