@@ -29,6 +29,12 @@ type Task = {
   due_date: string | null;
   status: string;
   created_at: string;
+  assigned_to: string | null;
+  assigned_profile?: {
+    id: string;
+    full_name: string | null;
+    email: string;
+  };
 };
 
 interface OperationsDashboardProps {
@@ -41,8 +47,10 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [activeTab, setActiveTab] = useState("today");
+  const [operationsUsers, setOperationsUsers] = useState<any[]>([]);
 
   useEffect(() => {
+    fetchOperationsUsers();
     fetchTasks();
 
     // Subscribe to task changes
@@ -64,15 +72,37 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, []);
+
+  const fetchOperationsUsers = async () => {
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('user_id, profiles(id, full_name, email)')
+        .eq('role', 'operations');
+      
+      if (data) {
+        setOperationsUsers(data.map(d => d.profiles).filter(Boolean));
+      }
+    } catch (error) {
+      console.error('Error fetching operations users:', error);
+    }
+  };
 
   const fetchTasks = async () => {
     setLoading(true);
     try {
+      // Fetch ALL operations tasks (for transparency among team)
       const { data, error } = await supabase
         .from('tasks')
-        .select('*')
-        .or(`assigned_to.eq.${userId},assigned_to.is.null`)
+        .select(`
+          *,
+          assigned_profile:profiles!tasks_assigned_to_fkey(
+            id,
+            full_name,
+            email
+          )
+        `)
         .in('status', ['production', 'done'])
         .is('deleted_at', null)
         .order('created_at', { ascending: false });
@@ -90,12 +120,15 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
 
   const TaskCard = ({ task, showActions }: { task: Task; showActions: boolean }) => {
     const hasDeliveryInfo = task.delivery_address || task.suppliers?.length;
+    const isAssignedToMe = task.assigned_to === userId;
+    const assignedUserName = task.assigned_profile?.full_name || task.assigned_profile?.email || 'Unassigned';
     
     return (
       <Card 
         className={cn(
           "cursor-pointer transition-all hover:shadow-lg border-2",
-          !hasDeliveryInfo && "border-amber-500/50 bg-amber-50/30 dark:bg-amber-950/20"
+          !hasDeliveryInfo && "border-amber-500/50 bg-amber-50/30 dark:bg-amber-950/20",
+          isAssignedToMe && "border-primary/50 bg-primary/5"
         )}
         onClick={() => setSelectedTask(task)}
       >
@@ -106,11 +139,26 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
               <h3 className="font-semibold text-base leading-tight flex-1">
                 {task.title}
               </h3>
-              {!hasDeliveryInfo && (
-                <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400 shrink-0">
-                  Info Needed
-                </Badge>
-              )}
+              <div className="flex flex-col gap-1 shrink-0">
+                {!hasDeliveryInfo && (
+                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400">
+                    Info Needed
+                  </Badge>
+                )}
+                {task.assigned_to && (
+                  <Badge 
+                    variant={isAssignedToMe ? "default" : "secondary"} 
+                    className="text-xs"
+                  >
+                    {isAssignedToMe ? '👤 You' : `👤 ${assignedUserName.split(' ')[0]}`}
+                  </Badge>
+                )}
+                {!task.assigned_to && (
+                  <Badge variant="outline" className="text-xs border-muted-foreground/50">
+                    Unassigned
+                  </Badge>
+                )}
+              </div>
             </div>
             
             {task.client_name && (
@@ -218,6 +266,31 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
               </Card>
             ) : (
               <div className="space-y-4">
+                {/* Task Distribution Summary */}
+                <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20">
+                  <CardContent className="p-4">
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <LayoutGrid className="h-4 w-4" />
+                      Task Distribution
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {operationsUsers.map(user => {
+                        const userTaskCount = productionTasks.filter(t => t.assigned_to === user.id).length;
+                        return (
+                          <div key={user.id} className="flex items-center justify-between p-2 bg-background/80 rounded">
+                            <span className="text-sm font-medium truncate">{user.full_name?.split(' ')[0] || user.email}</span>
+                            <Badge variant="secondary">{userTaskCount}</Badge>
+                          </div>
+                        );
+                      })}
+                      <div className="flex items-center justify-between p-2 bg-background/80 rounded">
+                        <span className="text-sm font-medium">Unassigned</span>
+                        <Badge variant="outline">{productionTasks.filter(t => !t.assigned_to).length}</Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold">
                     In Progress Tasks
