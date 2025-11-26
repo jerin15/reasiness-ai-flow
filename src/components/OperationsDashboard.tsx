@@ -152,148 +152,162 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
     }
   };
 
+  const priorityConfig = {
+    urgent: {
+      color: "bg-red-100 dark:bg-red-950 border-red-500 text-red-700 dark:text-red-300",
+      label: "🚨 URGENT",
+      icon: "🔴"
+    },
+    high: {
+      color: "bg-orange-100 dark:bg-orange-950 border-orange-500 text-orange-700 dark:text-orange-300",
+      label: "⚠️ HIGH",
+      icon: "🟠"
+    },
+    medium: {
+      color: "bg-blue-100 dark:bg-blue-950 border-blue-500 text-blue-700 dark:text-blue-300",
+      label: "📋 MEDIUM",
+      icon: "🔵"
+    },
+    low: {
+      color: "bg-gray-100 dark:bg-gray-950 border-gray-500 text-gray-700 dark:text-gray-300",
+      label: "📝 LOW",
+      icon: "⚪"
+    }
+  };
+
   const TaskCard = ({ task, showActions }: { task: Task; showActions: boolean }) => {
     const hasDeliveryInfo = task.delivery_address || task.suppliers?.length;
     const isAssignedToMe = task.assigned_to === userId;
     const assignedUserName = task.assigned_profile?.full_name || task.assigned_profile?.email || 'Unassigned';
     const isAdmin = userRole === 'admin';
-    
-    const priorityColors = {
-      urgent: "bg-red-100 dark:bg-red-950 border-red-500 text-red-700 dark:text-red-300",
-      high: "bg-orange-100 dark:bg-orange-950 border-orange-500 text-orange-700 dark:text-orange-300",
-      medium: "bg-blue-100 dark:bg-blue-950 border-blue-500 text-blue-700 dark:text-blue-300",
-      low: "bg-gray-100 dark:bg-gray-950 border-gray-500 text-gray-700 dark:text-gray-300",
-    };
-    
-    const priorityLabels = {
-      urgent: "🚨 URGENT",
-      high: "⚠️ HIGH",
-      medium: "📋 MEDIUM",
-      low: "📝 LOW",
-    };
+    const priority = priorityConfig[task.priority as keyof typeof priorityConfig];
+    const isUrgent = task.priority === 'urgent' || task.priority === 'high';
     
     return (
       <Card 
         className={cn(
-          "cursor-pointer transition-all hover:shadow-lg border-2",
-          !hasDeliveryInfo && "border-amber-500/50 bg-amber-50/30 dark:bg-amber-950/20",
-          isAssignedToMe && "border-primary/50 bg-primary/5",
-          (task.priority === 'urgent' || task.priority === 'high') && "ring-2 ring-red-500/50"
+          "cursor-pointer transition-all active:scale-[0.98]",
+          "border-l-4",
+          !hasDeliveryInfo && "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20",
+          isAssignedToMe && "border-l-primary bg-primary/5",
+          isUrgent && "shadow-lg shadow-red-500/20"
         )}
         onClick={() => setSelectedTask(task)}
       >
-        <CardContent className="p-4 space-y-3">
-          {/* Title and Status */}
-          <div className="space-y-2">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="font-semibold text-base leading-tight flex-1">
+        <CardContent className="p-3 sm:p-4 space-y-3">
+          {/* Header Row */}
+          <div className="flex items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm sm:text-base leading-tight line-clamp-2">
                 {task.title}
               </h3>
-              <div className="flex flex-col gap-1 shrink-0">
-                <Badge 
-                  variant="outline" 
-                  className={cn(
-                    "text-xs font-bold border-2",
-                    priorityColors[task.priority as keyof typeof priorityColors]
-                  )}
-                >
-                  {priorityLabels[task.priority as keyof typeof priorityLabels]}
-                </Badge>
-                {!hasDeliveryInfo && (
-                  <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400">
-                    Info Needed
-                  </Badge>
-                )}
-                {task.assigned_to && (
-                  <Badge 
-                    variant={isAssignedToMe ? "default" : "secondary"} 
-                    className="text-xs"
-                  >
-                    {isAssignedToMe ? '👤 You' : `👤 ${assignedUserName.split(' ')[0]}`}
-                  </Badge>
-                )}
-                {!task.assigned_to && (
-                  <Badge variant="outline" className="text-xs border-muted-foreground/50">
-                    Unassigned
-                  </Badge>
-                )}
-              </div>
+              {task.client_name && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  📋 {task.client_name}
+                </p>
+              )}
             </div>
             
-            {task.client_name && (
-              <p className="text-sm text-muted-foreground">
-                Client: {task.client_name}
-              </p>
+            {/* Priority Badge */}
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "text-[10px] sm:text-xs font-bold border-2 whitespace-nowrap",
+                priority.color
+              )}
+            >
+              {priority.label}
+            </Badge>
+          </div>
+
+          {/* Assignment & Status Row */}
+          <div className="flex flex-wrap gap-1.5">
+            {task.assigned_to ? (
+              <Badge 
+                variant={isAssignedToMe ? "default" : "secondary"} 
+                className="text-xs"
+              >
+                {isAssignedToMe ? '👤 You' : `👤 ${assignedUserName.split(' ')[0]}`}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs border-dashed">
+                ⚠️ Unassigned
+              </Badge>
+            )}
+            
+            {!hasDeliveryInfo && (
+              <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400">
+                📝 Info Needed
+              </Badge>
             )}
           </div>
 
-          {/* Due Date */}
+          {/* Delivery Date - Prominent */}
           {task.due_date && (
             <div className={cn(
-              "flex items-center gap-2 text-sm p-2 rounded border-2",
-              (task.priority === 'urgent' || task.priority === 'high') 
-                ? "bg-red-50 dark:bg-red-950/30 border-red-500 animate-pulse" 
-                : "bg-muted/50 border-muted"
+              "flex items-center gap-2 text-xs sm:text-sm p-2.5 rounded-lg font-semibold",
+              isUrgent 
+                ? "bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-950/50 dark:to-orange-950/50 border-2 border-red-500 animate-pulse" 
+                : "bg-muted border border-border"
             )}>
               <Calendar className={cn(
-                "h-4 w-4",
-                (task.priority === 'urgent' || task.priority === 'high') ? "text-red-600" : "text-primary"
+                "h-4 w-4 shrink-0",
+                isUrgent ? "text-red-600" : "text-primary"
               )} />
-              <span className={cn(
-                "font-bold",
-                (task.priority === 'urgent' || task.priority === 'high') && "text-red-700 dark:text-red-300"
-              )}>
-                Delivery: {format(new Date(task.due_date), 'MMM d, yyyy')}
-              </span>
+              <div className="flex-1">
+                <div className={cn(
+                  "text-xs opacity-70",
+                  isUrgent && "text-red-700 dark:text-red-300"
+                )}>
+                  Delivery Date
+                </div>
+                <div className={cn(
+                  isUrgent && "text-red-700 dark:text-red-300"
+                )}>
+                  {format(new Date(task.due_date), 'MMM d, yyyy')}
+                </div>
+              </div>
+              {isUrgent && <span className="text-xl">⏰</span>}
             </div>
           )}
 
-          {/* Quick Info Preview */}
-          <div className="space-y-2">
+          {/* Compact Info Section */}
+          <div className="space-y-1.5">
             {task.suppliers && task.suppliers.length > 0 && (
-              <div className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded">
-                <Truck className="h-4 w-4 text-primary shrink-0" />
+              <div className="flex items-center gap-2 text-xs p-2 bg-background border border-border rounded">
+                <Truck className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="truncate">
-                  {task.suppliers.length} supplier{task.suppliers.length > 1 ? 's' : ''}: {task.suppliers.join(' → ')}
+                  {task.suppliers.join(' → ')}
                 </span>
               </div>
             )}
             
             {task.delivery_address && (
-              <div className="flex items-start gap-2 text-sm p-2 bg-blue-50 dark:bg-blue-950/30 rounded">
-                <MapPin className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-                <span className="line-clamp-2 text-blue-700 dark:text-blue-300">
+              <div className="flex items-center gap-2 text-xs p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded">
+                <MapPin className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                <span className="truncate text-blue-700 dark:text-blue-300">
                   {task.delivery_address}
-                </span>
-              </div>
-            )}
-
-            {task.delivery_instructions && (
-              <div className="flex items-start gap-2 text-sm p-2 bg-amber-50 dark:bg-amber-950/30 rounded">
-                <Package className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                <span className="line-clamp-2 text-amber-700 dark:text-amber-300">
-                  {task.delivery_instructions}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Action Hint */}
+          {/* Footer */}
           <div className="pt-2 border-t flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Tap to view full details
+            <span className="text-[10px] sm:text-xs text-muted-foreground">
+              Tap for details
             </span>
             {isAdmin && showActions && (
               <Button
-                variant="destructive"
+                variant="ghost"
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDeleteTask(task.id);
                 }}
-                className="h-8 text-xs"
+                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
               >
-                Delete
+                🗑️ Delete
               </Button>
             )}
           </div>
@@ -306,36 +320,35 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
     <>
       <div className="h-full w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <TabsList className="w-full grid grid-cols-3 h-14 sticky top-0 z-10 bg-background">
-            <TabsTrigger value="today" className="flex items-center gap-2 text-base">
-              <Calendar className="h-5 w-5" />
-              <span className="hidden sm:inline">Today's Route</span>
-              <span className="sm:hidden">Today</span>
+          <TabsList className="w-full grid grid-cols-3 h-12 sm:h-14 sticky top-0 z-10 bg-background shadow-sm">
+            <TabsTrigger value="today" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-xs sm:text-base py-2">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span>Today</span>
             </TabsTrigger>
-            <TabsTrigger value="production" className="flex items-center gap-2 text-base">
-              <LayoutGrid className="h-5 w-5" />
-              <span className="hidden sm:inline">In Progress</span>
-              <span className="sm:hidden">Active</span>
-              {productionTasks.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {productionTasks.length}
-                </Badge>
-              )}
+            <TabsTrigger value="production" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-xs sm:text-base py-2">
+              <LayoutGrid className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="flex items-center gap-1">
+                Active
+                {productionTasks.length > 0 && (
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {productionTasks.length}
+                  </Badge>
+                )}
+              </span>
             </TabsTrigger>
-            <TabsTrigger value="done" className="flex items-center gap-2 text-base">
-              <CheckCircle2 className="h-5 w-5" />
-              <span className="hidden sm:inline">Completed</span>
-              <span className="sm:hidden">Done</span>
+            <TabsTrigger value="done" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-xs sm:text-base py-2">
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span>Done</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Today's Route Tab */}
-          <TabsContent value="today" className="flex-1 overflow-auto p-4">
+          <TabsContent value="today" className="flex-1 overflow-auto p-3 sm:p-4">
             <OperationsDailyRouting />
           </TabsContent>
 
           {/* Production Tasks Tab */}
-          <TabsContent value="production" className="flex-1 overflow-auto p-4">
+          <TabsContent value="production" className="flex-1 overflow-auto p-3 sm:p-4">
             {loading ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
@@ -350,41 +363,34 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
-                {/* Task Distribution Summary */}
-                <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20">
-                  <CardContent className="p-4">
-                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                      <LayoutGrid className="h-4 w-4" />
-                      Task Distribution
+              <div className="space-y-3 sm:space-y-4">
+                {/* Compact Task Distribution */}
+                <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/30">
+                  <CardContent className="p-3 sm:p-4">
+                    <h3 className="text-xs sm:text-sm font-semibold mb-2 flex items-center gap-2">
+                      <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      Team Workload
                     </h3>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                       {operationsUsers.map(user => {
                         const userTaskCount = productionTasks.filter(t => t.assigned_to === user.id).length;
                         return (
-                          <div key={user.id} className="flex items-center justify-between p-2 bg-background/80 rounded">
-                            <span className="text-sm font-medium truncate">{user.full_name?.split(' ')[0] || user.email}</span>
-                            <Badge variant="secondary">{userTaskCount}</Badge>
+                          <div key={user.id} className="flex items-center justify-between p-2 bg-background/90 rounded text-xs sm:text-sm">
+                            <span className="font-medium truncate">{user.full_name?.split(' ')[0] || user.email}</span>
+                            <Badge variant="secondary" className="text-xs">{userTaskCount}</Badge>
                           </div>
                         );
                       })}
-                      <div className="flex items-center justify-between p-2 bg-background/80 rounded">
-                        <span className="text-sm font-medium">Unassigned</span>
-                        <Badge variant="outline">{productionTasks.filter(t => !t.assigned_to).length}</Badge>
+                      <div className="flex items-center justify-between p-2 bg-background/90 rounded text-xs sm:text-sm">
+                        <span className="font-medium">Unassigned</span>
+                        <Badge variant="outline" className="text-xs">{productionTasks.filter(t => !t.assigned_to).length}</Badge>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">
-                    In Progress Tasks
-                  </h2>
-                  <Badge variant="secondary" className="text-base px-3 py-1">
-                    {productionTasks.length}
-                  </Badge>
-                </div>
-                <div className="grid gap-4">
+                {/* Task List */}
+                <div className="space-y-2 sm:space-y-3">
                   {productionTasks.map(task => (
                     <TaskCard key={task.id} task={task} showActions={true} />
                   ))}
@@ -394,35 +400,25 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
           </TabsContent>
 
           {/* Done Tasks Tab */}
-          <TabsContent value="done" className="flex-1 overflow-auto p-4">
+          <TabsContent value="done" className="flex-1 overflow-auto p-3 sm:p-4">
             {loading ? (
               <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  Loading tasks...
+                <CardContent className="py-8 sm:py-12 text-center text-sm text-muted-foreground">
+                  Loading...
                 </CardContent>
               </Card>
             ) : doneTasks.length === 0 ? (
               <Card>
-                <CardContent className="py-12 text-center space-y-2">
-                  <CheckCircle2 className="h-12 w-12 mx-auto text-muted-foreground/50" />
-                  <p className="text-muted-foreground">No completed tasks</p>
+                <CardContent className="py-8 sm:py-12 text-center space-y-2">
+                  <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">No completed tasks yet</p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">
-                    Completed Tasks
-                  </h2>
-                  <Badge variant="secondary" className="text-base px-3 py-1">
-                    {doneTasks.length}
-                  </Badge>
-                </div>
-                <div className="grid gap-4">
-                  {doneTasks.map(task => (
-                    <TaskCard key={task.id} task={task} showActions={false} />
-                  ))}
-                </div>
+              <div className="space-y-2 sm:space-y-3">
+                {doneTasks.map(task => (
+                  <TaskCard key={task.id} task={task} showActions={false} />
+                ))}
               </div>
             )}
           </TabsContent>
