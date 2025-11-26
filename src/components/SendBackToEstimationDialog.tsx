@@ -32,27 +32,50 @@ export const SendBackToEstimationDialog = ({
     setIsSubmitting(true);
 
     try {
-      // Find an estimation user
-      const { data: estimationUsers, error: roleError } = await supabase
+      // First, get the task to find who created it
+      const { data: task, error: taskError } = await supabase
+        .from("tasks")
+        .select("created_by")
+        .eq("id", taskId)
+        .single();
+
+      if (taskError) {
+        console.error("Error fetching task:", taskError);
+        toast.error("Failed to fetch task details");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check if the task creator has estimation role
+      const { data: creatorRole, error: roleError } = await supabase
         .from("user_roles")
-        .select("user_id")
+        .select("user_id, role")
+        .eq("user_id", task.created_by)
         .eq("role", "estimation")
-        .limit(1);
+        .single();
 
-      if (roleError) {
-        console.error("Error fetching estimation user:", roleError);
-        toast.error("Failed to find estimation user");
-        setIsSubmitting(false);
-        return;
+      let estimationUserId: string;
+
+      if (creatorRole && !roleError) {
+        // Use the original creator if they're an estimator
+        estimationUserId = creatorRole.user_id;
+      } else {
+        // Otherwise, find any estimation user
+        const { data: estimationUsers, error: fallbackError } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "estimation")
+          .limit(1);
+
+        if (fallbackError || !estimationUsers || estimationUsers.length === 0) {
+          console.error("Error fetching estimation user:", fallbackError);
+          toast.error("No estimation user found in the system");
+          setIsSubmitting(false);
+          return;
+        }
+
+        estimationUserId = estimationUsers[0].user_id;
       }
-
-      if (!estimationUsers || estimationUsers.length === 0) {
-        toast.error("No estimation user found");
-        setIsSubmitting(false);
-        return;
-      }
-
-      const estimationUserId = estimationUsers[0].user_id;
 
       // Update the task - reset mockup flags and send back to estimation
       const { error: updateError } = await supabase
