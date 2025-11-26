@@ -109,35 +109,67 @@ export const UserPresenceIndicator = () => {
   }, [currentUserId]);
 
   const fetchPresences = async () => {
-    const { data: presenceData, error } = await supabase
-      .from('user_presence')
-      .select('*')
-      .order('last_active', { ascending: false });
+    try {
+      // First, get all team members (users with roles)
+      const { data: teamMembers, error: teamError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          full_name,
+          avatar_url,
+          user_roles!inner(role)
+        `)
+        .order('full_name');
 
-    if (!presenceData || error) return;
+      if (teamError || !teamMembers) {
+        console.error('Error fetching team members:', teamError);
+        return;
+      }
 
-    // Fetch profiles separately
-    const userIds = presenceData.map(p => p.user_id);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, avatar_url')
-      .in('id', userIds);
+      // Get presence data for all team members
+      const userIds = teamMembers.map(m => m.id);
+      const { data: presenceData } = await supabase
+        .from('user_presence')
+        .select('*')
+        .in('user_id', userIds);
 
-    // Merge data and detect offline users
-    const now = new Date().getTime();
-    const data = presenceData.map(presence => {
-      const lastActive = new Date(presence.last_active).getTime();
-      const isOffline = (now - lastActive) > 120000; // 2 minutes = offline
-      
-      return {
-        ...presence,
-        status: isOffline && presence.status !== 'offline' ? 'offline' : presence.status,
-        profiles: profiles?.find(p => p.id === presence.user_id) || null
-      };
-    });
+      // Merge data - show all team members, even without presence
+      const now = new Date().getTime();
+      const data = teamMembers.map(member => {
+        const presence = presenceData?.find(p => p.user_id === member.id);
+        
+        if (presence) {
+          const lastActive = new Date(presence.last_active).getTime();
+          const isOffline = (now - lastActive) > 120000; // 2 minutes = offline
+          
+          return {
+            user_id: member.id,
+            status: isOffline && presence.status !== 'offline' ? 'offline' : presence.status,
+            custom_message: presence.custom_message,
+            last_active: presence.last_active,
+            profiles: {
+              full_name: member.full_name,
+              avatar_url: member.avatar_url
+            }
+          };
+        } else {
+          // No presence entry - show as offline
+          return {
+            user_id: member.id,
+            status: 'offline',
+            custom_message: null,
+            last_active: new Date().toISOString(),
+            profiles: {
+              full_name: member.full_name,
+              avatar_url: member.avatar_url
+            }
+          };
+        }
+      });
 
-    if (data && !error) {
       setPresences(data as any);
+    } catch (error) {
+      console.error('Error in fetchPresences:', error);
     }
   };
 
