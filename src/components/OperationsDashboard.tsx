@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { OperationsDailyRouting } from "@/components/OperationsDailyRouting";
 import { 
   Calendar, 
@@ -12,7 +13,8 @@ import {
   MapPin, 
   Package, 
   Truck,
-  LayoutGrid
+  LayoutGrid,
+  Search
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -51,6 +53,7 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [activeTab, setActiveTab] = useState("today");
   const [operationsUsers, setOperationsUsers] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchOperationsUsers();
@@ -316,6 +319,23 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
     );
   };
 
+  // Filter tasks based on search query
+  const filterTasks = (tasks: Task[]) => {
+    if (!searchQuery.trim()) return tasks;
+    
+    const query = searchQuery.toLowerCase();
+    return tasks.filter(task => 
+      task.title.toLowerCase().includes(query) ||
+      task.description?.toLowerCase().includes(query) ||
+      task.client_name?.toLowerCase().includes(query) ||
+      task.suppliers?.some(s => s.toLowerCase().includes(query)) ||
+      task.delivery_address?.toLowerCase().includes(query)
+    );
+  };
+
+  const filteredProductionTasks = filterTasks(productionTasks);
+  const filteredDoneTasks = filterTasks(doneTasks);
+
   return (
     <>
       <div className="h-full w-full">
@@ -348,18 +368,39 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
           </TabsContent>
 
           {/* Production Tasks Tab */}
-          <TabsContent value="production" className="flex-1 overflow-auto p-3 sm:p-4">
+          <TabsContent value="production" className="flex-1 overflow-auto p-3 sm:p-4 space-y-3">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search tasks by title, client, supplier..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-10"
+              />
+            </div>
+
             {loading ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
                   Loading tasks...
                 </CardContent>
               </Card>
-            ) : productionTasks.length === 0 ? (
+            ) : filteredProductionTasks.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center space-y-2">
-                  <Package className="h-12 w-12 mx-auto text-muted-foreground/50" />
-                  <p className="text-muted-foreground">No active tasks</p>
+                  {searchQuery ? (
+                    <>
+                      <Search className="h-12 w-12 mx-auto text-muted-foreground/50" />
+                      <p className="text-muted-foreground">No tasks match your search</p>
+                    </>
+                  ) : (
+                    <>
+                      <Package className="h-12 w-12 mx-auto text-muted-foreground/50" />
+                      <p className="text-muted-foreground">No active tasks</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             ) : (
@@ -373,7 +414,7 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
                     </h3>
                     <div className="grid grid-cols-2 gap-2">
                       {operationsUsers.map(user => {
-                        const userTaskCount = productionTasks.filter(t => t.assigned_to === user.id).length;
+                        const userTaskCount = filteredProductionTasks.filter(t => t.assigned_to === user.id).length;
                         return (
                           <div key={user.id} className="flex items-center justify-between p-2 bg-background/90 rounded text-xs sm:text-sm">
                             <span className="font-medium truncate">{user.full_name?.split(' ')[0] || user.email}</span>
@@ -383,7 +424,7 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
                       })}
                       <div className="flex items-center justify-between p-2 bg-background/90 rounded text-xs sm:text-sm">
                         <span className="font-medium">Unassigned</span>
-                        <Badge variant="outline" className="text-xs">{productionTasks.filter(t => !t.assigned_to).length}</Badge>
+                        <Badge variant="outline" className="text-xs">{filteredProductionTasks.filter(t => !t.assigned_to).length}</Badge>
                       </div>
                     </div>
                   </CardContent>
@@ -391,7 +432,7 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
 
                 {/* Task List */}
                 <div className="space-y-2 sm:space-y-3">
-                  {productionTasks.map(task => (
+                  {filteredProductionTasks.map(task => (
                     <TaskCard key={task.id} task={task} showActions={true} />
                   ))}
                 </div>
@@ -400,23 +441,44 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
           </TabsContent>
 
           {/* Done Tasks Tab */}
-          <TabsContent value="done" className="flex-1 overflow-auto p-3 sm:p-4">
+          <TabsContent value="done" className="flex-1 overflow-auto p-3 sm:p-4 space-y-3">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search completed tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-10"
+              />
+            </div>
+
             {loading ? (
               <Card>
                 <CardContent className="py-8 sm:py-12 text-center text-sm text-muted-foreground">
                   Loading...
                 </CardContent>
               </Card>
-            ) : doneTasks.length === 0 ? (
+            ) : filteredDoneTasks.length === 0 ? (
               <Card>
                 <CardContent className="py-8 sm:py-12 text-center space-y-2">
-                  <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">No completed tasks yet</p>
+                  {searchQuery ? (
+                    <>
+                      <Search className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No completed tasks match your search</p>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No completed tasks yet</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-2 sm:space-y-3">
-                {doneTasks.map(task => (
+                {filteredDoneTasks.map(task => (
                   <TaskCard key={task.id} task={task} showActions={true} />
                 ))}
               </div>
