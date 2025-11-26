@@ -163,7 +163,7 @@ export const EstimationForcedCheckIn = () => {
 
   return (
     <Dialog open={showCheckIn} onOpenChange={() => {}}>
-      <DialogContent className="max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <AlertCircle className="h-5 w-5 text-orange-500" />
@@ -171,7 +171,7 @@ export const EstimationForcedCheckIn = () => {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 pb-4">
           <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
             <h3 className="font-semibold mb-1">{currentTask.title}</h3>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
