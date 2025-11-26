@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Package, Truck, MapPin, ClipboardList, Plus, X, Calendar, User } from "lucide-react";
 import { TaskProductsManager } from "./TaskProductsManager";
+import { OperationsActivityLog } from "./OperationsActivityLog";
 
 type OperationsTask = {
   id: string;
@@ -158,7 +159,7 @@ export const OperationsTaskDetails = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
@@ -166,14 +167,14 @@ export const OperationsTaskDetails = ({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {/* Task Overview */}
-          <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
+          <div className="space-y-2 p-3 sm:p-4 bg-muted/50 rounded-lg">
             <div className="flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 text-muted-foreground" />
+              <ClipboardList className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <Label className="text-sm font-medium">Task Details</Label>
             </div>
-            <p className="text-sm text-muted-foreground">{task.description || "No description"}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{task.description || "No description"}</p>
             {task.client_name && (
               <p className="text-sm">
                 <span className="font-medium">Client:</span> {task.client_name}
@@ -187,10 +188,10 @@ export const OperationsTaskDetails = ({
           {/* Assignment Section */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" />
-              <Label htmlFor="assigned-to">Assigned To</Label>
+              <User className="h-4 w-4 text-primary flex-shrink-0" />
+              <Label htmlFor="assigned-to" className="text-sm">Assigned To</Label>
               {operationsUsers.length > 0 && (
-                <Badge variant="outline" className="ml-auto">
+                <Badge variant="outline" className="ml-auto text-xs">
                   {operationsUsers.length} team members
                 </Badge>
               )}
@@ -199,7 +200,7 @@ export const OperationsTaskDetails = ({
               console.log('🎯 Assignment changed to:', value);
               setAssignedTo(value);
             }}>
-              <SelectTrigger id="assigned-to" className="w-full">
+              <SelectTrigger id="assigned-to" className="w-full h-11 sm:h-10">
                 <SelectValue placeholder="Select team member" />
               </SelectTrigger>
               <SelectContent className="bg-popover z-[100]" position="popper" sideOffset={5}>
@@ -214,7 +215,7 @@ export const OperationsTaskDetails = ({
                 })}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               Assign this task to a specific operations team member
               {operationsUsers.length === 0 && " (Loading...)"}
             </p>
@@ -223,24 +224,24 @@ export const OperationsTaskDetails = ({
           {/* Supplier Workflow Chain */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-primary" />
-              <Label>Supplier Workflow Chain</Label>
+              <Truck className="h-4 w-4 text-primary flex-shrink-0" />
+              <Label className="text-sm">Supplier Workflow Chain</Label>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               Add suppliers in order of workflow (e.g., collect from Supplier A → process at Supplier B → deliver)
             </p>
             
             <div className="space-y-2">
               {suppliers.map((supplier, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-                  <span className="text-sm font-medium text-primary">Step {index + 1}:</span>
-                  <span className="flex-1 text-sm">{supplier}</span>
+                <div key={index} className="flex items-center gap-2 p-2.5 sm:p-2 bg-muted rounded-lg touch-manipulation">
+                  <span className="text-sm font-medium text-primary flex-shrink-0">Step {index + 1}:</span>
+                  <span className="flex-1 text-sm break-words">{supplier}</span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemoveSupplier(index)}
-                    className="h-7 w-7 p-0"
+                    className="h-8 w-8 p-0 flex-shrink-0"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -253,6 +254,7 @@ export const OperationsTaskDetails = ({
                 value={newSupplier}
                 onChange={(e) => setNewSupplier(e.target.value)}
                 placeholder="Enter supplier name"
+                className="h-11 sm:h-10 text-base sm:text-sm"
                 onKeyPress={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -265,6 +267,7 @@ export const OperationsTaskDetails = ({
                 onClick={handleAddSupplier}
                 size="sm"
                 variant="outline"
+                className="h-11 w-11 sm:h-10 sm:w-10 p-0 flex-shrink-0"
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -274,41 +277,43 @@ export const OperationsTaskDetails = ({
           {/* Delivery Date */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-primary" />
-              <Label htmlFor="deliveryDate">Delivery Date</Label>
+              <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
+              <Label htmlFor="deliveryDate" className="text-sm">Delivery Date</Label>
             </div>
             <Input
               id="deliveryDate"
               type="date"
               value={deliveryDate}
               onChange={(e) => setDeliveryDate(e.target.value)}
+              className="h-11 sm:h-10 text-base sm:text-sm"
             />
           </div>
 
           {/* Delivery Address */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
-              <Label htmlFor="deliveryAddress">Delivery Address</Label>
+              <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
+              <Label htmlFor="deliveryAddress" className="text-sm">Delivery Address</Label>
             </div>
             <Input
               id="deliveryAddress"
               value={deliveryAddress}
               onChange={(e) => setDeliveryAddress(e.target.value)}
               placeholder="Enter final delivery address"
+              className="h-11 sm:h-10 text-base sm:text-sm"
             />
           </div>
 
           {/* Special Instructions */}
           <div className="space-y-2">
-            <Label htmlFor="deliveryInstructions">Special Instructions</Label>
+            <Label htmlFor="deliveryInstructions" className="text-sm">Special Instructions</Label>
             <Textarea
               id="deliveryInstructions"
               value={deliveryInstructions}
               onChange={(e) => setDeliveryInstructions(e.target.value)}
               placeholder="Enter any special handling or delivery instructions..."
               rows={4}
-              className="resize-none"
+              className="resize-none text-base sm:text-sm leading-relaxed"
             />
           </div>
 
@@ -322,11 +327,32 @@ export const OperationsTaskDetails = ({
             />
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          {/* Operations Activity Log - Mobile Optimized */}
+          <div className="border-t pt-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Task Progress Updates</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Log each step of the workflow. Your team and admins will be notified instantly.
+            </p>
+            <OperationsActivityLog taskId={task.id} />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              className="h-11 sm:h-10 w-full sm:w-auto order-2 sm:order-1"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="h-11 sm:h-10 w-full sm:w-auto order-1 sm:order-2"
+            >
               {loading ? "Saving..." : "Save Details"}
             </Button>
           </DialogFooter>
