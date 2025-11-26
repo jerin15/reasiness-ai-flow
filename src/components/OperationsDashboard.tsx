@@ -417,7 +417,7 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
             ) : (
               <div className="space-y-2 sm:space-y-3">
                 {doneTasks.map(task => (
-                  <TaskCard key={task.id} task={task} showActions={false} />
+                  <TaskCard key={task.id} task={task} showActions={true} />
                 ))}
               </div>
             )}
