@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus, Brain } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus, Brain, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -35,8 +35,10 @@ interface DashboardSidebarProps {
   onPersonalAnalyticsClick: () => void;
   onCreateTaskClick: () => void;
   onCreateUserClick?: () => void;
+  onDailyRoutingClick?: () => void;
   onSignOut: () => void;
   showPersonalAnalytics?: boolean;
+  showDailyRouting?: boolean;
   getSelectedUserName: () => string;
   formatRole: (role: string) => string;
 }
@@ -57,8 +59,10 @@ export function DashboardSidebar({
   onPersonalAnalyticsClick,
   onCreateTaskClick,
   onCreateUserClick,
+  onDailyRoutingClick,
   onSignOut,
   showPersonalAnalytics,
+  showDailyRouting,
   getSelectedUserName,
   formatRole,
 }: DashboardSidebarProps) {
@@ -207,6 +211,16 @@ export function DashboardSidebar({
                   <SidebarMenuButton onClick={() => navigate('/brain-games')}>
                     <Brain className="h-4 w-4" />
                     <span>Brain Games</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              
+              {/* Daily Routing for Operations */}
+              {userRole === 'operations' && onDailyRoutingClick && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={onDailyRoutingClick}>
+                    <CalendarDays className="h-4 w-4" />
+                    <span>{showDailyRouting ? "Hide" : "Show"} Daily Routing</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}

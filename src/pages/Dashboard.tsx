@@ -28,6 +28,7 @@ import { AddTaskDialog } from "@/components/AddTaskDialog";
 import { CreateUserDialog } from "@/components/CreateUserDialog";
 import { EstimationQuotaTracker } from "@/components/EstimationQuotaTracker";
 import { EstimationMockupTracker } from "@/components/EstimationMockupTracker";
+import { OperationsDailyRouting } from "@/components/OperationsDailyRouting";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -56,6 +57,7 @@ const Dashboard = () => {
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
+  const [showDailyRouting, setShowDailyRouting] = useState(false);
   const unreadCount = useUnreadMessageCount(currentUserId);
 
   useEffect(() => {
@@ -341,8 +343,10 @@ const Dashboard = () => {
           onPersonalAnalyticsClick={() => setShowPersonalAnalytics(!showPersonalAnalytics)}
           onCreateTaskClick={() => setShowAddTask(true)}
           onCreateUserClick={userRole === "admin" ? () => setShowCreateUser(true) : undefined}
+          onDailyRoutingClick={() => setShowDailyRouting(!showDailyRouting)}
           onSignOut={handleSignOut}
           showPersonalAnalytics={showPersonalAnalytics}
+          showDailyRouting={showDailyRouting}
           getSelectedUserName={getSelectedUserName}
           formatRole={formatRole}
         />
@@ -383,12 +387,16 @@ const Dashboard = () => {
                 <PersonalAnalytics userId={currentUserId} userRole={userRole} />
               </div>
             )}
-            <KanbanBoard 
-              userRole={userRole} 
-              viewingUserId={selectedUserId}
-              isAdmin={userRole === "admin" || userRole === "technical_head"}
-              viewingUserRole={selectedUserRole}
-            />
+            {showDailyRouting && userRole === "operations" ? (
+              <OperationsDailyRouting />
+            ) : (
+              <KanbanBoard 
+                userRole={userRole} 
+                viewingUserId={selectedUserId}
+                isAdmin={userRole === "admin" || userRole === "technical_head"}
+                viewingUserRole={selectedUserRole}
+              />
+            )}
           </main>
         </div>
 
