@@ -388,8 +388,8 @@ const Dashboard = () => {
                 <PersonalAnalytics userId={currentUserId} userRole={userRole} />
               </div>
             )}
-            {userRole === "operations" ? (
-              <OperationsDashboard userId={currentUserId} />
+            {selectedUserRole === "operations" ? (
+              <OperationsDashboard userId={selectedUserId} />
             ) : (
               <KanbanBoard 
                 userRole={userRole} 
