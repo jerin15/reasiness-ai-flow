@@ -201,19 +201,16 @@ export const OperationsTaskDetails = ({
               </SelectTrigger>
               <SelectContent className="bg-popover z-50">
                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                {operationsUsers.length === 0 ? (
-                  <SelectItem value="" disabled>Loading team members...</SelectItem>
-                ) : (
-                  operationsUsers.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name || user.email}
-                    </SelectItem>
-                  ))
-                )}
+                {operationsUsers.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name || user.email}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
               Assign this task to a specific operations team member
+              {operationsUsers.length === 0 && " (Loading...)"}
             </p>
           </div>
 
