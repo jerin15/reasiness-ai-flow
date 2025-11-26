@@ -17,6 +17,7 @@ import {
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { OperationsTaskDetails } from "@/components/OperationsTaskDetails";
+import { toast } from "sonner";
 
 type Task = {
   id: string;
@@ -40,9 +41,10 @@ type Task = {
 
 interface OperationsDashboardProps {
   userId: string;
+  userRole?: string;
 }
 
-export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
+export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardProps) => {
   const [productionTasks, setProductionTasks] = useState<Task[]>([]);
   const [doneTasks, setDoneTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,15 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      // Fetch ALL operations tasks (for transparency among team)
+      // Get operations user IDs
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'operations');
+      
+      const operationsUserIds = roleData?.map(r => r.user_id) || [];
+
+      // Fetch operations tasks (created by or assigned to operations team)
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -106,6 +116,7 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
         `)
         .in('status', ['production', 'done'])
         .is('deleted_at', null)
+        .or(`created_by.in.(${operationsUserIds.join(',')}),assigned_to.in.(${operationsUserIds.join(',')})`)
         .order('priority', { ascending: false })
         .order('due_date', { ascending: true });
 
@@ -120,10 +131,32 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
     }
   };
 
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm('Are you sure you want to delete this task? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast.success('Task deleted successfully');
+      fetchTasks();
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      toast.error(error.message || 'Failed to delete task');
+    }
+  };
+
   const TaskCard = ({ task, showActions }: { task: Task; showActions: boolean }) => {
     const hasDeliveryInfo = task.delivery_address || task.suppliers?.length;
     const isAssignedToMe = task.assigned_to === userId;
     const assignedUserName = task.assigned_profile?.full_name || task.assigned_profile?.email || 'Unassigned';
+    const isAdmin = userRole === 'admin';
     
     const priorityColors = {
       urgent: "bg-red-100 dark:bg-red-950 border-red-500 text-red-700 dark:text-red-300",
@@ -246,8 +279,23 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
           </div>
 
           {/* Action Hint */}
-          <div className="pt-2 border-t text-xs text-muted-foreground text-center">
-            Tap to view full details
+          <div className="pt-2 border-t flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              Tap to view full details
+            </span>
+            {isAdmin && showActions && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteTask(task.id);
+                }}
+                className="h-8 text-xs"
+              >
+                Delete
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

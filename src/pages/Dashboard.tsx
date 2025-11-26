@@ -389,7 +389,7 @@ const Dashboard = () => {
               </div>
             )}
             {selectedUserRole === "operations" ? (
-              <OperationsDashboard userId={selectedUserId} />
+              <OperationsDashboard userId={selectedUserId} userRole={userRole} />
             ) : (
               <KanbanBoard 
                 userRole={userRole} 
