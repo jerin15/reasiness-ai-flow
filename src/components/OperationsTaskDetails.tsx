@@ -62,7 +62,7 @@ export const OperationsTaskDetails = ({
       setDeliveryInstructions(task.delivery_instructions || "");
       setDeliveryAddress(task.delivery_address || "");
       setDeliveryDate(task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : "");
-      setAssignedTo(task.assigned_to || "");
+      setAssignedTo(task.assigned_to || "unassigned");
     }
   }, [task]);
 
@@ -108,7 +108,7 @@ export const OperationsTaskDetails = ({
           delivery_instructions: deliveryInstructions || null,
           delivery_address: deliveryAddress || null,
           due_date: deliveryDate || null,
-          assigned_to: assignedTo || null,
+          assigned_to: assignedTo === "unassigned" ? null : assignedTo,
         })
         .eq("id", task.id);
 
@@ -165,8 +165,8 @@ export const OperationsTaskDetails = ({
               <SelectTrigger id="assigned-to" className="w-full">
                 <SelectValue placeholder="Select team member" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Unassigned</SelectItem>
+              <SelectContent className="bg-popover z-50">
+                <SelectItem value="unassigned">Unassigned</SelectItem>
                 {operationsUsers.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.full_name || user.email}
