@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle2, Clock, Paintbrush } from "lucide-react";
+import { CheckCircle2, Clock, Paintbrush, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
 interface MockupTask {
   id: string;
@@ -76,6 +78,50 @@ export const EstimationMockupTracker = () => {
 
   const pendingCount = mockupTasks.length;
 
+  const handleCancelMockup = async (taskId: string, taskTitle: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get the task to find previous status
+      const { data: task, error: fetchError } = await supabase
+        .from('tasks')
+        .select('previous_status, created_by')
+        .eq('id', taskId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching task:', fetchError);
+        toast.error('Failed to fetch task details');
+        return;
+      }
+
+      // Update task to remove from mockup pipeline
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update({
+          sent_to_designer_mockup: false,
+          mockup_completed_by_designer: false,
+          status: task?.previous_status || 'todo',
+          assigned_to: task?.created_by || user.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', taskId);
+
+      if (updateError) {
+        console.error('Error canceling mockup:', updateError);
+        toast.error('Failed to cancel mockup request');
+        return;
+      }
+
+      toast.success(`Removed "${taskTitle}" from mockup panel`);
+      fetchMockupTasks();
+    } catch (error) {
+      console.error('Error canceling mockup:', error);
+      toast.error('Failed to cancel mockup request');
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -119,8 +165,8 @@ export const EstimationMockupTracker = () => {
         ) : (
           <div className="space-y-2">
             {mockupTasks.map((task) => (
-              <div key={task.id} className="flex items-center justify-between p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
-                <div className="flex-1 min-w-0 mr-3">
+              <div key={task.id} className="flex items-center justify-between gap-2 p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors group">
+                <div className="flex-1 min-w-0 mr-2">
                   <p className="font-medium text-sm truncate">{task.title}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     {task.client_name && (
@@ -132,10 +178,21 @@ export const EstimationMockupTracker = () => {
                     </span>
                   </div>
                 </div>
-                <Badge variant="secondary" className="gap-1 text-xs whitespace-nowrap">
-                  <Clock className="h-3 w-3" />
-                  Pending
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="gap-1 text-xs whitespace-nowrap">
+                    <Clock className="h-3 w-3" />
+                    Pending
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleCancelMockup(task.id, task.title)}
+                    title="Cancel mockup request"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
