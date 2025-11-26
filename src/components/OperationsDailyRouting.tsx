@@ -16,6 +16,7 @@ type RoutingTask = {
   delivery_instructions: string | null;
   due_date: string | null;
   assigned_to: string | null;
+  priority: string;
   status: string;
   assigned_profile?: {
     full_name: string | null;
@@ -62,6 +63,7 @@ export const OperationsDailyRouting = () => {
           delivery_instructions,
           due_date,
           assigned_to,
+          priority,
           status,
           assigned_profile:profiles!tasks_assigned_to_fkey(
             full_name,
@@ -72,6 +74,7 @@ export const OperationsDailyRouting = () => {
         .is('deleted_at', null)
         .gte('due_date', dayStart.toISOString())
         .lte('due_date', dayEnd.toISOString())
+        .order('priority', { ascending: false })
         .order('due_date', { ascending: true });
 
       if (error) throw error;
@@ -182,29 +185,64 @@ export const OperationsDailyRouting = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {userTasks.map((task, index) => (
+                  {userTasks.map((task, index) => {
+                    const priorityColors = {
+                      urgent: "bg-red-100 dark:bg-red-950 border-red-500 text-red-700 dark:text-red-300",
+                      high: "bg-orange-100 dark:bg-orange-950 border-orange-500 text-orange-700 dark:text-orange-300",
+                      medium: "bg-blue-100 dark:bg-blue-950 border-blue-500 text-blue-700 dark:text-blue-300",
+                      low: "bg-gray-100 dark:bg-gray-950 border-gray-500 text-gray-700 dark:text-gray-300",
+                    };
+                    
+                    const priorityLabels = {
+                      urgent: "🚨 URGENT",
+                      high: "⚠️ HIGH",
+                      medium: "📋 MEDIUM",
+                      low: "📝 LOW",
+                    };
+                    
+                    const isHighPriority = task.priority === 'urgent' || task.priority === 'high';
+                    
+                    return (
                     <div
                       key={task.id}
                       className={cn(
-                        "p-4 rounded-lg border-2 bg-muted/30 space-y-3",
-                        "hover:shadow-md transition-shadow"
+                        "p-4 rounded-lg border-2 space-y-3 transition-all",
+                        "hover:shadow-md",
+                        isHighPriority 
+                          ? "bg-red-50 dark:bg-red-950/30 border-red-500 ring-2 ring-red-500/50 animate-pulse" 
+                          : "bg-muted/30"
                       )}
                     >
                       {/* Task Header */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <span className="text-sm font-semibold text-primary">
                               Stop #{index + 1}
                             </span>
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "text-xs font-bold border-2",
+                                priorityColors[task.priority as keyof typeof priorityColors]
+                              )}
+                            >
+                              {priorityLabels[task.priority as keyof typeof priorityLabels]}
+                            </Badge>
                             {task.due_date && (
-                              <Badge variant="outline" className="text-xs">
-                                <Clock className="h-3 w-3 mr-1" />
-                                {format(new Date(task.due_date), 'h:mm a')}
+                              <Badge 
+                                variant="outline" 
+                                className={cn(
+                                  "text-xs",
+                                  isHighPriority && "border-red-500 text-red-700 dark:text-red-300 font-bold"
+                                )}
+                              >
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {format(new Date(task.due_date), 'MMM d, yyyy')}
                               </Badge>
                             )}
                           </div>
-                          <h4 className="font-medium">{task.title}</h4>
+                          <h4 className="font-medium text-base">{task.title}</h4>
                           {task.client_name && (
                             <p className="text-sm text-muted-foreground">
                               Client: {task.client_name}
@@ -265,7 +303,8 @@ export const OperationsDailyRouting = () => {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </Card>
             );

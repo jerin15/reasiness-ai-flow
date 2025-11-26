@@ -28,6 +28,7 @@ type Task = {
   delivery_instructions: string | null;
   due_date: string | null;
   status: string;
+  priority: string;
   created_at: string;
   assigned_to: string | null;
   assigned_profile?: {
@@ -105,7 +106,8 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
         `)
         .in('status', ['production', 'done'])
         .is('deleted_at', null)
-        .order('created_at', { ascending: false });
+        .order('priority', { ascending: false })
+        .order('due_date', { ascending: true });
 
       if (error) throw error;
 
@@ -123,12 +125,27 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
     const isAssignedToMe = task.assigned_to === userId;
     const assignedUserName = task.assigned_profile?.full_name || task.assigned_profile?.email || 'Unassigned';
     
+    const priorityColors = {
+      urgent: "bg-red-100 dark:bg-red-950 border-red-500 text-red-700 dark:text-red-300",
+      high: "bg-orange-100 dark:bg-orange-950 border-orange-500 text-orange-700 dark:text-orange-300",
+      medium: "bg-blue-100 dark:bg-blue-950 border-blue-500 text-blue-700 dark:text-blue-300",
+      low: "bg-gray-100 dark:bg-gray-950 border-gray-500 text-gray-700 dark:text-gray-300",
+    };
+    
+    const priorityLabels = {
+      urgent: "🚨 URGENT",
+      high: "⚠️ HIGH",
+      medium: "📋 MEDIUM",
+      low: "📝 LOW",
+    };
+    
     return (
       <Card 
         className={cn(
           "cursor-pointer transition-all hover:shadow-lg border-2",
           !hasDeliveryInfo && "border-amber-500/50 bg-amber-50/30 dark:bg-amber-950/20",
-          isAssignedToMe && "border-primary/50 bg-primary/5"
+          isAssignedToMe && "border-primary/50 bg-primary/5",
+          (task.priority === 'urgent' || task.priority === 'high') && "ring-2 ring-red-500/50"
         )}
         onClick={() => setSelectedTask(task)}
       >
@@ -140,6 +157,15 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
                 {task.title}
               </h3>
               <div className="flex flex-col gap-1 shrink-0">
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-xs font-bold border-2",
+                    priorityColors[task.priority as keyof typeof priorityColors]
+                  )}
+                >
+                  {priorityLabels[task.priority as keyof typeof priorityLabels]}
+                </Badge>
                 {!hasDeliveryInfo && (
                   <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400">
                     Info Needed
@@ -170,10 +196,21 @@ export const OperationsDashboard = ({ userId }: OperationsDashboardProps) => {
 
           {/* Due Date */}
           {task.due_date && (
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-primary" />
-              <span className="font-medium">
-                {format(new Date(task.due_date), 'MMM d, yyyy • h:mm a')}
+            <div className={cn(
+              "flex items-center gap-2 text-sm p-2 rounded border-2",
+              (task.priority === 'urgent' || task.priority === 'high') 
+                ? "bg-red-50 dark:bg-red-950/30 border-red-500 animate-pulse" 
+                : "bg-muted/50 border-muted"
+            )}>
+              <Calendar className={cn(
+                "h-4 w-4",
+                (task.priority === 'urgent' || task.priority === 'high') ? "text-red-600" : "text-primary"
+              )} />
+              <span className={cn(
+                "font-bold",
+                (task.priority === 'urgent' || task.priority === 'high') && "text-red-700 dark:text-red-300"
+              )}>
+                Delivery: {format(new Date(task.due_date), 'MMM d, yyyy')}
               </span>
             </div>
           )}
