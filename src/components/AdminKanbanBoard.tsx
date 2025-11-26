@@ -31,6 +31,9 @@ type Task = {
   client_name: string | null;
   my_status: string;
   supplier_name: string | null;
+  suppliers: string[] | null;
+  delivery_instructions: string | null;
+  delivery_address: string | null;
   type: string;
   came_from_designer_done?: boolean;
   sent_back_to_designer?: boolean;

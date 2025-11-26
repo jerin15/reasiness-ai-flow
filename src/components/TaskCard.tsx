@@ -3,7 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Calendar, GripVertical, Edit2, Clock, ArrowRight, Package, RotateCcw } from "lucide-react";
+import { Calendar, GripVertical, Edit2, Clock, ArrowRight, Package, RotateCcw, Truck, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -14,6 +14,7 @@ import { TaskAgingIndicator } from "./TaskAgingIndicator";
 import { EstimationTaskTimer } from "./EstimationTaskTimer";
 import { useTaskActivity } from "@/hooks/useTaskActivity";
 import { SendBackToEstimationDialog } from "./SendBackToEstimationDialog";
+import { OperationsTaskDetails } from "./OperationsTaskDetails";
 
 type Task = {
   id: string;
@@ -31,6 +32,9 @@ type Task = {
   assigned_by: string | null;
   client_name: string | null;
   supplier_name: string | null;
+  suppliers: string[] | null;
+  delivery_instructions: string | null;
+  delivery_address: string | null;
   type: string;
   my_status: string;
   assigned_user_role?: string | null;
@@ -60,6 +64,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
   const [isMoving, setIsMoving] = useState(false);
   const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
   const [sendBackToEstimationOpen, setSendBackToEstimationOpen] = useState(false);
+  const [showOperationsDetails, setShowOperationsDetails] = useState(false);
   const { logActivity } = useTaskActivity();
 
   // Debug logging for delete button visibility
@@ -214,11 +219,8 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         break;
       case "operations":
         allPipelines = [
-          { value: "todo", label: "To-Do List" },
-          { value: "approval", label: "Approval" },
-          { value: "production", label: "Production" },
-          { value: "delivery", label: "Delivery" },
-          { value: "done", label: "Done" },
+          { value: "production", label: "PRODUCTION" },
+          { value: "done", label: "DONE" },
         ];
         break;
       case "technical_head":
@@ -236,11 +238,8 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         // Default to operations for unknown roles
         console.warn("Unknown role, defaulting to operations:", role);
         allPipelines = [
-          { value: "todo", label: "To-Do List" },
-          { value: "approval", label: "Approval" },
-          { value: "production", label: "Production" },
-          { value: "delivery", label: "Delivery" },
-          { value: "done", label: "Done" },
+          { value: "production", label: "PRODUCTION" },
+          { value: "done", label: "DONE" },
         ];
         break;
     }
@@ -736,6 +735,16 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         taskId={task.id}
         taskTitle={task.title}
         onSuccess={onTaskUpdated}
+      />
+      
+      <OperationsTaskDetails
+        open={showOperationsDetails}
+        onOpenChange={setShowOperationsDetails}
+        task={task}
+        onTaskUpdated={() => {
+          onTaskUpdated?.();
+          fetchProductStats();
+        }}
       />
     </Card>
   );

@@ -33,6 +33,9 @@ type Task = {
   client_name: string | null;
   my_status: string;
   supplier_name: string | null;
+  suppliers: string[] | null;
+  delivery_instructions: string | null;
+  delivery_address: string | null;
   type: string;
   assigned_user_role?: string | null;
   sent_to_designer_mockup?: boolean;

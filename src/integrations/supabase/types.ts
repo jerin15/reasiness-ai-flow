@@ -996,6 +996,8 @@ export type Database = {
           created_at: string | null
           created_by: string
           deleted_at: string | null
+          delivery_address: string | null
+          delivery_instructions: string | null
           description: string | null
           due_date: string | null
           id: string
@@ -1014,6 +1016,7 @@ export type Database = {
           status: Database["public"]["Enums"]["task_status"]
           status_changed_at: string | null
           supplier_name: string | null
+          suppliers: string[] | null
           title: string
           type: Database["public"]["Enums"]["task_type"] | null
           updated_at: string | null
@@ -1032,6 +1035,8 @@ export type Database = {
           created_at?: string | null
           created_by: string
           deleted_at?: string | null
+          delivery_address?: string | null
+          delivery_instructions?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
@@ -1050,6 +1055,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null
+          suppliers?: string[] | null
           title: string
           type?: Database["public"]["Enums"]["task_type"] | null
           updated_at?: string | null
@@ -1068,6 +1074,8 @@ export type Database = {
           created_at?: string | null
           created_by?: string
           deleted_at?: string | null
+          delivery_address?: string | null
+          delivery_instructions?: string | null
           description?: string | null
           due_date?: string | null
           id?: string
@@ -1086,6 +1094,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null
+          suppliers?: string[] | null
           title?: string
           type?: Database["public"]["Enums"]["task_type"] | null
           updated_at?: string | null
