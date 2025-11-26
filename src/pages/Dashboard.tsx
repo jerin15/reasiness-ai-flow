@@ -29,6 +29,7 @@ import { CreateUserDialog } from "@/components/CreateUserDialog";
 import { EstimationQuotaTracker } from "@/components/EstimationQuotaTracker";
 import { EstimationMockupTracker } from "@/components/EstimationMockupTracker";
 import { OperationsDailyRouting } from "@/components/OperationsDailyRouting";
+import { OperationsDashboard } from "@/components/OperationsDashboard";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -387,8 +388,8 @@ const Dashboard = () => {
                 <PersonalAnalytics userId={currentUserId} userRole={userRole} />
               </div>
             )}
-            {showDailyRouting && userRole === "operations" ? (
-              <OperationsDailyRouting />
+            {userRole === "operations" ? (
+              <OperationsDashboard userId={currentUserId} />
             ) : (
               <KanbanBoard 
                 userRole={userRole} 
