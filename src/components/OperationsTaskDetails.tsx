@@ -195,17 +195,23 @@ export const OperationsTaskDetails = ({
                 </Badge>
               )}
             </div>
-            <Select value={assignedTo} onValueChange={setAssignedTo}>
+            <Select value={assignedTo} onValueChange={(value) => {
+              console.log('🎯 Assignment changed to:', value);
+              setAssignedTo(value);
+            }}>
               <SelectTrigger id="assigned-to" className="w-full">
                 <SelectValue placeholder="Select team member" />
               </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
+              <SelectContent className="bg-popover z-[100]" position="popper" sideOffset={5}>
                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                {operationsUsers.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.full_name || user.email}
-                  </SelectItem>
-                ))}
+                {operationsUsers.map((user) => {
+                  console.log('🔹 Rendering option:', user.full_name, user.id);
+                  return (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name || user.email}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
