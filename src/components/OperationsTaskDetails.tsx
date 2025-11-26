@@ -48,7 +48,7 @@ export const OperationsTaskDetails = ({
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
-  const [assignedTo, setAssignedTo] = useState<string>("");
+  const [assignedTo, setAssignedTo] = useState<string>("unassigned");
   const [operationsUsers, setOperationsUsers] = useState<OperationsUser[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -68,16 +68,24 @@ export const OperationsTaskDetails = ({
 
   const fetchOperationsUsers = async () => {
     try {
+      console.log('🔍 Fetching operations users...');
+      
       // Get all user IDs with operations role
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'operations');
 
-      if (roleError) throw roleError;
+      console.log('📋 Role data:', roleData, 'Error:', roleError);
+
+      if (roleError) {
+        console.error('❌ Role fetch error:', roleError);
+        throw roleError;
+      }
       
       if (roleData && roleData.length > 0) {
         const userIds = roleData.map(r => r.user_id);
+        console.log('👥 User IDs:', userIds);
         
         // Fetch profiles for those user IDs
         const { data: profileData, error: profileError } = await supabase
@@ -85,14 +93,22 @@ export const OperationsTaskDetails = ({
           .select('id, full_name, email')
           .in('id', userIds);
           
-        if (profileError) throw profileError;
+        console.log('👤 Profile data:', profileData, 'Error:', profileError);
+
+        if (profileError) {
+          console.error('❌ Profile fetch error:', profileError);
+          throw profileError;
+        }
         
         if (profileData) {
+          console.log('✅ Setting operations users:', profileData);
           setOperationsUsers(profileData as OperationsUser[]);
         }
+      } else {
+        console.warn('⚠️ No operations users found');
       }
     } catch (error) {
-      console.error('Error fetching operations users:', error);
+      console.error('❌ Error fetching operations users:', error);
       toast.error("Failed to load operations team members");
     }
   };
@@ -173,6 +189,11 @@ export const OperationsTaskDetails = ({
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-primary" />
               <Label htmlFor="assigned-to">Assigned To</Label>
+              {operationsUsers.length > 0 && (
+                <Badge variant="outline" className="ml-auto">
+                  {operationsUsers.length} team members
+                </Badge>
+              )}
             </div>
             <Select value={assignedTo} onValueChange={setAssignedTo}>
               <SelectTrigger id="assigned-to" className="w-full">
@@ -180,11 +201,15 @@ export const OperationsTaskDetails = ({
               </SelectTrigger>
               <SelectContent className="bg-popover z-50">
                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                {operationsUsers.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.full_name || user.email}
-                  </SelectItem>
-                ))}
+                {operationsUsers.length === 0 ? (
+                  <SelectItem value="" disabled>Loading team members...</SelectItem>
+                ) : (
+                  operationsUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.full_name || user.email}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
