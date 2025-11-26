@@ -75,12 +75,21 @@ export const TeamChatListDialog = ({
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*, user_roles(*)')
+        .select(`
+          *,
+          user_roles(role)
+        `)
         .neq('id', currentUserId)
         .order('full_name');
 
       if (error) throw error;
-      setTeamMembers(data || []);
+      
+      // Filter to only show users who have roles
+      const membersWithRoles = (data || []).filter(member => 
+        member.user_roles && member.user_roles.length > 0
+      );
+      
+      setTeamMembers(membersWithRoles);
     } catch (error) {
       console.error('Error fetching team members:', error);
     } finally {
