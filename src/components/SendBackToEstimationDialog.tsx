@@ -95,20 +95,25 @@ export const SendBackToEstimationDialog = ({
       if (updateError) throw updateError;
 
       // Create urgent notification for estimation
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       
-      const { error: notifError } = await supabase
-        .from("urgent_notifications")
-        .insert({
-          recipient_id: estimationUserId,
-          sender_id: userData.user?.id,
-          title: "🎨 Mockup Completed - Ready for Review",
-          message: `Task: ${taskTitle}\n\n✅ Designer has completed the mockup and sent it for review.\n\n📝 Designer's Notes:\n${remarks}\n\n⚠️ Please review and proceed accordingly.`,
-          priority: "high",
-          is_broadcast: false
-        });
+      if (user) {
+        const { error: notifError } = await supabase
+          .from("urgent_notifications")
+          .insert({
+            recipient_id: estimationUserId,
+            sender_id: user.id,
+            title: "🎨 Mockup Completed - Ready for Review",
+            message: `Task: ${taskTitle}\n\n✅ Designer has completed the mockup and sent it for review.\n\n📝 Designer's Notes:\n${remarks}\n\n⚠️ Please review and proceed accordingly.`,
+            priority: "high",
+            is_broadcast: false
+          });
 
-      if (notifError) throw notifError;
+        if (notifError) {
+          console.error("Notification error:", notifError);
+          // Don't throw - notification is not critical for the main workflow
+        }
+      }
 
       toast.success("Task sent back to estimation successfully");
       setRemarks("");
