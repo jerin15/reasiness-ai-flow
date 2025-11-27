@@ -3,9 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle2, Clock, Paintbrush, X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCircle2, Clock, Paintbrush, X, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
@@ -18,14 +17,17 @@ interface MockupTask {
   status: string;
   updated_at: string;
   created_at: string;
+  admin_remarks: string | null;
 }
 
 export const EstimationMockupTracker = () => {
   const [mockupTasks, setMockupTasks] = useState<MockupTask[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<MockupTask[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchMockupTasks();
+    fetchCompletedTasks();
     
     // Subscribe to changes
     const channel = supabase
@@ -40,6 +42,7 @@ export const EstimationMockupTracker = () => {
         },
         () => {
           fetchMockupTasks();
+          fetchCompletedTasks();
         }
       )
       .subscribe();
@@ -56,7 +59,7 @@ export const EstimationMockupTracker = () => {
 
       const { data, error } = await supabase
         .from('tasks')
-        .select('id, title, client_name, sent_to_designer_mockup, mockup_completed_by_designer, status, updated_at, created_at')
+        .select('id, title, client_name, sent_to_designer_mockup, mockup_completed_by_designer, status, updated_at, created_at, admin_remarks')
         .eq('sent_to_designer_mockup', true)
         .eq('mockup_completed_by_designer', false)
         .is('deleted_at', null)
@@ -76,7 +79,64 @@ export const EstimationMockupTracker = () => {
     }
   };
 
+  const fetchCompletedTasks = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('id, title, client_name, sent_to_designer_mockup, mockup_completed_by_designer, status, updated_at, created_at, admin_remarks')
+        .eq('sent_to_designer_mockup', true)
+        .eq('mockup_completed_by_designer', true)
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error fetching completed mockup tasks:', error);
+        throw error;
+      }
+      
+      setCompletedTasks(data || []);
+    } catch (error) {
+      console.error('Error fetching completed mockup tasks:', error);
+    }
+  };
+
+  const handlePullBack = async (taskId: string, taskTitle: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update({
+          sent_to_designer_mockup: false,
+          mockup_completed_by_designer: false,
+          assigned_to: user.id,
+          status: 'todo',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', taskId);
+
+      if (updateError) {
+        console.error('Error pulling back task:', updateError);
+        toast.error('Failed to pull back task');
+        return;
+      }
+
+      toast.success(`Pulled back "${taskTitle}" to your tasks`);
+      fetchMockupTasks();
+      fetchCompletedTasks();
+    } catch (error) {
+      console.error('Error pulling back task:', error);
+      toast.error('Failed to pull back task');
+    }
+  };
+
   const pendingCount = mockupTasks.length;
+  const completedCount = completedTasks.length;
 
   const handleCancelMockup = async (taskId: string, taskTitle: string) => {
     try {
@@ -143,60 +203,116 @@ export const EstimationMockupTracker = () => {
   return (
     <Card className="shadow-sm">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Paintbrush className="h-4 w-4 text-primary" />
-            <div>
-              <CardTitle className="text-base">Pending Mockup Requests</CardTitle>
-              <CardDescription className="text-xs">Tasks awaiting designer mockup</CardDescription>
-            </div>
-          </div>
-          <Badge variant="secondary" className="text-sm font-semibold">
-            {pendingCount} Active
-          </Badge>
+        <div className="flex items-center gap-2">
+          <Paintbrush className="h-4 w-4 text-primary" />
+          <CardTitle className="text-base">Mockup Tracker</CardTitle>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        {mockupTasks.length === 0 ? (
-          <div className="text-center py-4 text-muted-foreground text-sm">
-            <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No pending mockup requests</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {mockupTasks.map((task) => (
-              <div key={task.id} className="flex items-center justify-between gap-2 p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors group">
-                <div className="flex-1 min-w-0 mr-2">
-                  <p className="font-medium text-sm truncate">{task.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {task.client_name && (
-                      <span className="text-xs text-muted-foreground">{task.client_name}</span>
-                    )}
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(task.updated_at), { addSuffix: true })}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="gap-1 text-xs whitespace-nowrap">
-                    <Clock className="h-3 w-3" />
-                    Pending
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleCancelMockup(task.id, task.title)}
-                    title="Cancel mockup request"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+        <Tabs defaultValue="pending" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="pending" className="gap-2">
+              <Clock className="h-3.5 w-3.5" />
+              Pending ({pendingCount})
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Completed ({completedCount})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="pending" className="mt-4">
+            {mockupTasks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No pending mockup requests</p>
               </div>
-            ))}
-          </div>
-        )}
+            ) : (
+              <div className="space-y-2">
+                {mockupTasks.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between gap-2 p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors group">
+                    <div className="flex-1 min-w-0 mr-2">
+                      <p className="font-medium text-sm truncate">{task.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {task.client_name && (
+                          <span className="text-xs text-muted-foreground">{task.client_name}</span>
+                        )}
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(task.updated_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="gap-1 text-xs whitespace-nowrap">
+                        <Clock className="h-3 w-3" />
+                        Pending
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleCancelMockup(task.id, task.title)}
+                        title="Cancel mockup request"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="completed" className="mt-4">
+            {completedTasks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No completed mockups</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {completedTasks.map((task) => (
+                  <div key={task.id} className="flex flex-col gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{task.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {task.client_name && (
+                            <span className="text-xs text-muted-foreground">{task.client_name}</span>
+                          )}
+                          <span className="text-xs text-muted-foreground">•</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(new Date(task.updated_at), { addSuffix: true })}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="default" className="gap-1 text-xs whitespace-nowrap bg-green-600 hover:bg-green-700">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Done
+                      </Badge>
+                    </div>
+                    
+                    {task.admin_remarks && (
+                      <div className="text-xs bg-muted/50 p-2 rounded border-l-2 border-primary">
+                        <span className="font-medium">Designer remarks:</span> {task.admin_remarks}
+                      </div>
+                    )}
+                    
+                    <Button
+                      size="sm"
+                      className="w-full gap-2"
+                      onClick={() => handlePullBack(task.id, task.title)}
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      Pull Back to My Tasks
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
