@@ -222,10 +222,14 @@ export const EditTaskDialog = ({
           return;
         }
 
+        // Get current user ID
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+
         updateData = {
           ...updateData,
           status: 'mockup',
           assigned_to: designerUsers[0].user_id,
+          assigned_by: currentUser?.id, // Store current estimator's ID
           sent_to_designer_mockup: true,
           mockup_completed_by_designer: false,
           previous_status: task.status,

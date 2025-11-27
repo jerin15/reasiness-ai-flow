@@ -13,7 +13,7 @@ import { useState, useEffect } from "react";
 import { TaskAgingIndicator } from "./TaskAgingIndicator";
 import { EstimationTaskTimer } from "./EstimationTaskTimer";
 import { useTaskActivity } from "@/hooks/useTaskActivity";
-import { SendBackToEstimationDialog } from "./SendBackToEstimationDialog";
+import { DesignerSendBackButton } from "./DesignerSendBackButton";
 import { OperationsTaskDetails } from "./OperationsTaskDetails";
 
 type Task = {
@@ -63,7 +63,6 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
-  const [sendBackToEstimationOpen, setSendBackToEstimationOpen] = useState(false);
   const [showOperationsDetails, setShowOperationsDetails] = useState(false);
   const { logActivity } = useTaskActivity();
 
@@ -292,9 +291,13 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
           return;
         }
 
+        // Get current user ID
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+
         updateData = {
           status: 'mockup',
           assigned_to: designerUsers[0].user_id,
+          assigned_by: currentUser?.id, // Store current estimator's ID
           sent_to_designer_mockup: true,
           mockup_completed_by_designer: false,
           previous_status: task.status,
@@ -526,21 +529,15 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                   </Button>
                 )}
                 
-                {/* Send Back to Estimation button for designer after completing mockup */}
+                {/* Send Back to Estimator button for designer after completing mockup */}
                 {userRole === 'designer' && task.sent_to_designer_mockup && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-5 px-1.5 text-[10px] bg-blue-500 hover:bg-blue-600 text-white border-blue-600 font-medium shrink-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSendBackToEstimationOpen(true);
-                    }}
-                    disabled={isMoving}
-                    title="Send back to estimation"
-                  >
-                    <RotateCcw className="h-3 w-3" />
-                  </Button>
+                  <DesignerSendBackButton
+                    taskId={task.id}
+                    taskTitle={task.title}
+                    assignedBy={task.assigned_by}
+                    createdBy={task.created_by}
+                    onSuccess={onTaskUpdated}
+                  />
                 )}
                 
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
@@ -790,23 +787,17 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         </div>
       </CardContent>
       
-      <SendBackToEstimationDialog
-        open={sendBackToEstimationOpen}
-        onOpenChange={setSendBackToEstimationOpen}
-        taskId={task.id}
-        taskTitle={task.title}
-        onSuccess={onTaskUpdated}
-      />
-      
-      <OperationsTaskDetails
-        open={showOperationsDetails}
-        onOpenChange={setShowOperationsDetails}
-        task={task}
-        onTaskUpdated={() => {
-          onTaskUpdated?.();
-          fetchProductStats();
-        }}
-      />
+      {showOperationsDetails && (
+        <OperationsTaskDetails
+          open={showOperationsDetails}
+          onOpenChange={setShowOperationsDetails}
+          task={task}
+          onTaskUpdated={() => {
+            onTaskUpdated?.();
+            fetchProductStats();
+          }}
+        />
+      )}
     </Card>
   );
 };
