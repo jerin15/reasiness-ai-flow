@@ -152,25 +152,25 @@ export const EstimationMockupTracker = () => {
 
       if (fetchError) {
         console.error('Error fetching task:', fetchError);
-        toast.error('Failed to fetch task details');
+        toast.error(`Failed to fetch task: ${fetchError.message}`);
         return;
       }
 
-      // Update task to remove from mockup pipeline
+      // Update task to remove from mockup pipeline - assign back to current estimator
       const { error: updateError } = await supabase
         .from('tasks')
         .update({
           sent_to_designer_mockup: false,
           mockup_completed_by_designer: false,
           status: task?.previous_status || 'todo',
-          assigned_to: task?.created_by || user.id,
+          assigned_to: user.id, // Always assign back to current estimator
           updated_at: new Date().toISOString()
         })
         .eq('id', taskId);
 
       if (updateError) {
         console.error('Error canceling mockup:', updateError);
-        toast.error('Failed to cancel mockup request');
+        toast.error(`Failed to cancel: ${updateError.message}`);
         return;
       }
 
