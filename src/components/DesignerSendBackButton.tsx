@@ -47,13 +47,15 @@ export const DesignerSendBackButton = ({
 
       console.log("🎯 Sending task back to estimator:", estimatorId);
 
-      // Update task - ONLY set completion flags, let estimator pull it back
+      // Update task - set completion flags AND move to with_client for designer-admin workflow
       const { error: updateError } = await supabase
         .from("tasks")
         .update({
           mockup_completed_by_designer: true,
           came_from_designer_done: true,
           admin_remarks: remarks,
+          status: 'with_client',
+          status_changed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq("id", taskId);
