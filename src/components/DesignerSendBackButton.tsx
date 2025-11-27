@@ -32,39 +32,44 @@ export const DesignerSendBackButton = ({
     }
 
     setIsSubmitting(true);
+    console.log("🔵 Designer sending back - assigned_by:", assignedBy, "created_by:", createdBy);
 
     try {
       // Use assigned_by (estimator who sent it) or fall back to created_by
       const estimatorId = assignedBy || createdBy;
 
       if (!estimatorId) {
+        console.error("❌ No estimator ID found");
         toast.error("Cannot determine original estimator");
         setIsSubmitting(false);
         return;
       }
 
-      // Update task - send back to original estimator
+      console.log("🎯 Sending task back to estimator:", estimatorId);
+
+      // Update task - ONLY set completion flags, let estimator pull it back
       const { error: updateError } = await supabase
         .from("tasks")
         .update({
-          status: "todo",
-          assigned_to: estimatorId,
-          sent_to_designer_mockup: false,
           mockup_completed_by_designer: true,
           came_from_designer_done: true,
           admin_remarks: remarks,
-          status_changed_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq("id", taskId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("❌ Update error:", updateError);
+        throw updateError;
+      }
+
+      console.log("✅ Task updated successfully");
 
       // Create notification for estimator
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        await supabase
+        const { error: notifError } = await supabase
           .from("urgent_notifications")
           .insert({
             recipient_id: estimatorId,
@@ -74,15 +79,19 @@ export const DesignerSendBackButton = ({
             priority: "high",
             is_broadcast: false
           });
+
+        if (notifError) {
+          console.error("⚠️ Notification error (non-critical):", notifError);
+        }
       }
 
-      toast.success("Task sent back to estimator successfully");
+      toast.success("Mockup marked as complete - estimator notified");
       setRemarks("");
       setOpen(false);
       if (onSuccess) onSuccess();
     } catch (error: any) {
-      console.error("Error sending task back:", error);
-      toast.error("Failed to send task back");
+      console.error("❌ Full error:", error);
+      toast.error(error.message || "Failed to send task back");
     } finally {
       setIsSubmitting(false);
     }
