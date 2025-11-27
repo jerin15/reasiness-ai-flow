@@ -378,6 +378,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         task.sent_to_designer_mockup && task.status === 'mockup' && "border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/20 shadow-lg shadow-amber-500/50 animate-pulse",
         task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20 shadow-lg shadow-green-500/50",
         task.came_from_designer_done && task.status === 'production' && "border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 shadow-lg shadow-purple-500/50",
+        task.came_from_designer_done && task.status === 'todo' && "border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 shadow-lg shadow-emerald-500/50 ring-2 ring-emerald-400/50",
         task.sent_back_to_designer && task.status === 'todo' && "border-2 border-red-500 bg-red-50 dark:bg-red-950/20 shadow-lg shadow-red-500/50 animate-pulse"
       )}
     >
@@ -405,7 +406,19 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                     ✓ Mockup Completed
                   </Badge>
                 )}
-                {task.sent_back_to_designer && task.status === 'todo' && (
+                {task.came_from_designer_done && task.status === 'todo' && (
+                  <div className="mt-1.5 space-y-1">
+                    <Badge className="bg-emerald-600 text-white font-semibold shadow-md">
+                      ✨ MOCKUP READY - Designer Completed
+                    </Badge>
+                    {task.admin_remarks && (
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300 font-medium bg-emerald-100 dark:bg-emerald-900/30 p-1.5 rounded border border-emerald-300 dark:border-emerald-700">
+                        💬 Designer: {task.admin_remarks}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {task.sent_back_to_designer && task.status === 'todo' && !task.came_from_designer_done && (
                   <Badge className="mt-1 bg-red-500 text-white animate-pulse">
                     ⚠️ SENT BACK - NEEDS REDO
                   </Badge>
