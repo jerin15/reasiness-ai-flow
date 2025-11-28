@@ -1441,6 +1441,10 @@ export type Database = {
     }
     Functions: {
       check_due_date_reminders: { Args: never; Returns: undefined }
+      cleanup_completed_tasks_with_notification: {
+        Args: never
+        Returns: undefined
+      }
       cleanup_old_completed_tasks: { Args: never; Returns: undefined }
       get_least_busy_estimation_member: {
         Args: never
