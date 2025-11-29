@@ -168,7 +168,13 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       if (isAdmin && viewingUserId && viewingUserId !== user.id) {
         // Admin viewing team member's panel - show that user's tasks
         console.log("👥 Admin viewing team member:", viewingUserId);
-        query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
+        
+        // For designers viewing through admin, also include tasks that came from designer
+        if (viewingUserRole === 'designer') {
+          query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId},came_from_designer_done.eq.true`);
+        } else {
+          query = query.or(`created_by.eq.${viewingUserId},assigned_to.eq.${viewingUserId}`);
+        }
       } else if (isAdmin && (!viewingUserId || viewingUserId === user.id)) {
         // Admin viewing their OWN panel - only their assigned tasks or personal tasks
         console.log("👤 Admin viewing own pipeline");
@@ -176,7 +182,13 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       } else {
         // Regular user (non-admin) - show tasks they created OR are assigned to
         console.log("👤 Regular user viewing own tasks");
-        query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
+        
+        // For designers, also include tasks that came from designer workflow
+        if (currentUserRole === 'designer') {
+          query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id},came_from_designer_done.eq.true`);
+        } else {
+          query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
+        }
       }
 
       // For estimation role, order by type first (quotations, invoices, productions, generals)
