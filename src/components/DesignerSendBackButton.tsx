@@ -47,12 +47,16 @@ export const DesignerSendBackButton = ({
 
       console.log("🎯 Sending task back to estimator:", estimatorId);
 
+      // Get current user ID to track which designer completed the mockup
+      const { data: { user } } = await supabase.auth.getUser();
+
       // Update task - set completion flags AND move to with_client for designer-admin workflow
       const { error: updateError } = await supabase
         .from("tasks")
         .update({
           mockup_completed_by_designer: true,
           came_from_designer_done: true,
+          completed_by_designer_id: user?.id,
           admin_remarks: remarks,
           status: 'with_client',
           status_changed_at: new Date().toISOString(),
@@ -68,7 +72,6 @@ export const DesignerSendBackButton = ({
       console.log("✅ Task updated successfully");
 
       // Create notification for estimator
-      const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
         const { error: notifError } = await supabase

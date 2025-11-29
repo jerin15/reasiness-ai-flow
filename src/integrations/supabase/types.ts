@@ -993,6 +993,7 @@ export type Database = {
           came_from_designer_done: boolean | null
           client_name: string | null
           completed_at: string | null
+          completed_by_designer_id: string | null
           created_at: string | null
           created_by: string
           deleted_at: string | null
@@ -1032,6 +1033,7 @@ export type Database = {
           came_from_designer_done?: boolean | null
           client_name?: string | null
           completed_at?: string | null
+          completed_by_designer_id?: string | null
           created_at?: string | null
           created_by: string
           deleted_at?: string | null
@@ -1071,6 +1073,7 @@ export type Database = {
           came_from_designer_done?: boolean | null
           client_name?: string | null
           completed_at?: string | null
+          completed_by_designer_id?: string | null
           created_at?: string | null
           created_by?: string
           deleted_at?: string | null
