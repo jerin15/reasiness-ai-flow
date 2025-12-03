@@ -90,12 +90,13 @@ const BrainGames = () => {
 
   if (showLeaderboard) {
     return (
-      <div className="min-h-screen bg-background p-6">
+      <div className="min-h-screen bg-background p-3 sm:p-6">
         <div className="max-w-7xl mx-auto">
           <Button
             variant="outline"
             onClick={() => setShowLeaderboard(false)}
             className="mb-4"
+            size="sm"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Games
@@ -107,24 +108,24 @@ const BrainGames = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <Brain className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold">Brain Games</h1>
+              <Brain className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+              <h1 className="text-2xl sm:text-3xl font-bold">Brain Games</h1>
             </div>
-            <p className="text-muted-foreground">Sharpen your mind with challenging puzzles and games</p>
+            <p className="text-sm sm:text-base text-muted-foreground">Sharpen your mind with challenging puzzles</p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => navigate('/')} variant="outline">
-              <Home className="h-4 w-4 mr-2" />
-              Dashboard
+            <Button onClick={() => navigate('/')} variant="outline" size="sm" className="sm:size-default">
+              <Home className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Dashboard</span>
             </Button>
-            <Button onClick={() => setShowLeaderboard(true)} variant="outline">
-              <Trophy className="h-4 w-4 mr-2" />
-              Leaderboard
+            <Button onClick={() => setShowLeaderboard(true)} variant="outline" size="sm" className="sm:size-default">
+              <Trophy className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Leaderboard</span>
             </Button>
           </div>
         </div>
@@ -134,12 +135,12 @@ const BrainGames = () => {
           setGameMode('lobby');
           setActiveGameRoom(null);
         }} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="sudoku">Sudoku</TabsTrigger>
-            <TabsTrigger value="chess">Chess</TabsTrigger>
-            <TabsTrigger value="memory">Memory Match</TabsTrigger>
-            <TabsTrigger value="wordsearch">Word Search</TabsTrigger>
-            <TabsTrigger value="math">Math Puzzle</TabsTrigger>
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1 mb-6 sm:grid sm:grid-cols-5">
+            <TabsTrigger value="sudoku" className="flex-1 min-w-[80px] text-xs sm:text-sm">Sudoku</TabsTrigger>
+            <TabsTrigger value="chess" className="flex-1 min-w-[80px] text-xs sm:text-sm">Chess</TabsTrigger>
+            <TabsTrigger value="memory" className="flex-1 min-w-[80px] text-xs sm:text-sm">Memory</TabsTrigger>
+            <TabsTrigger value="wordsearch" className="flex-1 min-w-[80px] text-xs sm:text-sm">Words</TabsTrigger>
+            <TabsTrigger value="math" className="flex-1 min-w-[80px] text-xs sm:text-sm">Math</TabsTrigger>
           </TabsList>
 
           <TabsContent value="sudoku">
