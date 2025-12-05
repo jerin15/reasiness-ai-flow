@@ -84,7 +84,7 @@ export const DueDateReminderDialog = ({ open, onOpenChange, userId }: DueDateRem
 
       // For estimation users, exclude all final pipeline stages
       const excludedStatuses = userRole?.role === 'estimation'
-        ? '(done,quotation,pending_invoices,quotation_bill,production)'
+        ? '(done,quotation,final_invoice,quotation_bill,production)'
         : '(done)';
 
       const { data, error } = await supabase
