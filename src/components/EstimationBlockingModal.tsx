@@ -50,28 +50,38 @@ export const EstimationBlockingModal = () => {
         return;
       }
 
+      // Fetch stage limits separately to avoid broken inner join
+      const { data: stageLimits } = await supabase
+        .from('estimation_stage_limits')
+        .select('stage_status, time_limit_hours');
+
+      const limitsMap = new Map<string, number>();
+      if (stageLimits) {
+        stageLimits.forEach(limit => {
+          limitsMap.set(limit.stage_status, limit.time_limit_hours);
+        });
+      }
+
       // Check for stuck quotation tasks
       const { data: tasks, error } = await supabase
         .from('tasks')
-        .select(`
-          id,
-          title,
-          status,
-          last_activity_at,
-          estimation_stage_limits!inner(time_limit_hours)
-        `)
+        .select('id, title, status, last_activity_at')
         .eq('assigned_to', user.id)
         .eq('type', 'quotation')
         .in('status', ['todo', 'supplier_quotes', 'client_approval', 'admin_approval'])
         .is('deleted_at', null);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching tasks:', error);
+        setIsBlocked(false);
+        return;
+      }
 
       if (tasks && tasks.length > 0) {
         const stuck = tasks
           .map(task => {
             const hoursIdle = (Date.now() - new Date(task.last_activity_at).getTime()) / (1000 * 60 * 60);
-            const timeLimit = (task as any).estimation_stage_limits?.time_limit_hours || 2;
+            const timeLimit = limitsMap.get(task.status) || 2; // Default 2 hours if not found
             return {
               id: task.id,
               title: task.title,

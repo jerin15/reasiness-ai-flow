@@ -52,7 +52,7 @@ export const DueRemindersDialog = ({ open, onOpenChange }: DueRemindersDialogPro
 
       // For estimation users, exclude all final pipeline stages
       const excludedStatuses = userRole?.role === 'estimation'
-        ? '(done,quotation,pending_invoices,quotation_bill,production)'
+        ? '(done,quotation,final_invoice,quotation_bill,production)'
         : '(done)';
 
       const { data: tasks } = await supabase
