@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus, Brain, CalendarDays } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus, Brain, CalendarDays, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ interface DashboardSidebarProps {
   onCreateTaskClick: () => void;
   onCreateUserClick?: () => void;
   onDailyRoutingClick?: () => void;
+  onManageTeamClick?: () => void;
   onSignOut: () => void;
   showPersonalAnalytics?: boolean;
   showDailyRouting?: boolean;
@@ -60,6 +61,7 @@ export function DashboardSidebar({
   onCreateTaskClick,
   onCreateUserClick,
   onDailyRoutingClick,
+  onManageTeamClick,
   onSignOut,
   showPersonalAnalytics,
   showDailyRouting,
@@ -143,6 +145,14 @@ export function DashboardSidebar({
                     <span>Create Task</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                {userRole === 'admin' && onManageTeamClick && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton onClick={onManageTeamClick}>
+                      <Settings className="h-4 w-4" />
+                      <span>Manage Team</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
