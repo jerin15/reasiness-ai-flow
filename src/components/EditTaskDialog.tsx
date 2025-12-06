@@ -270,13 +270,11 @@ export const EditTaskDialog = ({
         };
       }
 
-      const { error } = await supabase
-        .from("tasks")
-        .update(updateData)
-        .eq("id", task.id);
-
-      if (error) throw error;
-
+      // Close dialog immediately for snappy UX
+      setLoading(false);
+      onOpenChange(false);
+      
+      // Show optimistic toast
       if (status === 'send_to_designer_mockup') {
         toast.success("Task sent to designer's mockup pipeline");
       } else if (status === 'return_to_estimation') {
@@ -286,12 +284,24 @@ export const EditTaskDialog = ({
       } else {
         toast.success("Task updated successfully");
       }
+
+      // Perform update in background
+      const { error } = await supabase
+        .from("tasks")
+        .update(updateData)
+        .eq("id", task.id);
+
+      if (error) {
+        console.error("Error updating task:", error);
+        toast.error("Failed to save changes - please refresh");
+        return;
+      }
+
+      // Trigger refetch after successful save
       onTaskUpdated();
-      onOpenChange(false);
     } catch (error: any) {
       console.error("Error updating task:", error);
       toast.error(error.message || "Failed to update task");
-    } finally {
       setLoading(false);
     }
   };

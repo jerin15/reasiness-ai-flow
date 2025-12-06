@@ -185,13 +185,12 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
 
       if (error) {
         console.error('Task creation error:', error);
-        console.error('Task data sent:', taskData);
         throw error;
       }
 
-      // Enrich the audit log with device information
+      // Enrich the audit log with device information (fire-and-forget - non-blocking)
       if (insertedTask) {
-        await enrichLatestAuditLog(insertedTask.id);
+        enrichLatestAuditLog(insertedTask.id);
       }
 
       // If there are products to add, insert them now
