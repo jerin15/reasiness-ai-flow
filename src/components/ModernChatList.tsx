@@ -116,7 +116,7 @@ export const ModernChatList = ({
 
           return {
             id: profile.id,
-            name: profile.full_name,
+            name: profile.full_name || profile.email || 'Unknown User',
             type: "direct" as const,
             avatar: profile.avatar_url,
             lastMessage: lastMsg?.message,
