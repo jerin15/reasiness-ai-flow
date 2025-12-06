@@ -229,11 +229,11 @@ export const ModernChatList = ({
   };
 
   const filteredDirectChats = directChats.filter((chat) =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (chat.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredGroupChats = groupChats.filter((chat) =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (chat.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const renderChatItem = (chat: Chat) => (
