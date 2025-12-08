@@ -64,6 +64,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
   const [isMoving, setIsMoving] = useState(false);
   const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
   const [showOperationsDetails, setShowOperationsDetails] = useState(false);
+  const [assignedByName, setAssignedByName] = useState<string | null>(null);
   const { logActivity } = useTaskActivity();
 
   // Debug logging for delete button visibility
@@ -75,9 +76,34 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
 
   useEffect(() => {
     fetchProductStats();
+    fetchAssignedByName();
     // Log task view
     logActivity(task.id, 'viewed');
   }, [task.id]);
+  
+  // Fetch the name of the person who assigned the task (if assigned_by is a UUID)
+  const fetchAssignedByName = async () => {
+    if (!task.assigned_by) {
+      setAssignedByName(null);
+      return;
+    }
+    
+    // Check if assigned_by is a UUID (36 chars with dashes)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(task.assigned_by);
+    
+    if (isUUID) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', task.assigned_by)
+        .single();
+      
+      setAssignedByName(data?.full_name || task.assigned_by);
+    } else {
+      // It's already a name string
+      setAssignedByName(task.assigned_by);
+    }
+  };
 
   const fetchProductStats = async () => {
     const { data } = await supabase
@@ -749,12 +775,12 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                   🎨 From Designer Done
                 </Badge>
               )}
-              {task.assigned_by && (
+              {assignedByName && (
                 <Badge
                   variant="secondary"
                   className="text-xs bg-blue-500 text-white hover:bg-blue-600"
                 >
-                  Assigned by {task.assigned_by}
+                  Assigned by {assignedByName}
                 </Badge>
               )}
               {task.supplier_name && (
