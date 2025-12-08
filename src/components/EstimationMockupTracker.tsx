@@ -109,11 +109,15 @@ export const EstimationMockupTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // IMPORTANT: When estimator pulls back, keep came_from_designer_done=true
+      // so the task STAYS in designer's WITH CLIENT pipeline (dual visibility)
+      // Only reset sent_to_designer_mockup to remove from estimator's mockup tracker
       const { error: updateError } = await supabase
         .from('tasks')
         .update({
           sent_to_designer_mockup: false,
           mockup_completed_by_designer: false,
+          // NOTE: We keep came_from_designer_done=true so task stays in designer's WITH CLIENT
           assigned_to: user.id,
           status: 'todo',
           updated_at: new Date().toISOString()
