@@ -41,6 +41,7 @@ type Task = {
   sent_to_designer_mockup?: boolean;
   mockup_completed_by_designer?: boolean;
   came_from_designer_done?: boolean;
+  completed_by_designer_id?: string | null;
 };
 
 type Column = {
@@ -716,6 +717,22 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                   columnTasks = columnTasks.filter((task) => task.type?.toLowerCase() === 'quotation');
                 } else if (column.id === 'general_todo') {
                   columnTasks = columnTasks.filter((task) => task.type?.toLowerCase() !== 'quotation');
+                }
+                
+                // For designer's WITH CLIENT column: also include tasks where designer completed mockup
+                // but status was changed back (e.g., estimator pulled back to their todo)
+                // This enables dual visibility - task appears in both estimator's panel AND designer's WITH CLIENT
+                const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
+                if (roleToCheck === 'designer' && column.id === 'with_client') {
+                  const designerUserId = (isAdmin && viewingUserId) ? viewingUserId : currentUserId;
+                  const additionalTasks = filteredTasks.filter((task) => 
+                    task.completed_by_designer_id === designerUserId &&
+                    task.came_from_designer_done === true &&
+                    task.status !== 'with_client' && // Already included in base filter
+                    task.status !== 'done' && // Don't duplicate done tasks
+                    task.status !== 'production' // Don't show production tasks here
+                  );
+                  columnTasks = [...columnTasks, ...additionalTasks];
                 }
                 
                 return (

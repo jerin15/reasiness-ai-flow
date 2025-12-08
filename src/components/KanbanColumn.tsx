@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { TaskCard } from "./TaskCard";
 import { cn } from "@/lib/utils";
+import { Button } from "./ui/button";
+import { Download } from "lucide-react";
+import { ReportsDownloadDialog } from "./ReportsDownloadDialog";
 
 type Task = {
   id: string;
@@ -104,6 +108,9 @@ const getColumnHeaderColor = (columnTitle: string): string => {
 
 export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTaskUpdated, userRole, userRolesMap, isAdminOwnPanel, onDeleteTask, onSendBack }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id });
+  const [showReportsDialog, setShowReportsDialog] = useState(false);
+  
+  const isDoneColumn = title.toLowerCase().includes('done');
 
   return (
     <div 
@@ -116,11 +123,31 @@ export const KanbanColumn = ({ id, title, tasks, onEditTask, isAdminView, onTask
       )}>
         <h3 className="font-semibold text-sm flex items-center justify-between">
           <span>{title}</span>
-          <span className="text-xs bg-background/60 backdrop-blur-sm px-2 py-1 rounded-full">
-            {tasks.length}
-          </span>
+          <div className="flex items-center gap-2">
+            {isDoneColumn && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => setShowReportsDialog(true)}
+                title="Download weekly reports"
+              >
+                <Download className="h-3 w-3" />
+              </Button>
+            )}
+            <span className="text-xs bg-background/60 backdrop-blur-sm px-2 py-1 rounded-full">
+              {tasks.length}
+            </span>
+          </div>
         </h3>
       </div>
+
+      {isDoneColumn && (
+        <ReportsDownloadDialog
+          open={showReportsDialog}
+          onOpenChange={setShowReportsDialog}
+        />
+      )}
 
       <div
         className={cn(
