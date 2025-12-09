@@ -109,28 +109,95 @@ export const EstimationMockupTracker = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // IMPORTANT: When estimator pulls back, keep came_from_designer_done=true
-      // so the task STAYS in designer's WITH CLIENT pipeline (dual visibility)
-      // Only reset sent_to_designer_mockup to remove from estimator's mockup tracker
-      const { error: updateError } = await supabase
+      // TASK CLONING: Instead of modifying the original task, we create a NEW clone
+      // This allows both designer and estimator to work on independent copies
+      
+      // Step 1: Fetch the full original task details
+      const { data: originalTask, error: fetchError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', taskId)
+        .single();
+
+      if (fetchError || !originalTask) {
+        console.error('Error fetching original task:', fetchError);
+        toast.error('Failed to fetch task details');
+        return;
+      }
+
+      // Step 2: Create a cloned task for the estimator
+      const { data: clonedTask, error: createError } = await supabase
+        .from('tasks')
+        .insert({
+          title: `[Post-Mockup] ${originalTask.title}`,
+          description: originalTask.description,
+          status: 'todo',
+          priority: originalTask.priority,
+          due_date: originalTask.due_date,
+          type: originalTask.type,
+          client_name: originalTask.client_name,
+          supplier_name: originalTask.supplier_name,
+          created_by: user.id,
+          assigned_to: user.id,
+          linked_task_id: taskId, // Link to original for reference
+          position: 0,
+          status_changed_at: new Date().toISOString(),
+          sent_to_designer_mockup: false,
+          mockup_completed_by_designer: false,
+          came_from_designer_done: false,
+          admin_remarks: originalTask.admin_remarks ? `Mockup remarks: ${originalTask.admin_remarks}` : null,
+        })
+        .select()
+        .single();
+
+      if (createError || !clonedTask) {
+        console.error('Error creating cloned task:', createError);
+        toast.error('Failed to create task clone');
+        return;
+      }
+
+      // Step 3: Copy all task products to the cloned task
+      const { data: originalProducts } = await supabase
+        .from('task_products')
+        .select('*')
+        .eq('task_id', taskId);
+
+      if (originalProducts && originalProducts.length > 0) {
+        const clonedProducts = originalProducts.map(product => ({
+          task_id: clonedTask.id,
+          product_name: product.product_name,
+          description: product.description,
+          quantity: product.quantity,
+          unit: product.unit,
+          estimated_price: product.estimated_price,
+          final_price: product.final_price,
+          position: product.position,
+          approval_status: 'pending', // Reset approval for new workflow
+          designer_completed: product.designer_completed,
+        }));
+
+        const { error: productsError } = await supabase
+          .from('task_products')
+          .insert(clonedProducts);
+
+        if (productsError) {
+          console.error('Error copying products:', productsError);
+          // Don't fail the whole operation, just log
+        }
+      }
+
+      // Step 4: Update original task to remove from estimator's mockup tracker
+      // but keep it in designer's pipeline (came_from_designer_done stays true)
+      await supabase
         .from('tasks')
         .update({
           sent_to_designer_mockup: false,
           mockup_completed_by_designer: false,
-          // NOTE: We keep came_from_designer_done=true so task stays in designer's WITH CLIENT
-          assigned_to: user.id,
-          status: 'todo',
-          updated_at: new Date().toISOString()
+          // Original task stays with designer - don't change status or assignment
         })
         .eq('id', taskId);
 
-      if (updateError) {
-        console.error('Error pulling back task:', updateError);
-        toast.error('Failed to pull back task');
-        return;
-      }
-
-      toast.success(`Pulled back "${taskTitle}" to your tasks`);
+      toast.success(`Created "${clonedTask.title}" in your tasks`);
       fetchMockupTasks();
       fetchCompletedTasks();
     } catch (error) {
