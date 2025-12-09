@@ -15,6 +15,7 @@ import { EstimationTaskTimer } from "./EstimationTaskTimer";
 import { useTaskActivity } from "@/hooks/useTaskActivity";
 import { DesignerSendBackButton } from "./DesignerSendBackButton";
 import { OperationsTaskDetails } from "./OperationsTaskDetails";
+import { SupplierQuotesCheckInDialog } from "./SupplierQuotesCheckInDialog";
 
 type Task = {
   id: string;
@@ -65,6 +66,8 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
   const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
   const [showOperationsDetails, setShowOperationsDetails] = useState(false);
   const [assignedByName, setAssignedByName] = useState<string | null>(null);
+  const [showSupplierQuotesCheckIn, setShowSupplierQuotesCheckIn] = useState(false);
+  const [pendingMoveStatus, setPendingMoveStatus] = useState<string | null>(null);
   const { logActivity } = useTaskActivity();
 
   // Debug logging for delete button visibility
@@ -279,6 +282,19 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
   const handleMoveTask = async (newStatus: string) => {
     if (newStatus === task.status || isMoving) return;
 
+    // For supplier_quotes, show check-in dialog first (for quotation tasks only)
+    if (newStatus === 'supplier_quotes' && task.type === 'quotation') {
+      setPendingMoveStatus(newStatus);
+      setShowSupplierQuotesCheckIn(true);
+      setPopoverOpen(false);
+      return;
+    }
+
+    // Otherwise, execute move directly
+    await executeMove(newStatus);
+  };
+
+  const executeMove = async (newStatus: string) => {
     setIsMoving(true);
     try {
       let finalStatus = newStatus;
@@ -286,6 +302,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         status: finalStatus as any,
         previous_status: task.status as any,
         status_changed_at: new Date().toISOString(),
+        last_activity_at: new Date().toISOString(),
       };
 
       // Special handling for admin approval - convert "approved" to "quotation_bill"
@@ -328,6 +345,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
           mockup_completed_by_designer: false,
           previous_status: task.status,
           status_changed_at: new Date().toISOString(),
+          last_activity_at: new Date().toISOString(),
         };
         console.log('✅ Sending task to designer mockup');
       }
@@ -361,6 +379,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
           mockup_completed_by_designer: true,
           previous_status: task.status,
           status_changed_at: new Date().toISOString(),
+          last_activity_at: new Date().toISOString(),
         };
         console.log('✅ Returning task to estimation user:', originalAssignedTo);
       }
@@ -381,10 +400,13 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         successMessage = "Task returned to estimation with mockup completed";
       } else if (newStatus === 'approved_designer' && task.status === 'with_client') {
         successMessage = "Designer work approved! Task marked as done";
+      } else if (newStatus === 'supplier_quotes') {
+        successMessage = "Task moved to Supplier Quotes - Timer started!";
       }
       
       toast.success(successMessage);
       setPopoverOpen(false);
+      setPendingMoveStatus(null);
       onTaskUpdated?.();
     } catch (error: any) {
       console.error("Error moving task:", error);
@@ -834,6 +856,22 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
           onTaskUpdated={() => {
             onTaskUpdated?.();
             fetchProductStats();
+          }}
+        />
+      )}
+      
+      {showSupplierQuotesCheckIn && pendingMoveStatus && (
+        <SupplierQuotesCheckInDialog
+          open={showSupplierQuotesCheckIn}
+          onOpenChange={(open) => {
+            setShowSupplierQuotesCheckIn(open);
+            if (!open) setPendingMoveStatus(null);
+          }}
+          taskId={task.id}
+          taskTitle={task.title}
+          onComplete={() => {
+            // After check-in, complete the move
+            executeMove(pendingMoveStatus);
           }}
         />
       )}
