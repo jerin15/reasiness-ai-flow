@@ -77,7 +77,8 @@ export function TaskProductsManager({
   // Simplified permission check: If a task is visible to the user (showing on their panel),
   // they can add/edit products. The RLS policy on task_products handles the actual security.
   // This allows anyone who can view a task to manage its products.
-  const canEdit = !readOnly && !!taskId;
+  // For NEW tasks (no taskId yet), allow editing if not readOnly and onProductsChange is provided
+  const canEdit = !readOnly && (!!taskId || !!onProductsChange);
   
   // ONLY admins can approve/reject products
   const canApprove = !readOnly && (
