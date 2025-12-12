@@ -315,12 +315,29 @@ export const EditTaskDialog = ({
 
     setDeleting(true);
     try {
+      // Soft delete with audit trail instead of hard delete
       const { error } = await supabase
         .from("tasks")
-        .delete()
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq("id", task.id);
 
       if (error) throw error;
+
+      // Log the deletion in audit log
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('task_audit_log').insert({
+          task_id: task.id,
+          action: 'soft_deleted',
+          changed_by: user.id,
+          old_values: { title: task.title, status: task.status },
+          new_values: { deleted_at: new Date().toISOString() },
+          role: 'user'
+        });
+      }
 
       toast.success("Task deleted successfully");
       onTaskDeleted?.();

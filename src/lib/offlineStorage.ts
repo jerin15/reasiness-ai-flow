@@ -9,7 +9,7 @@ interface OfflineDB extends DBSchema {
     key: number;
     value: {
       id?: number;
-      operation: 'insert' | 'update' | 'delete';
+      operation: 'insert' | 'update' | 'delete' | 'soft_delete';
       table: string;
       data: any;
       timestamp: number;
@@ -61,7 +61,7 @@ export const deleteTaskLocally = async (taskId: string) => {
 };
 
 // Sync queue operations
-export const addToSyncQueue = async (operation: 'insert' | 'update' | 'delete', table: string, data: any) => {
+export const addToSyncQueue = async (operation: 'insert' | 'update' | 'delete' | 'soft_delete', table: string, data: any) => {
   const database = await initOfflineDB();
   await database.add('syncQueue', {
     operation,

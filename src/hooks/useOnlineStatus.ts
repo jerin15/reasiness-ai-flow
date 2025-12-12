@@ -44,7 +44,17 @@ export const useOnlineStatus = () => {
               await (supabase as any).from(item.table).update(updateData).eq('id', id);
               break;
             case 'delete':
-              await (supabase as any).from(item.table).delete().eq('id', item.data.id);
+              // Legacy hard delete - convert to soft delete for safety
+              await (supabase as any).from(item.table).update({ 
+                deleted_at: new Date().toISOString() 
+              }).eq('id', item.data.id);
+              break;
+            case 'soft_delete':
+              // Proper soft delete with audit trail
+              await (supabase as any).from(item.table).update({ 
+                deleted_at: item.data.deleted_at || new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }).eq('id', item.data.id);
               break;
           }
           
