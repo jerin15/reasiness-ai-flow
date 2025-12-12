@@ -129,12 +129,29 @@ export const PersonalAdminTasks = () => {
 
   const handleDeleteTask = async (taskId: string) => {
     try {
+      // Soft delete with audit trail instead of hard delete
       const { error } = await supabase
         .from('tasks')
-        .delete()
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
         .eq('id', taskId);
 
       if (error) throw error;
+
+      // Log the deletion
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('task_audit_log').insert({
+          task_id: taskId,
+          action: 'soft_deleted',
+          changed_by: user.id,
+          old_values: null,
+          new_values: { deleted_at: new Date().toISOString() },
+          role: 'user'
+        });
+      }
 
       toast.success('Task deleted');
       fetchPersonalTasks();
