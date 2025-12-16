@@ -79,10 +79,10 @@ export function DashboardSidebar({
         {/* View Selector for Admin/Technical Head */}
         {isAdminOrHead && (
           <SidebarGroup>
-            <SidebarGroupLabel>View</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-white/70">View</SidebarGroupLabel>
             <SidebarGroupContent className="px-2">
               <Select value={selectedUserId} onValueChange={onUserChange}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20">
                   <SelectValue>
                     <div className="flex items-center gap-2">
                       <Users className="h-3 w-3" />
@@ -133,13 +133,13 @@ export function DashboardSidebar({
         {/* Quick Actions - Admin Only */}
         {isAdminOrHead && (
           <SidebarGroup>
-            <SidebarGroupLabel>Quick Actions</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-white/70">Quick Actions</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     onClick={onCreateTaskClick}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="bg-white/20 hover:bg-white/30 text-white"
                   >
                     <Plus className="h-4 w-4" />
                     <span>Create Task</span>
@@ -147,7 +147,7 @@ export function DashboardSidebar({
                 </SidebarMenuItem>
                 {userRole === 'admin' && onManageTeamClick && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton onClick={onManageTeamClick}>
+                    <SidebarMenuButton onClick={onManageTeamClick} className="text-white hover:bg-white/15">
                       <Settings className="h-4 w-4" />
                       <span>Manage Team</span>
                     </SidebarMenuButton>
@@ -160,11 +160,11 @@ export function DashboardSidebar({
 
         {/* Communication */}
         <SidebarGroup>
-          <SidebarGroupLabel>Communication</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-white/70">Communication</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={onChatClick}>
+                <SidebarMenuButton onClick={onChatClick} className="text-white hover:bg-white/15">
                   <MessageSquare className="h-4 w-4" />
                   <span className="flex items-center gap-2">
                     Team Chat
@@ -187,13 +187,13 @@ export function DashboardSidebar({
 
             {/* Team Status */}
             <div className="mt-3 px-2">
-              <div className="text-xs font-semibold text-muted-foreground mb-2">Team Status</div>
+              <div className="text-xs font-semibold text-white/70 mb-2">Team Status</div>
               <UserPresenceIndicator />
             </div>
 
             {/* Notifications */}
             <div className="mt-3 px-2 flex flex-col gap-2">
-              <div className="text-xs font-semibold text-muted-foreground mb-1">Notifications</div>
+              <div className="text-xs font-semibold text-white/70 mb-1">Notifications</div>
               <StatusChangeNotification />
               <WalkieTalkieNotification />
             </div>
@@ -202,13 +202,13 @@ export function DashboardSidebar({
 
         {/* Reports & Analytics */}
         <SidebarGroup>
-          <SidebarGroupLabel>Reports & Analytics</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-white/70">Reports & Analytics</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {/* Analytics */}
               {isAdminOrHead && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={onAnalyticsClick}>
+                  <SidebarMenuButton onClick={onAnalyticsClick} className="text-white hover:bg-white/15">
                     <BarChart3 className="h-4 w-4" />
                     <span>Analytics</span>
                   </SidebarMenuButton>
@@ -218,7 +218,7 @@ export function DashboardSidebar({
               {/* Brain Games */}
               {isAdminOrHead && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => navigate('/brain-games')}>
+                  <SidebarMenuButton onClick={() => navigate('/brain-games')} className="text-white hover:bg-white/15">
                     <Brain className="h-4 w-4" />
                     <span>Brain Games</span>
                   </SidebarMenuButton>
@@ -228,7 +228,7 @@ export function DashboardSidebar({
               {/* Daily Routing for Operations */}
               {userRole === 'operations' && onDailyRoutingClick && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={onDailyRoutingClick}>
+                  <SidebarMenuButton onClick={onDailyRoutingClick} className="text-white hover:bg-white/15">
                     <CalendarDays className="h-4 w-4" />
                     <span>{showDailyRouting ? "Hide" : "Show"} Daily Routing</span>
                   </SidebarMenuButton>
@@ -238,7 +238,7 @@ export function DashboardSidebar({
               {/* Personal Analytics for non-admin */}
               {!isAdminOrHead && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={onPersonalAnalyticsClick}>
+                  <SidebarMenuButton onClick={onPersonalAnalyticsClick} className="text-white hover:bg-white/15">
                     <BarChart3 className="h-4 w-4" />
                     <span>{showPersonalAnalytics ? "Hide" : "Show"} Analytics</span>
                   </SidebarMenuButton>
@@ -247,7 +247,7 @@ export function DashboardSidebar({
 
               {/* My Report */}
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={onMyReportClick}>
+                <SidebarMenuButton onClick={onMyReportClick} className="text-white hover:bg-white/15">
                   <FileText className="h-4 w-4" />
                   <span>My Report</span>
                 </SidebarMenuButton>
@@ -256,7 +256,7 @@ export function DashboardSidebar({
               {/* Team Report */}
               {isAdminOrHead && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={onTeamReportClick}>
+                  <SidebarMenuButton onClick={onTeamReportClick} className="text-white hover:bg-white/15">
                     <FileText className="h-4 w-4" />
                     <span>Team Reports</span>
                   </SidebarMenuButton>
@@ -266,7 +266,7 @@ export function DashboardSidebar({
               {/* Estimation Report */}
               {isAdminOrHead && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={onEstimationReportClick}>
+                  <SidebarMenuButton onClick={onEstimationReportClick} className="text-white hover:bg-white/15">
                     <Download className="h-4 w-4" />
                     <span>Estimation Report</span>
                   </SidebarMenuButton>
@@ -276,7 +276,7 @@ export function DashboardSidebar({
               {/* Cost Sheet Approval */}
               {isAdminOrEstimation && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => window.open('https://costsheet.animatech.solutions', '_blank')}>
+                  <SidebarMenuButton onClick={() => window.open('https://costsheet.animatech.solutions', '_blank')} className="text-white hover:bg-white/15">
                     <FileCheck className="h-4 w-4" />
                     <span>Cost Sheet Approval</span>
                   </SidebarMenuButton>
@@ -291,7 +291,7 @@ export function DashboardSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={onSignOut} className="text-destructive hover:text-destructive">
+                <SidebarMenuButton onClick={onSignOut} className="text-red-300 hover:bg-red-500/20 hover:text-red-200">
                   <LogOut className="h-4 w-4" />
                   <span>Sign Out</span>
                 </SidebarMenuButton>

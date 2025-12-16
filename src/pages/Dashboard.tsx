@@ -263,7 +263,7 @@ const Dashboard = () => {
                     <SidebarTrigger className="lg:hidden text-white hover:bg-white/20">
                       <Menu className="h-5 w-5" />
                     </SidebarTrigger>
-                    <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto rounded" />
+                    <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto rounded-md shadow-lg" />
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10 border-2 border-white/30">
                         <AvatarImage src={userAvatar} alt={userName} />
@@ -369,7 +369,7 @@ const Dashboard = () => {
                   <SidebarTrigger className="lg:hidden text-white hover:bg-white/20">
                     <Menu className="h-5 w-5" />
                   </SidebarTrigger>
-                  <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto rounded" />
+                  <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto rounded-md shadow-lg" />
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 border-2 border-white/30">
                       <AvatarImage src={userAvatar} alt={userName} />
