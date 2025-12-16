@@ -67,15 +67,16 @@ All colors MUST be HSL.
     --column-done: 142 71% 97%;
     --column-pending: 38 92% 97%;
 
-    /* Sidebar colors - REA Blue-Green Gradient */
+    /* Sidebar colors - REA Blue-Green Gradient (transparent backgrounds for gradient) */
     --sidebar: 200 85% 35%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-border: 180 60% 40%;
-    --sidebar-accent: 180 70% 40%;
+    --sidebar-border: 0 0% 100% / 0.2;
+    --sidebar-accent: 0 0% 100% / 0.15;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
     --sidebar-primary-foreground: 200 85% 35%;
-    --sidebar-ring: 160 70% 45%;
+    --sidebar-ring: 0 0% 100% / 0.3;
+    --sidebar-muted: 0 0% 100% / 0.6;
     
     /* Header gradient colors */
     --header-gradient-start: 200 85% 35%;

@@ -231,14 +231,14 @@ export const UserPresenceIndicator = () => {
     <div className="w-full">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-primary" />
-          <h3 className="font-semibold text-sm">Team Status</h3>
-          <Badge variant="secondary" className="text-xs">{onlineCount} online</Badge>
+          <Users className="h-4 w-4 text-white" />
+          <h3 className="font-semibold text-sm text-white">Team Status</h3>
+          <Badge variant="secondary" className="text-xs bg-white/20 text-white border-0">{onlineCount} online</Badge>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 w-6 p-0"
+          className="h-6 w-6 p-0 text-white hover:bg-white/15"
           onClick={() => setIsMinimized(!isMinimized)}
         >
           {isMinimized ? <Users className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
@@ -248,11 +248,11 @@ export const UserPresenceIndicator = () => {
       {!isMinimized && (
         <>
       {/* My Status */}
-      <div className="p-2 bg-secondary/50 rounded-lg mb-3">
-        <p className="text-xs font-medium mb-2">Your Status</p>
+      <div className="p-2 bg-white/10 rounded-lg mb-3">
+        <p className="text-xs font-medium mb-2 text-white/80">Your Status</p>
         <div className="flex gap-2 mb-2">
           <Select value={myStatus} onValueChange={updateMyStatus}>
-            <SelectTrigger className="flex-1 h-8 text-xs">
+            <SelectTrigger className="flex-1 h-8 text-xs bg-white/10 border-white/20 text-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -272,9 +272,9 @@ export const UserPresenceIndicator = () => {
             placeholder="Custom message..."
             value={customMessage}
             onChange={(e) => setCustomMessage(e.target.value)}
-            className="text-xs h-8"
+            className="text-xs h-8 bg-white/10 border-white/20 text-white placeholder:text-white/50"
           />
-          <Button size="sm" className="h-8" onClick={updateCustomMessage}>Set</Button>
+          <Button size="sm" className="h-8 bg-white/20 hover:bg-white/30 text-white" onClick={updateCustomMessage}>Set</Button>
         </div>
       </div>
 
@@ -282,22 +282,22 @@ export const UserPresenceIndicator = () => {
       <div className="space-y-1.5">
         {displayedPresences.map((presence) => (
           <div key={presence.user_id}>
-            <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-secondary/50 transition-colors">
+            <div className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
               <div className="relative">
-                <Avatar className="h-7 w-7">
+                <Avatar className="h-7 w-7 border border-white/20">
                   <AvatarImage src={presence.profiles?.avatar_url || undefined} />
-                  <AvatarFallback className="text-[10px]">
+                  <AvatarFallback className="text-[10px] bg-white/20 text-white">
                     {presence.profiles?.full_name?.charAt(0) || '?'}
                   </AvatarFallback>
                 </Avatar>
-                <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-background ${getStatusColor(presence.status)}`} />
+                <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white/30 ${getStatusColor(presence.status)}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">
+                <p className="text-xs font-medium truncate text-white">
                   {presence.profiles?.full_name}
                   {presence.user_id === currentUserId && ' (You)'}
                 </p>
-                <p className="text-[10px] text-muted-foreground truncate">
+                <p className="text-[10px] text-white/60 truncate">
                   {STATUS_OPTIONS.find(s => s.value === presence.status)?.label || presence.status}
                   {presence.custom_message && ` • ${presence.custom_message}`}
                 </p>
@@ -306,7 +306,7 @@ export const UserPresenceIndicator = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 shrink-0"
+                  className="h-6 w-6 p-0 shrink-0 text-white hover:bg-white/15"
                   onClick={() => setSendingTo(sendingTo === presence.user_id ? null : presence.user_id)}
                 >
                   <MessageCircle className="h-3 w-3" />
@@ -324,15 +324,15 @@ export const UserPresenceIndicator = () => {
                       sendQuickMessage(presence.user_id);
                     }
                   }}
-                  className="text-xs h-7"
+                  className="text-xs h-7 bg-white/10 border-white/20 text-white placeholder:text-white/50"
                 />
-                <Button size="sm" className="h-7 text-xs px-2" onClick={() => sendQuickMessage(presence.user_id)}>
+                <Button size="sm" className="h-7 text-xs px-2 bg-white/20 hover:bg-white/30 text-white" onClick={() => sendQuickMessage(presence.user_id)}>
                   Send
                 </Button>
                 <Button 
                   size="sm" 
                   variant="ghost" 
-                  className="h-7 w-7 p-0" 
+                  className="h-7 w-7 p-0 text-white hover:bg-white/15" 
                   onClick={() => setSendingTo(null)}
                 >
                   <X className="h-3 w-3" />
@@ -347,7 +347,7 @@ export const UserPresenceIndicator = () => {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full mt-2 h-7 text-xs"
+          className="w-full mt-2 h-7 text-xs text-white hover:bg-white/15"
           onClick={() => setShowAll(!showAll)}
         >
           {showAll ? 'Show Less' : `Show ${presences.length - 5} More`}

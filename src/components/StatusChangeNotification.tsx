@@ -583,8 +583,8 @@ export const StatusChangeNotification = () => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="relative">
-          <Bell className={`h-4 w-4 ${unreadCount > 0 ? 'animate-pulse text-accent' : ''}`} />
+        <Button variant="outline" size="sm" className="relative bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white">
+          <Bell className={`h-4 w-4 ${unreadCount > 0 ? 'animate-pulse' : ''}`} />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-white text-xs flex items-center justify-center font-semibold">
               {unreadCount > 9 ? '9+' : unreadCount}
