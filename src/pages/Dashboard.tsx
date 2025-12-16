@@ -253,22 +253,25 @@ const Dashboard = () => {
           />
 
           <div className="flex-1 flex flex-col">
-            <header className="border-b bg-card shadow-sm sticky top-0 z-[5]">
+            <header 
+              className="border-b shadow-sm sticky top-0 z-[5] text-white"
+              style={{ background: 'linear-gradient(90deg, hsl(200, 85%, 35%) 0%, hsl(160, 70%, 42%) 100%)' }}
+            >
               <div className="container mx-auto px-4 py-3">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
-                    <SidebarTrigger className="lg:hidden">
+                    <SidebarTrigger className="lg:hidden text-white hover:bg-white/20">
                       <Menu className="h-5 w-5" />
                     </SidebarTrigger>
-                    <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto" />
+                    <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto rounded" />
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
+                      <Avatar className="h-10 w-10 border-2 border-white/30">
                         <AvatarImage src={userAvatar} alt={userName} />
-                        <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback className="bg-white/20 text-white">{userName.charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium text-sm">Welcome, {userName}</p>
-                        <p className="text-xs text-muted-foreground">{formatRole(userRole)}</p>
+                        <p className="font-medium text-sm text-white">Welcome, {userName}</p>
+                        <p className="text-xs text-white/80">{formatRole(userRole)}</p>
                       </div>
                     </div>
                   </div>
@@ -356,22 +359,25 @@ const Dashboard = () => {
         />
 
         <div className="flex-1 flex flex-col">
-          <header className="border-b bg-card shadow-sm sticky top-0 z-[5]">
+          <header 
+            className="border-b shadow-sm sticky top-0 z-[5] text-white"
+            style={{ background: 'linear-gradient(90deg, hsl(200, 85%, 35%) 0%, hsl(160, 70%, 42%) 100%)' }}
+          >
             <div className="container mx-auto px-4 py-3">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <SidebarTrigger className="lg:hidden">
+                  <SidebarTrigger className="lg:hidden text-white hover:bg-white/20">
                     <Menu className="h-5 w-5" />
                   </SidebarTrigger>
-                  <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto" />
+                  <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto rounded" />
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-10 w-10 border-2 border-white/30">
                       <AvatarImage src={userAvatar} alt={userName} />
-                      <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback className="bg-white/20 text-white">{userName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium text-sm">Welcome, {userName}</p>
-                      <p className="text-xs text-muted-foreground">{formatRole(userRole)}</p>
+                      <p className="font-medium text-sm text-white">Welcome, {userName}</p>
+                      <p className="text-xs text-white/80">{formatRole(userRole)}</p>
                     </div>
                   </div>
                 </div>
