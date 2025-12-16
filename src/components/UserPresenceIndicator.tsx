@@ -232,8 +232,8 @@ export const UserPresenceIndicator = () => {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Users className="h-4 w-4 text-white" />
-          <h3 className="font-semibold text-sm text-white">Team Status</h3>
-          <Badge variant="secondary" className="text-xs bg-white/20 text-white border-0">{onlineCount} online</Badge>
+          <h3 className="font-bold text-sm text-white">Team Status</h3>
+          <Badge variant="secondary" className="text-xs bg-white/20 text-white border-0 font-semibold">{onlineCount} online</Badge>
         </div>
         <Button
           variant="ghost"
@@ -249,10 +249,10 @@ export const UserPresenceIndicator = () => {
         <>
       {/* My Status */}
       <div className="p-2 bg-white/10 rounded-lg mb-3">
-        <p className="text-xs font-medium mb-2 text-white/80">Your Status</p>
+        <p className="text-xs font-bold mb-2 text-white">Your Status</p>
         <div className="flex gap-2 mb-2">
           <Select value={myStatus} onValueChange={updateMyStatus}>
-            <SelectTrigger className="flex-1 h-8 text-xs bg-white/10 border-white/20 text-white">
+            <SelectTrigger className="flex-1 h-8 text-xs bg-white/10 border-white/20 text-white font-semibold">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -272,9 +272,9 @@ export const UserPresenceIndicator = () => {
             placeholder="Custom message..."
             value={customMessage}
             onChange={(e) => setCustomMessage(e.target.value)}
-            className="text-xs h-8 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+            className="text-xs h-8 bg-white/10 border-white/20 text-white placeholder:text-white/50 font-medium"
           />
-          <Button size="sm" className="h-8 bg-white/20 hover:bg-white/30 text-white" onClick={updateCustomMessage}>Set</Button>
+          <Button size="sm" className="h-8 bg-white/20 hover:bg-white/30 text-white font-bold" onClick={updateCustomMessage}>Set</Button>
         </div>
       </div>
 
@@ -286,18 +286,18 @@ export const UserPresenceIndicator = () => {
               <div className="relative">
                 <Avatar className="h-7 w-7 border border-white/20">
                   <AvatarImage src={presence.profiles?.avatar_url || undefined} />
-                  <AvatarFallback className="text-[10px] bg-white/20 text-white">
+                  <AvatarFallback className="text-[10px] bg-white/20 text-white font-bold">
                     {presence.profiles?.full_name?.charAt(0) || '?'}
                   </AvatarFallback>
                 </Avatar>
                 <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white/30 ${getStatusColor(presence.status)}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate text-white">
+                <p className="text-xs font-bold truncate text-white">
                   {presence.profiles?.full_name}
                   {presence.user_id === currentUserId && ' (You)'}
                 </p>
-                <p className="text-[10px] text-white/60 truncate">
+                <p className="text-[10px] text-white/70 truncate font-medium">
                   {STATUS_OPTIONS.find(s => s.value === presence.status)?.label || presence.status}
                   {presence.custom_message && ` • ${presence.custom_message}`}
                 </p>
@@ -324,9 +324,9 @@ export const UserPresenceIndicator = () => {
                       sendQuickMessage(presence.user_id);
                     }
                   }}
-                  className="text-xs h-7 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  className="text-xs h-7 bg-white/10 border-white/20 text-white placeholder:text-white/50 font-medium"
                 />
-                <Button size="sm" className="h-7 text-xs px-2 bg-white/20 hover:bg-white/30 text-white" onClick={() => sendQuickMessage(presence.user_id)}>
+                <Button size="sm" className="h-7 text-xs px-2 bg-white/20 hover:bg-white/30 text-white font-bold" onClick={() => sendQuickMessage(presence.user_id)}>
                   Send
                 </Button>
                 <Button 
@@ -347,7 +347,7 @@ export const UserPresenceIndicator = () => {
         <Button
           variant="ghost"
           size="sm"
-          className="w-full mt-2 h-7 text-xs text-white hover:bg-white/15"
+          className="w-full mt-2 h-7 text-xs text-white font-bold hover:bg-white/15"
           onClick={() => setShowAll(!showAll)}
         >
           {showAll ? 'Show Less' : `Show ${presences.length - 5} More`}
