@@ -263,15 +263,17 @@ const Dashboard = () => {
                     <SidebarTrigger className="lg:hidden text-white hover:bg-white/20">
                       <Menu className="h-5 w-5" />
                     </SidebarTrigger>
-                    <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto rounded-md shadow-lg" />
+                    <div className="bg-white rounded-lg p-1.5 shadow-lg">
+                      <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-10 w-auto" />
+                    </div>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10 border-2 border-white/30">
                         <AvatarImage src={userAvatar} alt={userName} />
                         <AvatarFallback className="bg-white/20 text-white">{userName.charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium text-sm text-white">Welcome, {userName}</p>
-                        <p className="text-xs text-white/80">{formatRole(userRole)}</p>
+                        <p className="font-semibold text-sm text-white">Welcome, {userName}</p>
+                        <p className="text-xs text-white/80 font-medium">{formatRole(userRole)}</p>
                       </div>
                     </div>
                   </div>
@@ -369,15 +371,17 @@ const Dashboard = () => {
                   <SidebarTrigger className="lg:hidden text-white hover:bg-white/20">
                     <Menu className="h-5 w-5" />
                   </SidebarTrigger>
-                  <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-12 w-auto rounded-md shadow-lg" />
+                  <div className="bg-white rounded-lg p-1.5 shadow-lg">
+                    <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-10 w-auto" />
+                  </div>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10 border-2 border-white/30">
                       <AvatarImage src={userAvatar} alt={userName} />
                       <AvatarFallback className="bg-white/20 text-white">{userName.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium text-sm text-white">Welcome, {userName}</p>
-                      <p className="text-xs text-white/80">{formatRole(userRole)}</p>
+                      <p className="font-semibold text-sm text-white">Welcome, {userName}</p>
+                      <p className="text-xs text-white/80 font-medium">{formatRole(userRole)}</p>
                     </div>
                   </div>
                 </div>
