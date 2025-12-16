@@ -253,9 +253,9 @@ const Dashboard = () => {
           />
 
           <div className="flex-1 flex flex-col">
-            <header 
+          <header 
               className="border-b shadow-sm sticky top-0 z-[5] text-white"
-              style={{ background: 'linear-gradient(90deg, hsl(200, 85%, 35%) 0%, hsl(160, 70%, 42%) 100%)' }}
+              style={{ background: 'linear-gradient(90deg, hsl(200, 85%, 22%) 0%, hsl(160, 70%, 28%) 100%)' }}
             >
               <div className="container mx-auto px-4 py-3">
                 <div className="flex items-center justify-between gap-4">
@@ -363,7 +363,7 @@ const Dashboard = () => {
         <div className="flex-1 flex flex-col">
           <header 
             className="border-b shadow-sm sticky top-0 z-[5] text-white"
-            style={{ background: 'linear-gradient(90deg, hsl(200, 85%, 35%) 0%, hsl(160, 70%, 42%) 100%)' }}
+            style={{ background: 'linear-gradient(90deg, hsl(200, 85%, 22%) 0%, hsl(160, 70%, 28%) 100%)' }}
           >
             <div className="container mx-auto px-4 py-3">
               <div className="flex items-center justify-between gap-4">
