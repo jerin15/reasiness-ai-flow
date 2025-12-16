@@ -12,9 +12,9 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-// REA blue-green gradient style
+// REA blue-green gradient style (darker, professional)
 const reaGradientStyle: React.CSSProperties = {
-  background: 'linear-gradient(180deg, hsl(200, 85%, 35%) 0%, hsl(160, 70%, 42%) 100%)',
+  background: 'linear-gradient(180deg, hsl(200, 85%, 22%) 0%, hsl(160, 70%, 28%) 100%)',
 };
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state";
