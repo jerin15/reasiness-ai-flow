@@ -695,7 +695,11 @@ export const StatusChangeNotification = () => {
                         </div>
                       ) : null}
                       <p className="text-xs text-muted-foreground/70 mt-1">
-                        {new Date(notification.timestamp).toLocaleTimeString()}
+                        {new Date(notification.timestamp).toLocaleDateString('en-US', { 
+                          weekday: 'short', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })} • {new Date(notification.timestamp).toLocaleTimeString()}
                       </p>
                     </div>
                     <Button
