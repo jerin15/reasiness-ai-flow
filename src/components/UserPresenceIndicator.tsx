@@ -91,19 +91,31 @@ export const UserPresenceIndicator = () => {
       )
       .subscribe();
 
-    // Update last_active every 30 seconds
-    const interval = setInterval(() => {
-      if (currentUserId) {
-        supabase
-          .from('user_presence')
-          .update({ last_active: new Date().toISOString() })
-          .eq('user_id', currentUserId)
-          .then();
-      }
-    }, 30000);
-
     return () => {
       supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Separate effect for presence heartbeat to avoid stale closure issues
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    // Immediately update presence when user ID is set
+    const updatePresence = () => {
+      supabase
+        .from('user_presence')
+        .update({ last_active: new Date().toISOString() })
+        .eq('user_id', currentUserId)
+        .then();
+    };
+
+    // Update immediately on mount
+    updatePresence();
+
+    // Then update every 30 seconds
+    const interval = setInterval(updatePresence, 30000);
+
+    return () => {
       clearInterval(interval);
     };
   }, [currentUserId]);
