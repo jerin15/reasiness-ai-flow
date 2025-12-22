@@ -3,53 +3,114 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Download, Search, FileText, TrendingUp, Paintbrush, Phone } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ArrowLeft,
+  Download,
+  Search,
+  Calendar,
+  Users,
+  FileText,
+  Paintbrush,
+  Truck,
+  Phone,
+  Crown,
+  TrendingUp,
+  Flame,
+  Target,
+  CheckCircle,
+  Clock,
+  Send,
+  XCircle,
+  MessageSquare,
+  Award,
+  Star
+} from "lucide-react";
 import { toast } from "sonner";
-import { format, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 
-type ActivityMetric = {
-  user_id: string;
-  user_name: string;
-  rfqs_sent: number;
-  mockups_created: number;
-  follow_ups: number;
-  tasks_completed: number;
-  status_changes: number;
-};
+type TimePeriod = 'today' | 'week' | 'month' | 'all';
+type Role = 'all' | 'admin' | 'estimation' | 'designer' | 'operations' | 'client_service' | 'technical_head';
 
-type ActivityLog = {
+interface UserKPIData {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: string;
+  avatarUrl?: string;
+  kpis: {
+    tasksCompleted: number;
+    tasksCreated: number;
+    statusChanges: number;
+    avgCompletionTimeHours: number;
+    rfqsReceived: number;
+    quotationsSent: number;
+    quotationsApproved: number;
+    quotationsRejected: number;
+    supplierQuotesCollected: number;
+    mockupsCompleted: number;
+    mockupsSentToClient: number;
+    mockupsApproved: number;
+    mockupsRevised: number;
+    productionFilesCreated: number;
+    productionTasksCompleted: number;
+    deliveriesMade: number;
+    newCallsHandled: number;
+    followUpsMade: number;
+    quotationsRequested: number;
+  };
+  badges: Badge[];
+  streak: number;
+  efficiencyScore: number;
+}
+
+interface Badge {
   id: string;
-  action: string;
-  task_title: string;
-  user_name: string;
-  created_at: string;
-  details: any;
-};
+  name: string;
+  description: string;
+  icon: string;
+  earnedAt?: string;
+  progress: number;
+  target: number;
+}
+
+const BADGE_DEFINITIONS: Badge[] = [
+  { id: 'quick_starter', name: 'Quick Starter', description: 'Complete 5 tasks in a day', icon: '⚡', progress: 0, target: 5 },
+  { id: 'quotation_master', name: 'Quotation Master', description: 'Send 10 quotations in a day', icon: '📊', progress: 0, target: 10 },
+  { id: 'mockup_wizard', name: 'Mockup Wizard', description: 'Complete 5 mockups in a day', icon: '🎨', progress: 0, target: 5 },
+  { id: 'production_hero', name: 'Production Hero', description: 'Complete 10 production tasks', icon: '🏭', progress: 0, target: 10 },
+  { id: 'streak_5', name: '5-Day Streak', description: 'Active for 5 consecutive days', icon: '🔥', progress: 0, target: 5 },
+  { id: 'streak_10', name: '10-Day Streak', description: 'Active for 10 consecutive days', icon: '🔥🔥', progress: 0, target: 10 },
+  { id: 'client_champion', name: 'Client Champion', description: 'Handle 20 client calls', icon: '📞', progress: 0, target: 20 },
+  { id: 'follow_up_king', name: 'Follow-Up King', description: 'Make 15 follow-ups', icon: '📱', progress: 0, target: 15 },
+];
 
 const Analytics = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<any[]>([]);
-  const [selectedUser, setSelectedUser] = useState<string>("all");
-  const [dateFrom, setDateFrom] = useState<string>(format(startOfWeek(new Date()), "yyyy-MM-dd"));
-  const [dateTo, setDateTo] = useState<string>(format(endOfWeek(new Date()), "yyyy-MM-dd"));
+  const [period, setPeriod] = useState<TimePeriod>("week");
+  const [activeRole, setActiveRole] = useState<Role>('all');
   const [searchQuery, setSearchQuery] = useState("");
-  const [metrics, setMetrics] = useState<ActivityMetric[]>([]);
-  const [activities, setActivities] = useState<ActivityLog[]>([]);
-  const [activityType, setActivityType] = useState<string>("all");
+  const [allUsers, setAllUsers] = useState<UserKPIData[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAccess();
   }, []);
 
   useEffect(() => {
-    fetchUsers();
-    fetchAnalytics();
-  }, [selectedUser, dateFrom, dateTo, activityType]);
+    if (!loading) {
+      fetchAllKPIs();
+    }
+  }, [period]);
 
   const checkAccess = async () => {
     try {
@@ -71,268 +132,357 @@ const Analytics = () => {
         navigate("/");
         return;
       }
+      
+      await fetchAllKPIs();
     } catch (error) {
       console.error("Error checking access:", error);
       navigate("/");
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .order("full_name");
-
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error("Error fetching users:", error);
+  const getDateRange = (p: TimePeriod) => {
+    const now = new Date();
+    switch (p) {
+      case 'today':
+        return { from: startOfDay(now), to: endOfDay(now) };
+      case 'week':
+        return { from: startOfWeek(now), to: endOfWeek(now) };
+      case 'month':
+        return { from: startOfMonth(now), to: endOfMonth(now) };
+      case 'all':
+        return { from: new Date('2020-01-01'), to: endOfDay(now) };
     }
   };
 
-  const fetchAnalytics = async () => {
+  const fetchAllKPIs = async () => {
     try {
       setLoading(true);
+      const { from, to } = getDateRange(period);
+      const fromISO = from.toISOString();
+      const toISO = to.toISOString();
 
-      const fromDate = startOfDay(new Date(dateFrom)).toISOString();
-      const toDate = endOfDay(new Date(dateTo)).toISOString();
-
-      // Fetch ALL quotation tasks in the date range to track RFQs received
-      const { data: quotationTasks, error: quotationError } = await supabase
-        .from("tasks")
-        .select("id, created_at, assigned_to, created_by, title, type, status")
-        .eq("type", "quotation")
-        .gte("created_at", fromDate)
-        .lte("created_at", toDate)
-        .is("deleted_at", null);
-
-      if (quotationError) throw quotationError;
-
-      // Fetch task audit logs for detailed activity tracking
-      let auditQuery = supabase
-        .from("task_audit_log")
-        .select(`
-          id,
-          action,
-          old_values,
-          new_values,
-          created_at,
-          changed_by,
-          task_id,
-          role
-        `)
-        .gte("created_at", fromDate)
-        .lte("created_at", toDate)
-        .order("created_at", { ascending: false });
-
-      if (selectedUser !== "all") {
-        auditQuery = auditQuery.eq("changed_by", selectedUser);
-      }
-
-      if (activityType !== "all") {
-        auditQuery = auditQuery.eq("action", activityType);
-      }
-
-      const { data: auditData, error: auditError } = await auditQuery;
-      if (auditError) throw auditError;
-
-      // Fetch task details for audit logs
-      const taskIds = Array.from(new Set((auditData || []).map((log: any) => log.task_id)));
-      const { data: tasks, error: tasksError } = await supabase
-        .from("tasks")
-        .select("id, title, type, status, client_name, assigned_to, sent_to_designer_mockup")
-        .in("id", taskIds);
-
-      if (tasksError) throw tasksError;
-
-      // Fetch all user profiles
-      const allUserIds = Array.from(new Set([
-        ...(auditData || []).map((log: any) => log.changed_by),
-        ...(quotationTasks || []).map((t: any) => t.assigned_to).filter(Boolean),
-        ...(quotationTasks || []).map((t: any) => t.created_by).filter(Boolean),
-      ]));
-      
+      // Fetch all users with roles
       const { data: profiles, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", allUserIds);
+        .from('profiles')
+        .select('*, user_roles(*)');
 
       if (profileError) throw profileError;
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      const taskMap = new Map(tasks?.map(t => [t.id, t]) || []);
+      // Fetch all tasks
+      const { data: allTasks, error: tasksError } = await supabase
+        .from('tasks')
+        .select('*')
+        .is('deleted_at', null);
 
-      // Process activities with detailed information
-      const processedActivities: ActivityLog[] = (auditData || []).map((log: any) => {
-        const profile = profileMap.get(log.changed_by);
-        const task = taskMap.get(log.task_id);
+      if (tasksError) throw tasksError;
+
+      // Fetch all audit logs for the period
+      const { data: auditLogs, error: auditError } = await supabase
+        .from('task_audit_log')
+        .select('*')
+        .gte('created_at', fromISO)
+        .lte('created_at', toISO);
+
+      if (auditError) throw auditError;
+
+      // Fetch supplier quotes
+      const { data: supplierQuotes, error: quotesError } = await supabase
+        .from('supplier_quotes')
+        .select('*, tasks!inner(assigned_to)')
+        .gte('created_at', fromISO)
+        .lte('created_at', toISO);
+
+      if (quotesError) throw quotesError;
+
+      // Fetch user achievements
+      const { data: achievements, error: achieveError } = await supabase
+        .from('user_achievements')
+        .select('*');
+
+      if (achieveError) console.error('Achievements fetch error:', achieveError);
+
+      // Fetch user streaks
+      const { data: streaks, error: streakError } = await supabase
+        .from('user_activity_streaks')
+        .select('*');
+
+      if (streakError) console.error('Streaks fetch error:', streakError);
+
+      // Process each user
+      const usersKPIs: UserKPIData[] = (profiles || []).map(profile => {
+        const userId = profile.id;
+        const userRole = profile.user_roles?.[0]?.role || 'unknown';
         
-        let actionDescription = log.action;
-        if (log.action === "created" && log.new_values?.type === "quotation") {
-          actionDescription = "RFQ Created";
-        } else if (log.action === "updated" && log.new_values?.sent_to_designer_mockup === true) {
-          actionDescription = "Sent to Designer";
-        } else if (log.action === "status_changed") {
-          const newStatus = log.new_values?.status;
-          if (newStatus === "follow_up") actionDescription = "Follow Up";
-          else if (newStatus === "done") actionDescription = "Completed";
-          else if (newStatus === "mockup") actionDescription = "Mockup Status";
-          else actionDescription = `Status: ${newStatus}`;
-        }
+        // Filter tasks for this user
+        const userTasks = (allTasks || []).filter(t => 
+          t.assigned_to === userId || t.created_by === userId
+        );
+
+        // Filter tasks created/completed in period
+        const periodTasks = userTasks.filter(t => {
+          const createdAt = new Date(t.created_at || '');
+          return createdAt >= from && createdAt <= to;
+        });
+
+        const completedInPeriod = userTasks.filter(t => {
+          if (!t.completed_at) return false;
+          const completedAt = new Date(t.completed_at);
+          return completedAt >= from && completedAt <= to;
+        });
+
+        // User's audit logs
+        const userAuditLogs = (auditLogs || []).filter(l => l.changed_by === userId);
+
+        // User's supplier quotes
+        const userSupplierQuotes = (supplierQuotes || []).filter((q: any) => 
+          q.tasks?.assigned_to === userId
+        );
+
+        // Calculate KPIs
+        const kpis = calculateKPIs(periodTasks, completedInPeriod, userAuditLogs, userSupplierQuotes, userRole);
+
+        // User achievements
+        const userAchievements = (achievements || []).filter(a => a.user_id === userId);
+
+        // User streak
+        const userStreak = (streaks || []).find(s => s.user_id === userId);
+
+        // Calculate badges
+        const badges = calculateBadges(kpis, userAchievements, userStreak);
 
         return {
-          id: log.id,
-          action: actionDescription,
-          task_title: task?.title || "Unknown Task",
-          user_name: profile?.full_name || profile?.email || "Unknown",
-          created_at: log.created_at,
-          details: {
-            old_status: log.old_values?.status,
-            new_status: log.new_values?.status,
-            task_type: task?.type,
-            client_name: task?.client_name,
-          },
+          userId,
+          userName: profile.full_name || profile.email,
+          userEmail: profile.email,
+          userRole,
+          avatarUrl: profile.avatar_url,
+          kpis,
+          badges,
+          streak: userStreak?.current_streak || 0,
+          efficiencyScore: userStreak?.efficiency_score || 0,
         };
       });
 
-      setActivities(processedActivities);
-
-      // Calculate comprehensive metrics per user
-      const userMetricsMap = new Map<string, ActivityMetric>();
-
-      // First, count RFQs assigned to each user
-      (quotationTasks || []).forEach((task: any) => {
-        if (task.assigned_to) {
-          const userId = task.assigned_to;
-          const profile = profileMap.get(userId);
-          const userName = profile?.full_name || profile?.email || "Unknown";
-
-          if (!userMetricsMap.has(userId)) {
-            userMetricsMap.set(userId, {
-              user_id: userId,
-              user_name: userName,
-              rfqs_sent: 0,
-              mockups_created: 0,
-              follow_ups: 0,
-              tasks_completed: 0,
-              status_changes: 0,
-            });
-          }
-
-          userMetricsMap.get(userId)!.rfqs_sent++;
-        }
-      });
-
-      // Then process all audit activities
-      (auditData || []).forEach((log: any) => {
-        const userId = log.changed_by;
-        const profile = profileMap.get(userId);
-        const userName = profile?.full_name || profile?.email || "Unknown";
-        const task = taskMap.get(log.task_id);
-
-        if (!userMetricsMap.has(userId)) {
-          userMetricsMap.set(userId, {
-            user_id: userId,
-            user_name: userName,
-            rfqs_sent: 0,
-            mockups_created: 0,
-            follow_ups: 0,
-            tasks_completed: 0,
-            status_changes: 0,
-          });
-        }
-
-        const metric = userMetricsMap.get(userId)!;
-
-        // Count mockups sent to designer
-        if (log.action === "updated" && log.new_values?.sent_to_designer_mockup === true && log.old_values?.sent_to_designer_mockup !== true) {
-          metric.mockups_created++;
-        }
-
-        // Count follow-ups
-        if (log.action === "status_changed" && log.new_values?.status === "follow_up") {
-          metric.follow_ups++;
-        }
-
-        // Count completed tasks
-        if (log.action === "status_changed" && log.new_values?.status === "done") {
-          metric.tasks_completed++;
-        }
-
-        // Count all status changes
-        if (log.action === "status_changed") {
-          metric.status_changes++;
-        }
-      });
-
-      // Filter metrics based on selected user
-      let filteredMetrics = Array.from(userMetricsMap.values());
-      if (selectedUser !== "all") {
-        filteredMetrics = filteredMetrics.filter(m => m.user_id === selectedUser);
-      }
-
-      setMetrics(filteredMetrics.sort((a, b) => 
-        (b.rfqs_sent + b.mockups_created + b.follow_ups + b.tasks_completed) - 
-        (a.rfqs_sent + a.mockups_created + a.follow_ups + a.tasks_completed)
-      ));
-
+      setAllUsers(usersKPIs);
     } catch (error) {
-      console.error("Error fetching analytics:", error);
-      toast.error("Failed to load analytics");
+      console.error('Error fetching KPIs:', error);
+      toast.error('Failed to load analytics data');
     } finally {
       setLoading(false);
     }
   };
 
-  const exportToCSV = () => {
-    try {
-      const headers = [
-        "Date/Time",
-        "User",
-        "Action",
-        "Task",
-        "Details"
-      ];
+  const calculateKPIs = (
+    periodTasks: any[],
+    completedTasks: any[],
+    auditLogs: any[],
+    supplierQuotes: any[],
+    userRole: string
+  ) => {
+    const tasksCompleted = completedTasks.length;
+    const tasksCreated = periodTasks.filter(t => t.created_by).length;
+    const statusChanges = auditLogs.filter(l => l.action === 'status_changed').length;
 
+    // Avg completion time
+    let totalTime = 0, timeCount = 0;
+    completedTasks.forEach(t => {
+      if (t.created_at && t.completed_at) {
+        const hours = (new Date(t.completed_at).getTime() - new Date(t.created_at).getTime()) / (1000 * 60 * 60);
+        totalTime += hours;
+        timeCount++;
+      }
+    });
+    const avgCompletionTimeHours = timeCount > 0 ? Math.round(totalTime / timeCount * 10) / 10 : 0;
+
+    // Estimation metrics
+    const quotationTasks = periodTasks.filter(t => t.type === 'quotation');
+    const rfqsReceived = quotationTasks.length;
+    const quotationsSent = completedTasks.filter(t => t.type === 'quotation').length;
+    const quotationsApproved = quotationTasks.filter(t => t.status === 'approved' || t.status === 'production').length;
+    const quotationsRejected = quotationTasks.filter(t => t.status === 'rejected').length;
+    const supplierQuotesCollected = supplierQuotes.length;
+
+    // Designer metrics
+    const mockupTasks = periodTasks.filter(t => t.sent_to_designer_mockup === true);
+    const mockupsCompleted = mockupTasks.filter(t => t.mockup_completed_by_designer === true).length;
+    const mockupsSentToClient = mockupTasks.filter(t => t.status === 'with_client').length;
+    const mockupsApproved = mockupTasks.filter(t => t.status === 'production' || t.status === 'done').length;
+    const mockupsRevised = auditLogs.filter(l => 
+      l.action === 'updated' && l.new_values?.sent_back_to_designer === true
+    ).length;
+    const productionFilesCreated = mockupTasks.filter(t => t.came_from_designer_done === true).length;
+
+    // Operations metrics
+    const productionTasksCompleted = completedTasks.filter(t => 
+      t.came_from_designer_done === true || t.status === 'done'
+    ).length;
+    const deliveriesMade = auditLogs.filter(l => 
+      l.action === 'status_changed' && l.new_values?.status === 'delivery'
+    ).length;
+
+    // Client Service metrics
+    const newCallsHandled = auditLogs.filter(l => 
+      l.action === 'status_changed' && l.new_values?.status === 'new_calls'
+    ).length + periodTasks.filter(t => t.status === 'new_calls').length;
+    const followUpsMade = auditLogs.filter(l => 
+      l.action === 'status_changed' && l.new_values?.status === 'follow_up'
+    ).length;
+    const quotationsRequested = auditLogs.filter(l => 
+      l.action === 'status_changed' && l.new_values?.status === 'quotation'
+    ).length;
+
+    return {
+      tasksCompleted,
+      tasksCreated,
+      statusChanges,
+      avgCompletionTimeHours,
+      rfqsReceived,
+      quotationsSent,
+      quotationsApproved,
+      quotationsRejected,
+      supplierQuotesCollected,
+      mockupsCompleted,
+      mockupsSentToClient,
+      mockupsApproved,
+      mockupsRevised,
+      productionFilesCreated,
+      productionTasksCompleted,
+      deliveriesMade,
+      newCallsHandled,
+      followUpsMade,
+      quotationsRequested,
+    };
+  };
+
+  const calculateBadges = (kpis: any, achievements: any[], streakData: any): Badge[] => {
+    const earnedIds = new Set(achievements.map(a => a.achievement_type));
+
+    return BADGE_DEFINITIONS.map(badge => {
+      let progress = 0;
+      let earned = earnedIds.has(badge.id);
+
+      switch (badge.id) {
+        case 'quick_starter':
+          progress = kpis.tasksCompleted;
+          if (progress >= badge.target) earned = true;
+          break;
+        case 'quotation_master':
+          progress = kpis.quotationsSent;
+          if (progress >= badge.target) earned = true;
+          break;
+        case 'mockup_wizard':
+          progress = kpis.mockupsCompleted;
+          if (progress >= badge.target) earned = true;
+          break;
+        case 'production_hero':
+          progress = kpis.productionTasksCompleted;
+          if (progress >= badge.target) earned = true;
+          break;
+        case 'streak_5':
+        case 'streak_10':
+          progress = streakData?.current_streak || 0;
+          if (progress >= badge.target) earned = true;
+          break;
+        case 'client_champion':
+          progress = kpis.newCallsHandled;
+          if (progress >= badge.target) earned = true;
+          break;
+        case 'follow_up_king':
+          progress = kpis.followUpsMade;
+          if (progress >= badge.target) earned = true;
+          break;
+      }
+
+      return {
+        ...badge,
+        progress,
+        earnedAt: earned ? achievements.find(a => a.achievement_type === badge.id)?.earned_at : undefined,
+      };
+    });
+  };
+
+  const filteredUsers = allUsers.filter(u => {
+    const matchesSearch = !searchQuery || 
+      u.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.userEmail.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = activeRole === 'all' || u.userRole === activeRole;
+    return matchesSearch && matchesRole;
+  });
+
+  const usersByRole = {
+    estimation: filteredUsers.filter(u => u.userRole === 'estimation'),
+    designer: filteredUsers.filter(u => u.userRole === 'designer'),
+    operations: filteredUsers.filter(u => u.userRole === 'operations'),
+    client_service: filteredUsers.filter(u => u.userRole === 'client_service'),
+    admin: filteredUsers.filter(u => u.userRole === 'admin' || u.userRole === 'technical_head'),
+  };
+
+  // Totals
+  const totalTasksCompleted = filteredUsers.reduce((sum, u) => sum + u.kpis.tasksCompleted, 0);
+  const totalStatusChanges = filteredUsers.reduce((sum, u) => sum + u.kpis.statusChanges, 0);
+  const avgEfficiency = filteredUsers.length > 0 
+    ? Math.round(filteredUsers.reduce((sum, u) => sum + u.efficiencyScore, 0) / filteredUsers.length)
+    : 0;
+  const totalBadgesEarned = filteredUsers.reduce(
+    (sum, u) => sum + u.badges.filter(b => b.earnedAt).length, 0
+  );
+
+  const dateRange = getDateRange(period);
+
+  const exportReport = () => {
+    try {
+      const headers = ["Name", "Email", "Role", "Tasks Completed", "Status Changes", "Avg Time (h)", "Efficiency", "Streak", "Badges"];
       const csvRows = [
         headers.join(","),
-        ...filteredActivities.map(activity => [
-          format(new Date(activity.created_at), "yyyy-MM-dd HH:mm:ss"),
-          `"${activity.user_name}"`,
-          activity.action.replace(/_/g, " "),
-          `"${activity.task_title}"`,
-          `"${JSON.stringify(activity.details || {})}"`,
+        ...filteredUsers.map(user => [
+          `"${user.userName}"`,
+          `"${user.userEmail}"`,
+          user.userRole,
+          user.kpis.tasksCompleted,
+          user.kpis.statusChanges,
+          user.kpis.avgCompletionTimeHours,
+          user.efficiencyScore,
+          user.streak,
+          user.badges.filter(b => b.earnedAt).length,
         ].join(","))
       ];
 
-      const csvContent = csvRows.join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv" });
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `analytics-${dateFrom}-to-${dateTo}.csv`;
+      a.download = `kpi-report-${period}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-
-      toast.success("Analytics exported successfully");
+      toast.success("Report exported successfully");
     } catch (error) {
-      console.error("Error exporting:", error);
-      toast.error("Failed to export analytics");
+      toast.error("Failed to export report");
     }
   };
 
-  const filteredActivities = activities.filter(activity => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      activity.user_name.toLowerCase().includes(query) ||
-      activity.task_title.toLowerCase().includes(query) ||
-      activity.action.toLowerCase().includes(query)
-    );
-  });
+  const selectedUser = allUsers.find(u => u.userId === selectedUserId);
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'estimation': return FileText;
+      case 'designer': return Paintbrush;
+      case 'operations': return Truck;
+      case 'client_service': return Phone;
+      default: return Crown;
+    }
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'estimation': return 'from-blue-500 to-cyan-500';
+      case 'designer': return 'from-purple-500 to-pink-500';
+      case 'operations': return 'from-orange-500 to-red-500';
+      case 'client_service': return 'from-green-500 to-emerald-500';
+      default: return 'from-yellow-500 to-amber-500';
+    }
+  };
 
   if (loading) {
     return (
@@ -342,278 +492,546 @@ const Analytics = () => {
     );
   }
 
-  const totalRFQs = metrics.reduce((sum, m) => sum + m.rfqs_sent, 0);
-  const totalMockups = metrics.reduce((sum, m) => sum + m.mockups_created, 0);
-  const totalFollowUps = metrics.reduce((sum, m) => sum + m.follow_ups, 0);
-  const totalCompleted = metrics.reduce((sum, m) => sum + m.tasks_completed, 0);
-
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card shadow-sm">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
               <div>
-                <h1 className="text-2xl font-bold">Analytics Dashboard</h1>
+                <h1 className="text-2xl font-bold">📊 KPI Analytics Dashboard</h1>
                 <p className="text-sm text-muted-foreground">
-                  Track team activity and performance
+                  Team performance metrics, achievements & reports
                 </p>
               </div>
             </div>
-            <Button onClick={exportToCSV} size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={period} onValueChange={(v) => setPeriod(v as TimePeriod)}>
+                <SelectTrigger className="w-[140px]">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="week">This Week</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="all">All Time</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={exportReport} size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6">
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="text-lg">Filters</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div>
-                <Label htmlFor="dateFrom">From Date</Label>
-                <Input
-                  id="dateFrom"
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="dateTo">To Date</Label>
-                <Input
-                  id="dateTo"
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Team Member</Label>
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Members</SelectItem>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.full_name || user.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Activity Type</Label>
-                <Select value={activityType} onValueChange={setActivityType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Activities</SelectItem>
-                    <SelectItem value="created">Task Created</SelectItem>
-                    <SelectItem value="status_changed">Status Changed</SelectItem>
-                    <SelectItem value="updated">Task Updated</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="search">Search</Label>
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="search"
-                    placeholder="Search activities..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8"
-                  />
+      <main className="container mx-auto px-4 py-6 space-y-6">
+        {/* Date range + Search */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="text-sm text-muted-foreground flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            {format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')}
+          </div>
+          <div className="flex items-center gap-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search team members..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-[200px]"
+            />
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5 border-blue-200/50">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Team Members</p>
+                  <p className="text-3xl font-bold text-blue-600">{filteredUsers.length}</p>
                 </div>
+                <Users className="h-10 w-10 text-blue-500/40" />
               </div>
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setDateFrom(format(startOfDay(new Date()), "yyyy-MM-dd"));
-                  setDateTo(format(endOfDay(new Date()), "yyyy-MM-dd"));
-                }}
-              >
-                Today
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setDateFrom(format(startOfWeek(new Date()), "yyyy-MM-dd"));
-                  setDateTo(format(endOfWeek(new Date()), "yyyy-MM-dd"));
-                }}
-              >
-                This Week
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Summary Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">RFQs Sent</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalRFQs}</div>
-              <p className="text-xs text-muted-foreground">
-                Total quotation requests
-              </p>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Mockups Created</CardTitle>
-              <Paintbrush className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalMockups}</div>
-              <p className="text-xs text-muted-foreground">
-                Completed by designers
-              </p>
+          <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-200/50">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Tasks Done</p>
+                  <p className="text-3xl font-bold text-green-600">{totalTasksCompleted}</p>
+                </div>
+                <TrendingUp className="h-10 w-10 text-green-500/40" />
+              </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Follow Ups</CardTitle>
-              <Phone className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalFollowUps}</div>
-              <p className="text-xs text-muted-foreground">
-                Client follow-ups made
-              </p>
+          <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/5 border-purple-200/50">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Avg Efficiency</p>
+                  <p className="text-3xl font-bold text-purple-600">{avgEfficiency}%</p>
+                </div>
+                <Target className="h-10 w-10 text-purple-500/40" />
+              </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tasks Completed</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalCompleted}</div>
-              <p className="text-xs text-muted-foreground">
-                Total tasks finished
-              </p>
+          <Card className="bg-gradient-to-br from-orange-500/10 to-amber-500/5 border-orange-200/50">
+            <CardContent className="pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Badges Earned</p>
+                  <p className="text-3xl font-bold text-orange-600">{totalBadgesEarned}</p>
+                </div>
+                <Flame className="h-10 w-10 text-orange-500/40" />
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Team Member Metrics */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Team Performance</CardTitle>
-            <CardDescription>
-              Activity breakdown by team member for selected period
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Team Member</TableHead>
-                  <TableHead className="text-center">RFQs</TableHead>
-                  <TableHead className="text-center">Mockups</TableHead>
-                  <TableHead className="text-center">Follow Ups</TableHead>
-                  <TableHead className="text-center">Completed</TableHead>
-                  <TableHead className="text-center">Status Changes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {metrics.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      No activity data for selected period
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  metrics.map((metric) => (
-                    <TableRow key={metric.user_id}>
-                      <TableCell className="font-medium">{metric.user_name}</TableCell>
-                      <TableCell className="text-center">{metric.rfqs_sent}</TableCell>
-                      <TableCell className="text-center">{metric.mockups_created}</TableCell>
-                      <TableCell className="text-center">{metric.follow_ups}</TableCell>
-                      <TableCell className="text-center">{metric.tasks_completed}</TableCell>
-                      <TableCell className="text-center">{metric.status_changes}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        {/* Role Tabs */}
+        <Tabs value={activeRole} onValueChange={(v) => setActiveRole(v as Role)} className="space-y-4">
+          <TabsList className="flex-wrap h-auto gap-1">
+            <TabsTrigger value="all" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              All Teams
+            </TabsTrigger>
+            {(['estimation', 'designer', 'operations', 'client_service'] as const).map(role => {
+              const Icon = getRoleIcon(role);
+              const count = usersByRole[role]?.length || 0;
+              return (
+                <TabsTrigger key={role} value={role} className="flex items-center gap-2 capitalize">
+                  <Icon className="h-4 w-4" />
+                  {role.replace('_', ' ')}
+                  <Badge variant="secondary" className="ml-1 text-xs">{count}</Badge>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
 
-        {/* Activity Log */}
+          {/* Role Sections */}
+          <TabsContent value="all" className="space-y-6">
+            {(['estimation', 'designer', 'operations', 'client_service'] as const).map(role => {
+              const users = usersByRole[role];
+              if (users.length === 0) return null;
+              return <RoleSection key={role} role={role} users={users} getRoleColor={getRoleColor} onSelectUser={setSelectedUserId} />;
+            })}
+          </TabsContent>
+
+          {(['estimation', 'designer', 'operations', 'client_service'] as const).map(role => (
+            <TabsContent key={role} value={role} className="space-y-4">
+              <RoleSection role={role} users={usersByRole[role]} getRoleColor={getRoleColor} onSelectUser={setSelectedUserId} />
+            </TabsContent>
+          ))}
+        </Tabs>
+
+        {/* Team Members Grid */}
         <Card>
           <CardHeader>
-            <CardTitle>Activity Log</CardTitle>
-            <CardDescription>
-              Detailed activity timeline - {filteredActivities.length} activities found
-            </CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Team Members
+            </CardTitle>
+            <CardDescription>Click on a team member to view detailed performance report</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="max-h-[600px] overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date/Time</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Task</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredActivities.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
-                        No activities found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredActivities.map((activity) => (
-                      <TableRow key={activity.id}>
-                        <TableCell className="whitespace-nowrap">
-                          {format(new Date(activity.created_at), "MMM dd, yyyy HH:mm")}
-                        </TableCell>
-                        <TableCell>{activity.user_name}</TableCell>
-                        <TableCell className="capitalize">
-                          {activity.action.replace(/_/g, " ")}
-                        </TableCell>
-                        <TableCell className="max-w-md truncate">
-                          {activity.task_title}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filteredUsers.map(user => (
+                <div
+                  key={user.userId}
+                  onClick={() => setSelectedUserId(user.userId)}
+                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+                >
+                  <Avatar>
+                    <AvatarImage src={user.avatarUrl} />
+                    <AvatarFallback>
+                      {user.userName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{user.userName}</p>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {user.userRole.replace('_', ' ')}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {user.kpis.tasksCompleted} tasks
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {user.streak > 0 && <span className="text-sm" title={`${user.streak} day streak`}>🔥</span>}
+                    {user.badges.filter(b => b.earnedAt).slice(0, 2).map(badge => (
+                      <span key={badge.id} className="text-sm" title={badge.name}>{badge.icon}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
       </main>
+
+      {/* Individual Performance Dialog */}
+      <Dialog open={!!selectedUserId} onOpenChange={() => setSelectedUserId(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Performance Report</DialogTitle>
+          </DialogHeader>
+          {selectedUser && (
+            <IndividualPerformanceView user={selectedUser} period={period} />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+// Role Section Component
+const RoleSection = ({ 
+  role, 
+  users, 
+  getRoleColor, 
+  onSelectUser 
+}: { 
+  role: string; 
+  users: UserKPIData[]; 
+  getRoleColor: (r: string) => string;
+  onSelectUser: (id: string) => void;
+}) => {
+  const aggregated = users.reduce((acc, user) => {
+    Object.keys(user.kpis).forEach(key => {
+      const k = key as keyof typeof user.kpis;
+      acc[k] = (acc[k] || 0) + user.kpis[k];
+    });
+    return acc;
+  }, {} as Record<string, number>);
+
+  const roleLabels: Record<string, { title: string; desc: string }> = {
+    estimation: { title: '📊 Estimation Team', desc: 'Quotations, RFQs, and supplier management' },
+    designer: { title: '🎨 Design Team', desc: 'Mockups, production files, and client approvals' },
+    operations: { title: '🏭 Operations Team', desc: 'Production tasks and deliveries' },
+    client_service: { title: '📞 Client Service', desc: 'Calls, follow-ups, and client requests' },
+  };
+
+  const label = roleLabels[role] || { title: role, desc: '' };
+
+  const sortedUsers = [...users].sort((a, b) => b.kpis.tasksCompleted - a.kpis.tasksCompleted);
+
+  return (
+    <div className="space-y-4">
+      <div className={`p-4 rounded-lg bg-gradient-to-r ${getRoleColor(role)} text-white`}>
+        <h3 className="text-xl font-bold">{label.title}</h3>
+        <p className="text-white/80 text-sm">{label.desc}</p>
+        <p className="text-white/60 text-xs mt-1">{users.length} team member{users.length !== 1 ? 's' : ''}</p>
+      </div>
+
+      {/* Role-specific KPI cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {role === 'estimation' && (
+          <>
+            <KPICard title="RFQs Received" value={aggregated.rfqsReceived || 0} icon={<FileText className="h-4 w-4 text-blue-500" />} />
+            <KPICard title="Quotations Sent" value={aggregated.quotationsSent || 0} icon={<Send className="h-4 w-4 text-green-500" />} />
+            <KPICard title="Approved" value={aggregated.quotationsApproved || 0} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} />
+            <KPICard title="Rejected" value={aggregated.quotationsRejected || 0} icon={<XCircle className="h-4 w-4 text-red-500" />} />
+            <KPICard title="Supplier Quotes" value={aggregated.supplierQuotesCollected || 0} icon={<Users className="h-4 w-4 text-purple-500" />} />
+            <KPICard title="Status Changes" value={aggregated.statusChanges || 0} icon={<TrendingUp className="h-4 w-4 text-orange-500" />} />
+          </>
+        )}
+        {role === 'designer' && (
+          <>
+            <KPICard title="Mockups Done" value={aggregated.mockupsCompleted || 0} icon={<Paintbrush className="h-4 w-4 text-purple-500" />} />
+            <KPICard title="Sent to Client" value={aggregated.mockupsSentToClient || 0} icon={<Send className="h-4 w-4 text-blue-500" />} />
+            <KPICard title="Approved" value={aggregated.mockupsApproved || 0} icon={<CheckCircle className="h-4 w-4 text-green-500" />} />
+            <KPICard title="Revisions" value={aggregated.mockupsRevised || 0} icon={<XCircle className="h-4 w-4 text-orange-500" />} />
+            <KPICard title="Production Files" value={aggregated.productionFilesCreated || 0} icon={<FileText className="h-4 w-4 text-cyan-500" />} />
+            <KPICard title="Status Changes" value={aggregated.statusChanges || 0} icon={<TrendingUp className="h-4 w-4 text-yellow-500" />} />
+          </>
+        )}
+        {role === 'operations' && (
+          <>
+            <KPICard title="Production Done" value={aggregated.productionTasksCompleted || 0} icon={<CheckCircle className="h-4 w-4 text-green-500" />} />
+            <KPICard title="Deliveries" value={aggregated.deliveriesMade || 0} icon={<Truck className="h-4 w-4 text-blue-500" />} />
+            <KPICard title="Tasks Created" value={aggregated.tasksCreated || 0} icon={<FileText className="h-4 w-4 text-purple-500" />} />
+            <KPICard title="Status Changes" value={aggregated.statusChanges || 0} icon={<TrendingUp className="h-4 w-4 text-orange-500" />} />
+          </>
+        )}
+        {role === 'client_service' && (
+          <>
+            <KPICard title="New Calls" value={aggregated.newCallsHandled || 0} icon={<Phone className="h-4 w-4 text-green-500" />} />
+            <KPICard title="Follow-ups" value={aggregated.followUpsMade || 0} icon={<MessageSquare className="h-4 w-4 text-blue-500" />} />
+            <KPICard title="Quotations Req." value={aggregated.quotationsRequested || 0} icon={<FileText className="h-4 w-4 text-purple-500" />} />
+            <KPICard title="Completed" value={aggregated.tasksCompleted || 0} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} />
+          </>
+        )}
+      </div>
+
+      {/* Top performers */}
+      {sortedUsers.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Award className="h-5 w-5 text-yellow-500" />
+              Top Performers
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {sortedUsers.slice(0, 5).map((user, index) => (
+                <div 
+                  key={user.userId} 
+                  onClick={() => onSelectUser(user.userId)}
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white font-bold text-sm">
+                    {index + 1}
+                  </div>
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={user.avatarUrl} />
+                    <AvatarFallback>
+                      {user.userName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{user.userName}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{user.kpis.tasksCompleted} tasks completed</span>
+                      {user.streak > 0 && (
+                        <Badge variant="outline" className="text-xs">🔥 {user.streak} day streak</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {user.badges.filter(b => b.earnedAt).slice(0, 3).map(badge => (
+                      <span key={badge.id} className="text-lg" title={badge.name}>{badge.icon}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// KPI Card Component
+const KPICard = ({ title, value, icon }: { title: string; value: number | string; icon: React.ReactNode }) => (
+  <Card className="hover:shadow-md transition-shadow">
+    <CardContent className="pt-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm text-muted-foreground">{title}</span>
+        {icon}
+      </div>
+      <p className="text-2xl font-bold">{value}</p>
+    </CardContent>
+  </Card>
+);
+
+// Individual Performance View
+const IndividualPerformanceView = ({ user, period }: { user: UserKPIData; period: TimePeriod }) => {
+  const { kpis, badges } = user;
+  const earnedBadges = badges.filter(b => b.earnedAt);
+  const inProgressBadges = badges.filter(b => !b.earnedAt && b.progress > 0);
+
+  const getRoleKPIs = () => {
+    switch (user.userRole) {
+      case 'estimation':
+        return [
+          { label: 'RFQs Received', value: kpis.rfqsReceived, icon: <FileText className="h-4 w-4 text-blue-500" /> },
+          { label: 'Quotations Sent', value: kpis.quotationsSent, icon: <Send className="h-4 w-4 text-green-500" /> },
+          { label: 'Approved', value: kpis.quotationsApproved, icon: <CheckCircle className="h-4 w-4 text-emerald-500" /> },
+          { label: 'Supplier Quotes', value: kpis.supplierQuotesCollected, icon: <FileText className="h-4 w-4 text-purple-500" /> },
+        ];
+      case 'designer':
+        return [
+          { label: 'Mockups Done', value: kpis.mockupsCompleted, icon: <Paintbrush className="h-4 w-4 text-purple-500" /> },
+          { label: 'Sent to Client', value: kpis.mockupsSentToClient, icon: <Send className="h-4 w-4 text-blue-500" /> },
+          { label: 'Approved', value: kpis.mockupsApproved, icon: <CheckCircle className="h-4 w-4 text-green-500" /> },
+          { label: 'Revisions', value: kpis.mockupsRevised, icon: <TrendingUp className="h-4 w-4 text-orange-500" /> },
+        ];
+      case 'operations':
+        return [
+          { label: 'Production Done', value: kpis.productionTasksCompleted, icon: <CheckCircle className="h-4 w-4 text-green-500" /> },
+          { label: 'Deliveries', value: kpis.deliveriesMade, icon: <Truck className="h-4 w-4 text-blue-500" /> },
+          { label: 'Status Changes', value: kpis.statusChanges, icon: <TrendingUp className="h-4 w-4 text-purple-500" /> },
+        ];
+      case 'client_service':
+        return [
+          { label: 'New Calls', value: kpis.newCallsHandled, icon: <Phone className="h-4 w-4 text-green-500" /> },
+          { label: 'Follow-ups', value: kpis.followUpsMade, icon: <TrendingUp className="h-4 w-4 text-blue-500" /> },
+          { label: 'Quotations Req.', value: kpis.quotationsRequested, icon: <FileText className="h-4 w-4 text-purple-500" /> },
+        ];
+      default:
+        return [
+          { label: 'Tasks Completed', value: kpis.tasksCompleted, icon: <CheckCircle className="h-4 w-4 text-green-500" /> },
+          { label: 'Tasks Created', value: kpis.tasksCreated, icon: <FileText className="h-4 w-4 text-blue-500" /> },
+          { label: 'Status Changes', value: kpis.statusChanges, icon: <TrendingUp className="h-4 w-4 text-purple-500" /> },
+        ];
+    }
+  };
+
+  const totalTasks = kpis.tasksCompleted + kpis.tasksCreated;
+  const efficiencyRate = totalTasks > 0 ? Math.round((kpis.tasksCompleted / totalTasks) * 100) : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Avatar className="h-16 w-16 border-2 border-primary">
+          <AvatarImage src={user.avatarUrl} />
+          <AvatarFallback className="text-xl">
+            {user.userName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <h2 className="text-2xl font-bold">{user.userName}</h2>
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant="secondary" className="capitalize">{user.userRole.replace('_', ' ')}</Badge>
+            {user.streak > 0 && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Flame className="h-3 w-3 text-orange-500" />{user.streak} day streak
+              </Badge>
+            )}
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Star className="h-3 w-3 text-yellow-500" />{earnedBadges.length} badges
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Efficiency</p>
+                <p className="text-2xl font-bold">{efficiencyRate}%</p>
+              </div>
+              <Target className="h-8 w-8 text-primary/60" />
+            </div>
+            <Progress value={efficiencyRate} className="mt-2 h-1" />
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Completed</p>
+                <p className="text-2xl font-bold text-green-600">{kpis.tasksCompleted}</p>
+              </div>
+              <CheckCircle className="h-8 w-8 text-green-500/60" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Activity</p>
+                <p className="text-2xl font-bold text-blue-600">{kpis.statusChanges}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-blue-500/60" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-orange-500/10 to-amber-500/5">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Avg Time</p>
+                <p className="text-2xl font-bold text-orange-600">{kpis.avgCompletionTimeHours}h</p>
+              </div>
+              <Clock className="h-8 w-8 text-orange-500/60" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Role KPIs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="capitalize">{user.userRole.replace('_', ' ')} Performance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {getRoleKPIs().map((kpi, i) => (
+              <div key={i} className="p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-2 mb-2">
+                  {kpi.icon}
+                  <span className="text-sm text-muted-foreground">{kpi.label}</span>
+                </div>
+                <p className="text-2xl font-bold">{kpi.value}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Badges */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {earnedBadges.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">🏆 Earned Badges ({earnedBadges.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                {earnedBadges.map(badge => (
+                  <div
+                    key={badge.id}
+                    className="flex flex-col items-center p-3 rounded-lg bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/30 dark:to-orange-950/30 border border-yellow-200 dark:border-yellow-800"
+                  >
+                    <div className="text-3xl mb-2">{badge.icon}</div>
+                    <p className="font-semibold text-sm text-center">{badge.name}</p>
+                    <p className="text-xs text-muted-foreground text-center mt-1">{badge.description}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {inProgressBadges.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">🎯 In Progress ({inProgressBadges.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {inProgressBadges.map(badge => {
+                  const progressPercent = Math.min((badge.progress / badge.target) * 100, 100);
+                  return (
+                    <div key={badge.id} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl opacity-50">{badge.icon}</span>
+                          <div>
+                            <p className="font-medium text-sm">{badge.name}</p>
+                            <p className="text-xs text-muted-foreground">{badge.description}</p>
+                          </div>
+                        </div>
+                        <span className="text-sm font-mono">{badge.progress}/{badge.target}</span>
+                      </div>
+                      <Progress value={progressPercent} className="h-2" />
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };
