@@ -49,6 +49,7 @@ interface UserKPIData {
   kpis: {
     tasksCompleted: number;
     tasksCreated: number;
+    totalTasksAssigned: number;
     statusChanges: number;
     avgCompletionTimeHours: number;
     rfqsReceived: number;
@@ -62,6 +63,7 @@ interface UserKPIData {
     mockupsRevised: number;
     productionFilesCreated: number;
     productionTasksCompleted: number;
+    productionTasksInProgress: number;
     deliveriesMade: number;
     newCallsHandled: number;
     followUpsMade: number;
@@ -150,7 +152,7 @@ const Analytics = () => {
       case 'month':
         return { from: startOfMonth(now), to: endOfMonth(now) };
       case 'all':
-        return { from: new Date('2020-01-01'), to: endOfDay(now) };
+        return { from: new Date('2000-01-01'), to: endOfDay(now) };
     }
   };
 
@@ -160,6 +162,7 @@ const Analytics = () => {
       const { from, to } = getDateRange(period);
       const fromISO = from.toISOString();
       const toISO = to.toISOString();
+      const isAllTime = period === 'all';
 
       // Fetch all users with roles
       const { data: profiles, error: profileError } = await supabase
@@ -168,7 +171,7 @@ const Analytics = () => {
 
       if (profileError) throw profileError;
 
-      // Fetch all tasks
+      // Fetch all tasks (never filter by date - we need all for proper counting)
       const { data: allTasks, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
@@ -176,21 +179,21 @@ const Analytics = () => {
 
       if (tasksError) throw tasksError;
 
-      // Fetch all audit logs for the period
-      const { data: auditLogs, error: auditError } = await supabase
-        .from('task_audit_log')
-        .select('*')
-        .gte('created_at', fromISO)
-        .lte('created_at', toISO);
+      // Fetch audit logs - ALL for "all" period, filtered for others
+      let auditQuery = supabase.from('task_audit_log').select('*');
+      if (!isAllTime) {
+        auditQuery = auditQuery.gte('created_at', fromISO).lte('created_at', toISO);
+      }
+      const { data: auditLogs, error: auditError } = await auditQuery;
 
       if (auditError) throw auditError;
 
-      // Fetch supplier quotes
-      const { data: supplierQuotes, error: quotesError } = await supabase
-        .from('supplier_quotes')
-        .select('*, tasks!inner(assigned_to)')
-        .gte('created_at', fromISO)
-        .lte('created_at', toISO);
+      // Fetch supplier quotes - ALL for "all" period
+      let quotesQuery = supabase.from('supplier_quotes').select('*, tasks!inner(assigned_to)');
+      if (!isAllTime) {
+        quotesQuery = quotesQuery.gte('created_at', fromISO).lte('created_at', toISO);
+      }
+      const { data: supplierQuotes, error: quotesError } = await quotesQuery;
 
       if (quotesError) throw quotesError;
 
@@ -213,33 +216,47 @@ const Analytics = () => {
         const userId = profile.id;
         const userRole = profile.user_roles?.[0]?.role || 'unknown';
         
-        // Filter tasks for this user
-        const userTasks = (allTasks || []).filter(t => 
+        // ALL tasks for this user (for calculating total assigned)
+        const allUserTasks = (allTasks || []).filter(t => 
           t.assigned_to === userId || t.created_by === userId
         );
 
-        // Filter tasks created/completed in period
-        const periodTasks = userTasks.filter(t => {
+        // Tasks assigned TO this user specifically
+        const tasksAssignedToUser = (allTasks || []).filter(t => t.assigned_to === userId);
+
+        // Filter tasks by period for period-specific metrics
+        const periodTasks = isAllTime ? allUserTasks : allUserTasks.filter(t => {
           const createdAt = new Date(t.created_at || '');
           return createdAt >= from && createdAt <= to;
         });
 
-        const completedInPeriod = userTasks.filter(t => {
-          if (!t.completed_at) return false;
-          const completedAt = new Date(t.completed_at);
-          return completedAt >= from && completedAt <= to;
-        });
+        // Completed tasks - for "all" period, include ALL done tasks
+        const completedInPeriod = isAllTime 
+          ? tasksAssignedToUser.filter(t => t.status === 'done' || t.completed_at)
+          : tasksAssignedToUser.filter(t => {
+              if (!t.completed_at) return false;
+              const completedAt = new Date(t.completed_at);
+              return completedAt >= from && completedAt <= to;
+            });
 
         // User's audit logs
         const userAuditLogs = (auditLogs || []).filter(l => l.changed_by === userId);
 
-        // User's supplier quotes
+        // User's supplier quotes for tasks assigned to them
         const userSupplierQuotes = (supplierQuotes || []).filter((q: any) => 
           q.tasks?.assigned_to === userId
         );
 
-        // Calculate KPIs
-        const kpis = calculateKPIs(periodTasks, completedInPeriod, userAuditLogs, userSupplierQuotes, userRole);
+        // Calculate KPIs with all necessary data
+        const kpis = calculateKPIs(
+          periodTasks,
+          completedInPeriod,
+          userAuditLogs,
+          userSupplierQuotes,
+          userRole,
+          tasksAssignedToUser,
+          userId
+        );
 
         // User achievements
         const userAchievements = (achievements || []).filter(a => a.user_id === userId);
@@ -277,53 +294,84 @@ const Analytics = () => {
     completedTasks: any[],
     auditLogs: any[],
     supplierQuotes: any[],
-    userRole: string
+    userRole: string,
+    allAssignedTasks: any[],
+    userId: string
   ) => {
     const tasksCompleted = completedTasks.length;
-    const tasksCreated = periodTasks.filter(t => t.created_by).length;
+    const tasksCreated = periodTasks.filter(t => t.created_by === userId).length;
     const statusChanges = auditLogs.filter(l => l.action === 'status_changed').length;
+    const totalTasksAssigned = allAssignedTasks.length;
 
     // Avg completion time
     let totalTime = 0, timeCount = 0;
     completedTasks.forEach(t => {
       if (t.created_at && t.completed_at) {
         const hours = (new Date(t.completed_at).getTime() - new Date(t.created_at).getTime()) / (1000 * 60 * 60);
-        totalTime += hours;
-        timeCount++;
+        if (hours > 0 && hours < 10000) {
+          totalTime += hours;
+          timeCount++;
+        }
       }
     });
     const avgCompletionTimeHours = timeCount > 0 ? Math.round(totalTime / timeCount * 10) / 10 : 0;
 
-    // Estimation metrics
-    const quotationTasks = periodTasks.filter(t => t.type === 'quotation');
+    // Estimation metrics - use allAssignedTasks for accurate totals
+    const quotationTasks = allAssignedTasks.filter(t => t.type === 'quotation');
     const rfqsReceived = quotationTasks.length;
-    const quotationsSent = completedTasks.filter(t => t.type === 'quotation').length;
-    const quotationsApproved = quotationTasks.filter(t => t.status === 'approved' || t.status === 'production').length;
+    
+    // Quotations sent = moved to quotation_bill, admin_approval, with_client, client_approval, production, done
+    const quotationsSent = auditLogs.filter(l => 
+      l.action === 'status_changed' && 
+      l.new_values?.status && 
+      ['quotation_bill', 'admin_approval', 'with_client', 'client_approval'].includes(l.new_values.status)
+    ).length || quotationTasks.filter(t => 
+      ['quotation_bill', 'admin_approval', 'with_client', 'client_approval', 'production', 'done'].includes(t.status)
+    ).length;
+    
+    const quotationsApproved = quotationTasks.filter(t => 
+      ['approved', 'production', 'done', 'mockup', 'with_client'].includes(t.status)
+    ).length;
     const quotationsRejected = quotationTasks.filter(t => t.status === 'rejected').length;
     const supplierQuotesCollected = supplierQuotes.length;
 
-    // Designer metrics
-    const mockupTasks = periodTasks.filter(t => t.sent_to_designer_mockup === true);
-    const mockupsCompleted = mockupTasks.filter(t => t.mockup_completed_by_designer === true).length;
-    const mockupsSentToClient = mockupTasks.filter(t => t.status === 'with_client').length;
-    const mockupsApproved = mockupTasks.filter(t => t.status === 'production' || t.status === 'done').length;
-    const mockupsRevised = auditLogs.filter(l => 
-      l.action === 'updated' && l.new_values?.sent_back_to_designer === true
+    // Designer metrics - use allAssignedTasks
+    const mockupTasks = allAssignedTasks.filter(t => 
+      t.sent_to_designer_mockup === true || t.status === 'mockup'
+    );
+    const mockupsCompleted = allAssignedTasks.filter(t => 
+      t.mockup_completed_by_designer === true || t.completed_by_designer_id === userId
     ).length;
-    const productionFilesCreated = mockupTasks.filter(t => t.came_from_designer_done === true).length;
+    const mockupsSentToClient = auditLogs.filter(l => 
+      l.action === 'status_changed' && l.new_values?.status === 'with_client'
+    ).length || allAssignedTasks.filter(t => t.status === 'with_client').length;
+    const mockupsApproved = allAssignedTasks.filter(t => 
+      t.came_from_designer_done === true || 
+      (t.mockup_completed_by_designer === true && ['production', 'done'].includes(t.status))
+    ).length;
+    const mockupsRevised = auditLogs.filter(l => 
+      l.action === 'status_changed' && 
+      (l.new_values?.sent_back_to_designer === true || l.new_values?.status === 'mockup')
+    ).length;
+    const productionFilesCreated = allAssignedTasks.filter(t => t.came_from_designer_done === true).length;
 
     // Operations metrics
-    const productionTasksCompleted = completedTasks.filter(t => 
-      t.came_from_designer_done === true || t.status === 'done'
+    const productionTasks = allAssignedTasks.filter(t => 
+      t.status === 'production' || t.came_from_designer_done === true
+    );
+    const productionTasksCompleted = allAssignedTasks.filter(t => 
+      t.status === 'done' && (t.came_from_designer_done === true || productionTasks.some(pt => pt.id === t.id))
     ).length;
+    const productionTasksInProgress = productionTasks.filter(t => t.status === 'production').length;
     const deliveriesMade = auditLogs.filter(l => 
       l.action === 'status_changed' && l.new_values?.status === 'delivery'
     ).length;
 
     // Client Service metrics
     const newCallsHandled = auditLogs.filter(l => 
-      l.action === 'status_changed' && l.new_values?.status === 'new_calls'
-    ).length + periodTasks.filter(t => t.status === 'new_calls').length;
+      (l.action === 'created' && l.new_values?.status === 'new_calls') ||
+      (l.action === 'status_changed' && l.new_values?.status === 'new_calls')
+    ).length + allAssignedTasks.filter(t => t.status === 'new_calls').length;
     const followUpsMade = auditLogs.filter(l => 
       l.action === 'status_changed' && l.new_values?.status === 'follow_up'
     ).length;
@@ -334,6 +382,7 @@ const Analytics = () => {
     return {
       tasksCompleted,
       tasksCreated,
+      totalTasksAssigned,
       statusChanges,
       avgCompletionTimeHours,
       rfqsReceived,
@@ -347,6 +396,7 @@ const Analytics = () => {
       mockupsRevised,
       productionFilesCreated,
       productionTasksCompleted,
+      productionTasksInProgress,
       deliveriesMade,
       newCallsHandled,
       followUpsMade,
