@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths } from 'date-fns';
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 
 export type TimePeriod = 'today' | 'week' | 'month' | 'all';
 
@@ -8,6 +8,7 @@ export type RoleKPIs = {
   // Common metrics
   tasksCompleted: number;
   tasksCreated: number;
+  totalTasksAssigned: number;
   avgCompletionTimeHours: number;
   statusChanges: number;
   
@@ -29,6 +30,7 @@ export type RoleKPIs = {
   
   // Operations specific
   productionTasksCompleted: number;
+  productionTasksInProgress: number;
   deliveriesMade: number;
   avgProductionTimeHours: number;
   
@@ -90,7 +92,7 @@ export const useKPIAnalytics = () => {
       case 'month':
         return { from: startOfMonth(now), to: endOfMonth(now) };
       case 'all':
-        return { from: new Date('2020-01-01'), to: endOfDay(now) };
+        return { from: new Date('2000-01-01'), to: endOfDay(now) };
     }
   }, []);
 
@@ -112,41 +114,41 @@ export const useKPIAnalytics = () => {
 
       const userRole = profile.user_roles?.[0]?.role || 'unknown';
 
-      // Fetch tasks
-      const { data: tasks } = await supabase
+      // Fetch ALL tasks assigned to or created by user (no date filter for base data)
+      const { data: allUserTasks } = await supabase
         .from('tasks')
         .select('*')
         .or(`assigned_to.eq.${userId},created_by.eq.${userId}`)
         .is('deleted_at', null);
 
-      // Filter by date range for metrics
-      const periodTasks = tasks?.filter(t => {
-        const createdAt = new Date(t.created_at || '');
-        return createdAt >= from && createdAt <= to;
-      }) || [];
-
-      const completedInPeriod = tasks?.filter(t => {
-        if (!t.completed_at) return false;
-        const completedAt = new Date(t.completed_at);
-        return completedAt >= from && completedAt <= to;
-      }) || [];
-
-      // Fetch audit logs for detailed tracking
-      const { data: auditLogs } = await supabase
+      // Fetch ALL audit logs for this user (this is the real activity data!)
+      let auditLogsQuery = supabase
         .from('task_audit_log')
         .select('*')
         .eq('changed_by', userId)
-        .gte('created_at', fromISO)
-        .lte('created_at', toISO);
+        .order('created_at', { ascending: false });
+      
+      // Apply date filter for period-specific views
+      if (period !== 'all') {
+        auditLogsQuery = auditLogsQuery.gte('created_at', fromISO).lte('created_at', toISO);
+      }
+      
+      const { data: auditLogs } = await auditLogsQuery;
 
-      // Fetch supplier quotes
-      const { data: supplierQuotes } = await supabase
+      // Fetch supplier quotes created by this user's tasks
+      let supplierQuotesQuery = supabase
         .from('supplier_quotes')
-        .select('*, tasks!inner(assigned_to)')
-        .gte('created_at', fromISO)
-        .lte('created_at', toISO);
+        .select('*');
 
-      const userSupplierQuotes = supplierQuotes?.filter((q: any) => q.tasks?.assigned_to === userId) || [];
+      if (period !== 'all') {
+        supplierQuotesQuery = supplierQuotesQuery.gte('created_at', fromISO).lte('created_at', toISO);
+      }
+      
+      const { data: allSupplierQuotes } = await supplierQuotesQuery;
+
+      // Filter supplier quotes to only those for tasks assigned to this user
+      const taskIds = new Set((allUserTasks || []).filter(t => t.assigned_to === userId).map(t => t.id));
+      const userSupplierQuotes = (allSupplierQuotes || []).filter(q => taskIds.has(q.task_id));
 
       // Fetch user achievements
       const { data: achievements } = await supabase
@@ -159,10 +161,34 @@ export const useKPIAnalytics = () => {
         .from('user_activity_streaks')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      // Calculate KPIs
-      const kpis = calculateKPIs(periodTasks, completedInPeriod, auditLogs || [], userSupplierQuotes, userRole, tasks || []);
+      // Filter tasks by period for metrics
+      const periodTasks = period === 'all' 
+        ? (allUserTasks || [])
+        : (allUserTasks || []).filter(t => {
+            const createdAt = new Date(t.created_at || '');
+            return createdAt >= from && createdAt <= to;
+          });
+
+      const completedInPeriod = period === 'all'
+        ? (allUserTasks || []).filter(t => t.status === 'done' || t.completed_at)
+        : (allUserTasks || []).filter(t => {
+            if (!t.completed_at) return false;
+            const completedAt = new Date(t.completed_at);
+            return completedAt >= from && completedAt <= to;
+          });
+
+      // Calculate KPIs using all available data
+      const kpis = calculateKPIs(
+        periodTasks.filter(t => t.assigned_to === userId || t.created_by === userId),
+        completedInPeriod.filter(t => t.assigned_to === userId),
+        auditLogs || [],
+        userSupplierQuotes,
+        userRole,
+        (allUserTasks || []).filter(t => t.assigned_to === userId),
+        userId
+      );
 
       // Calculate earned badges
       const badges = calculateBadges(kpis, achievements || [], streakData);
@@ -252,11 +278,19 @@ function calculateKPIs(
   auditLogs: any[],
   supplierQuotes: any[],
   userRole: string,
-  allTasks: any[]
+  allAssignedTasks: any[],
+  userId: string
 ): RoleKPIs {
-  // Common metrics
+  // Count tasks created by this user in period
+  const tasksCreatedByUser = periodTasks.filter(t => t.created_by === userId).length;
+  
+  // Total tasks ever assigned
+  const totalTasksAssigned = allAssignedTasks.length;
+  
+  // Completed tasks
   const tasksCompleted = completedTasks.length;
-  const tasksCreated = periodTasks.filter(t => t.created_by).length;
+  
+  // Status changes from audit log (accurate count!)
   const statusChanges = auditLogs.filter(l => l.action === 'status_changed').length;
 
   // Calculate average completion time
@@ -266,47 +300,96 @@ function calculateKPIs(
     if (t.created_at && t.completed_at) {
       const created = new Date(t.created_at).getTime();
       const completed = new Date(t.completed_at).getTime();
-      totalCompletionTime += (completed - created) / (1000 * 60 * 60);
-      completionCount++;
+      const hours = (completed - created) / (1000 * 60 * 60);
+      if (hours > 0 && hours < 10000) { // Sanity check
+        totalCompletionTime += hours;
+        completionCount++;
+      }
     }
   });
   const avgCompletionTimeHours = completionCount > 0 ? Math.round(totalCompletionTime / completionCount * 10) / 10 : 0;
 
-  // Estimation metrics
-  const quotationTasks = periodTasks.filter(t => t.type === 'quotation');
-  const rfqsReceived = quotationTasks.length;
-  const quotationsSent = completedTasks.filter(t => t.type === 'quotation').length;
-  const quotationsApproved = quotationTasks.filter(t => t.status === 'approved' || t.status === 'production').length;
+  // ========== ESTIMATION METRICS ==========
+  const quotationTasks = allAssignedTasks.filter(t => t.type === 'quotation');
+  const rfqsReceived = quotationTasks.length; // Total RFQs assigned
+  
+  // Quotations sent = status changes TO quotation_bill, admin_approval, production, done
+  const quotationsSent = auditLogs.filter(l => 
+    l.action === 'status_changed' && 
+    l.new_values?.status && 
+    ['quotation_bill', 'admin_approval', 'with_client', 'client_approval'].includes(l.new_values.status)
+  ).length || quotationTasks.filter(t => 
+    ['quotation_bill', 'admin_approval', 'with_client', 'client_approval', 'production', 'done'].includes(t.status)
+  ).length;
+  
+  const quotationsApproved = quotationTasks.filter(t => 
+    ['approved', 'production', 'done', 'mockup', 'with_client'].includes(t.status)
+  ).length;
+  
   const quotationsRejected = quotationTasks.filter(t => t.status === 'rejected').length;
   const supplierQuotesCollected = supplierQuotes.length;
 
-  // Designer metrics
-  const mockupTasks = periodTasks.filter(t => t.sent_to_designer_mockup === true);
-  const mockupsCompleted = mockupTasks.filter(t => t.mockup_completed_by_designer === true).length;
-  const mockupsSentToClient = mockupTasks.filter(t => t.status === 'with_client').length;
-  const mockupsApproved = mockupTasks.filter(t => t.status === 'production' || t.status === 'done').length;
+  // ========== DESIGNER METRICS ==========
+  const mockupTasks = allAssignedTasks.filter(t => 
+    t.sent_to_designer_mockup === true || t.status === 'mockup'
+  );
+  
+  // Mockups completed (designer marked as done)
+  const mockupsCompleted = allAssignedTasks.filter(t => 
+    t.mockup_completed_by_designer === true || t.completed_by_designer_id === userId
+  ).length;
+  
+  // Mockups sent to client
+  const mockupsSentToClient = auditLogs.filter(l => 
+    l.action === 'status_changed' && l.new_values?.status === 'with_client'
+  ).length || allAssignedTasks.filter(t => t.status === 'with_client').length;
+  
+  // Mockups approved (moved to production)
+  const mockupsApproved = allAssignedTasks.filter(t => 
+    t.came_from_designer_done === true || 
+    (t.mockup_completed_by_designer === true && ['production', 'done'].includes(t.status))
+  ).length;
+  
+  // Revisions - tasks sent back to designer
   const mockupsRevised = auditLogs.filter(l => 
-    l.action === 'updated' && 
-    l.new_values?.sent_back_to_designer === true
+    l.action === 'status_changed' && 
+    (l.new_values?.sent_back_to_designer === true || l.new_values?.status === 'mockup')
   ).length;
-  const productionFilesCreated = mockupTasks.filter(t => t.came_from_designer_done === true).length;
+  
+  // Production files created
+  const productionFilesCreated = allAssignedTasks.filter(t => 
+    t.came_from_designer_done === true
+  ).length;
 
-  // Operations metrics
-  const productionTasks = periodTasks.filter(t => t.status === 'production' || t.status === 'done');
-  const productionTasksCompleted = completedTasks.filter(t => 
-    t.came_from_designer_done === true || t.status === 'done'
+  // ========== OPERATIONS METRICS ==========
+  const productionTasks = allAssignedTasks.filter(t => 
+    t.status === 'production' || t.came_from_designer_done === true
+  );
+  
+  const productionTasksCompleted = allAssignedTasks.filter(t => 
+    t.status === 'done' && (t.came_from_designer_done === true || productionTasks.some(pt => pt.id === t.id))
   ).length;
+  
+  const productionTasksInProgress = productionTasks.filter(t => t.status === 'production').length;
+  
+  // Deliveries made
   const deliveriesMade = auditLogs.filter(l => 
     l.action === 'status_changed' && l.new_values?.status === 'delivery'
   ).length;
 
-  // Client Service metrics
+  // ========== CLIENT SERVICE METRICS ==========
+  // New calls handled
   const newCallsHandled = auditLogs.filter(l => 
-    l.action === 'status_changed' && l.new_values?.status === 'new_calls'
-  ).length + periodTasks.filter(t => t.status === 'new_calls').length;
+    (l.action === 'created' && l.new_values?.status === 'new_calls') ||
+    (l.action === 'status_changed' && l.new_values?.status === 'new_calls')
+  ).length + allAssignedTasks.filter(t => t.status === 'new_calls').length;
+  
+  // Follow-ups made
   const followUpsMade = auditLogs.filter(l => 
     l.action === 'status_changed' && l.new_values?.status === 'follow_up'
   ).length;
+  
+  // Quotations requested (moved to quotation status)
   const quotationsRequested = auditLogs.filter(l => 
     l.action === 'status_changed' && l.new_values?.status === 'quotation'
   ).length;
@@ -316,27 +399,30 @@ function calculateKPIs(
   let mockupTime = 0, mockupTimeCount = 0;
   let productionTime = 0, productionTimeCount = 0;
 
-  completedTasks.forEach(t => {
-    if (t.created_at && t.completed_at) {
-      const hours = (new Date(t.completed_at).getTime() - new Date(t.created_at).getTime()) / (1000 * 60 * 60);
-      if (t.type === 'quotation') {
-        quotationTime += hours;
-        quotationTimeCount++;
-      }
-      if (t.sent_to_designer_mockup) {
-        mockupTime += hours;
-        mockupTimeCount++;
-      }
-      if (t.came_from_designer_done) {
-        productionTime += hours;
-        productionTimeCount++;
+  allAssignedTasks.forEach(t => {
+    if (t.created_at && t.status_changed_at) {
+      const hours = (new Date(t.status_changed_at).getTime() - new Date(t.created_at).getTime()) / (1000 * 60 * 60);
+      if (hours > 0 && hours < 10000) {
+        if (t.type === 'quotation') {
+          quotationTime += hours;
+          quotationTimeCount++;
+        }
+        if (t.sent_to_designer_mockup) {
+          mockupTime += hours;
+          mockupTimeCount++;
+        }
+        if (t.came_from_designer_done) {
+          productionTime += hours;
+          productionTimeCount++;
+        }
       }
     }
   });
 
   return {
     tasksCompleted,
-    tasksCreated,
+    tasksCreated: tasksCreatedByUser,
+    totalTasksAssigned,
     avgCompletionTimeHours,
     statusChanges,
     rfqsReceived,
@@ -352,6 +438,7 @@ function calculateKPIs(
     productionFilesCreated,
     avgMockupTimeHours: mockupTimeCount > 0 ? Math.round(mockupTime / mockupTimeCount * 10) / 10 : 0,
     productionTasksCompleted,
+    productionTasksInProgress,
     deliveriesMade,
     avgProductionTimeHours: productionTimeCount > 0 ? Math.round(productionTime / productionTimeCount * 10) / 10 : 0,
     newCallsHandled,
