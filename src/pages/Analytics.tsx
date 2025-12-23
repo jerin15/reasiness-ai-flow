@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { fetchAllRows } from "@/lib/fetchAllRows";
 
 type TimePeriod = 'today' | 'week' | 'month' | 'all' | 'custom';
 type Role = 'all' | 'admin' | 'estimation' | 'designer' | 'operations' | 'client_service' | 'technical_head';
@@ -250,46 +251,59 @@ const Analytics = () => {
       if (profileError) throw profileError;
 
       // Fetch ALL tasks including soft-deleted ones (for accurate historical counting)
-      const { data: allTasksIncludingDeleted, error: allTasksError } = await supabase
-        .from('tasks')
-        .select('*');
-
-      if (allTasksError) throw allTasksError;
+      const allTasksIncludingDeleted = await fetchAllRows<any>((fromRow, toRow) =>
+        supabase
+          .from('tasks')
+          .select('*')
+          .order('created_at', { ascending: true })
+          .range(fromRow, toRow)
+      );
 
       // Also fetch only active tasks for current state metrics
-      const { data: activeTasks, error: activeTasksError } = await supabase
-        .from('tasks')
-        .select('*')
-        .is('deleted_at', null);
+      const activeTasks = await fetchAllRows<any>((fromRow, toRow) =>
+        supabase
+          .from('tasks')
+          .select('*')
+          .is('deleted_at', null)
+          .order('created_at', { ascending: true })
+          .range(fromRow, toRow)
+      );
 
-      if (activeTasksError) throw activeTasksError;
+      // Fetch audit logs (paginated; required for all-time accuracy)
+      const auditLogs = await fetchAllRows<any>(async (fromRow, toRow) => {
+        let q = supabase
+          .from('task_audit_log')
+          .select('*')
+          .order('created_at', { ascending: true });
+        if (!isAllTime) {
+          q = q.gte('created_at', fromISO).lte('created_at', toISO);
+        }
+        return q.range(fromRow, toRow);
+      });
 
-      // Fetch ALL audit logs (this is the source of truth for historical actions)
-      let auditQuery = supabase.from('task_audit_log').select('*');
-      if (!isAllTime) {
-        auditQuery = auditQuery.gte('created_at', fromISO).lte('created_at', toISO);
-      }
-      const { data: auditLogs, error: auditError } = await auditQuery;
+      // Fetch task history (paginated)
+      const taskHistory = await fetchAllRows<any>(async (fromRow, toRow) => {
+        let q = supabase
+          .from('task_history')
+          .select('*')
+          .order('created_at', { ascending: true });
+        if (!isAllTime) {
+          q = q.gte('created_at', fromISO).lte('created_at', toISO);
+        }
+        return q.range(fromRow, toRow);
+      });
 
-      if (auditError) throw auditError;
-
-      // Fetch ALL task history (another source of truth for status changes)
-      let historyQuery = supabase.from('task_history').select('*');
-      if (!isAllTime) {
-        historyQuery = historyQuery.gte('created_at', fromISO).lte('created_at', toISO);
-      }
-      const { data: taskHistory, error: historyError } = await historyQuery;
-
-      if (historyError) throw historyError;
-
-      // Fetch supplier quotes - ALL for "all" period
-      let quotesQuery = supabase.from('supplier_quotes').select('*');
-      if (!isAllTime) {
-        quotesQuery = quotesQuery.gte('created_at', fromISO).lte('created_at', toISO);
-      }
-      const { data: supplierQuotes, error: quotesError } = await quotesQuery;
-
-      if (quotesError) throw quotesError;
+      // Fetch supplier quotes (paginated)
+      const supplierQuotes = await fetchAllRows<any>(async (fromRow, toRow) => {
+        let q = supabase
+          .from('supplier_quotes')
+          .select('*')
+          .order('created_at', { ascending: true });
+        if (!isAllTime) {
+          q = q.gte('created_at', fromISO).lte('created_at', toISO);
+        }
+        return q.range(fromRow, toRow);
+      });
 
       // Fetch user achievements
       const { data: achievements, error: achieveError } = await supabase
