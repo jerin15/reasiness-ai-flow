@@ -155,21 +155,18 @@ const Dashboard = () => {
 
   const fetchTeamMembers = async () => {
     try {
-      console.log('👥 Dashboard: Starting fetchTeamMembers...');
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, email, avatar_url, user_roles(*)")
         .order("full_name");
 
       if (error) {
-        console.error('❌ Dashboard: Error fetching team members:', error);
         throw error;
       }
       
-      console.log('✅ Dashboard: Team members fetched:', data?.length || 0);
       setTeamMembers(data || []);
     } catch (error) {
-      console.error("❌ Dashboard: fetchTeamMembers failed:", error);
+      console.error("Dashboard: fetchTeamMembers failed:", error);
       toast.error("Failed to load team members");
       // Don't let this block the dashboard from loading
       setTeamMembers([]);
@@ -213,18 +210,13 @@ const Dashboard = () => {
     return role.charAt(0).toUpperCase() + role.slice(1);
   };
 
-  console.log('🎯 Dashboard render:', { loading, userRole, selectedUserId, currentUserId });
-
   if (loading) {
-    console.log('⏳ Dashboard: Still loading...');
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
-
-  console.log('✅ Dashboard: Loading complete, rendering main UI');
 
   // Show admin dashboard only for admin users viewing their own tasks
   if (userRole === 'admin' && selectedUserId === currentUserId) {
@@ -331,7 +323,6 @@ const Dashboard = () => {
     );
   }
 
-  console.log('📋 Dashboard: Rendering KanbanBoard view');
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
