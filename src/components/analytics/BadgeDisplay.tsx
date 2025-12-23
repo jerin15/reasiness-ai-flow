@@ -12,8 +12,10 @@ interface BadgeDisplayProps {
 }
 
 export const BadgeDisplay = ({ badges, showProgress = true, compact = false }: BadgeDisplayProps) => {
-  const earnedBadges = badges.filter(b => b.earnedAt || (b.progress && b.target && b.progress >= b.target));
-  const inProgressBadges = badges.filter(b => !b.earnedAt && b.progress && b.target && b.progress < b.target);
+  // Badge is earned if it has earnedAt OR progress >= target
+  const earnedBadges = badges.filter(b => b.earnedAt || (b.progress !== undefined && b.target && b.progress >= b.target));
+  // Only show truly in-progress badges (progress exists, is positive, and less than target)
+  const inProgressBadges = badges.filter(b => !b.earnedAt && b.progress !== undefined && b.progress > 0 && b.target && b.progress < b.target);
 
   if (compact) {
     return (
