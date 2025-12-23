@@ -243,81 +243,87 @@ const Analytics = () => {
       const toISO = to.toISOString();
       const isAllTime = period === 'all';
 
-      // Fetch all users with roles
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('*, user_roles(*)');
+      // Parallel fetch all data for speed
+      const [
+        profilesResult,
+        allTasksIncludingDeleted,
+        activeTasks,
+        auditLogs,
+        taskHistory,
+        supplierQuotes,
+        achievementsResult,
+        streaksResult
+      ] = await Promise.all([
+        // Fetch all users with roles
+        supabase.from('profiles').select('*, user_roles(*)'),
+        
+        // Fetch ALL tasks including soft-deleted ones
+        fetchAllRows<any>((fromRow, toRow) =>
+          supabase
+            .from('tasks')
+            .select('*')
+            .order('created_at', { ascending: true })
+            .range(fromRow, toRow)
+        ),
+        
+        // Fetch only active tasks
+        fetchAllRows<any>((fromRow, toRow) =>
+          supabase
+            .from('tasks')
+            .select('*')
+            .is('deleted_at', null)
+            .order('created_at', { ascending: true })
+            .range(fromRow, toRow)
+        ),
+        
+        // Fetch audit logs
+        fetchAllRows<any>(async (fromRow, toRow) => {
+          let q = supabase
+            .from('task_audit_log')
+            .select('*')
+            .order('created_at', { ascending: true });
+          if (!isAllTime) {
+            q = q.gte('created_at', fromISO).lte('created_at', toISO);
+          }
+          return q.range(fromRow, toRow);
+        }),
+        
+        // Fetch task history
+        fetchAllRows<any>(async (fromRow, toRow) => {
+          let q = supabase
+            .from('task_history')
+            .select('*')
+            .order('created_at', { ascending: true });
+          if (!isAllTime) {
+            q = q.gte('created_at', fromISO).lte('created_at', toISO);
+          }
+          return q.range(fromRow, toRow);
+        }),
+        
+        // Fetch supplier quotes
+        fetchAllRows<any>(async (fromRow, toRow) => {
+          let q = supabase
+            .from('supplier_quotes')
+            .select('*')
+            .order('created_at', { ascending: true });
+          if (!isAllTime) {
+            q = q.gte('created_at', fromISO).lte('created_at', toISO);
+          }
+          return q.range(fromRow, toRow);
+        }),
+        
+        // Fetch user achievements
+        supabase.from('user_achievements').select('*'),
+        
+        // Fetch user streaks
+        supabase.from('user_activity_streaks').select('*')
+      ]);
 
+      const { data: profiles, error: profileError } = profilesResult;
       if (profileError) throw profileError;
 
-      // Fetch ALL tasks including soft-deleted ones (for accurate historical counting)
-      const allTasksIncludingDeleted = await fetchAllRows<any>((fromRow, toRow) =>
-        supabase
-          .from('tasks')
-          .select('*')
-          .order('created_at', { ascending: true })
-          .range(fromRow, toRow)
-      );
-
-      // Also fetch only active tasks for current state metrics
-      const activeTasks = await fetchAllRows<any>((fromRow, toRow) =>
-        supabase
-          .from('tasks')
-          .select('*')
-          .is('deleted_at', null)
-          .order('created_at', { ascending: true })
-          .range(fromRow, toRow)
-      );
-
-      // Fetch audit logs (paginated; required for all-time accuracy)
-      const auditLogs = await fetchAllRows<any>(async (fromRow, toRow) => {
-        let q = supabase
-          .from('task_audit_log')
-          .select('*')
-          .order('created_at', { ascending: true });
-        if (!isAllTime) {
-          q = q.gte('created_at', fromISO).lte('created_at', toISO);
-        }
-        return q.range(fromRow, toRow);
-      });
-
-      // Fetch task history (paginated)
-      const taskHistory = await fetchAllRows<any>(async (fromRow, toRow) => {
-        let q = supabase
-          .from('task_history')
-          .select('*')
-          .order('created_at', { ascending: true });
-        if (!isAllTime) {
-          q = q.gte('created_at', fromISO).lte('created_at', toISO);
-        }
-        return q.range(fromRow, toRow);
-      });
-
-      // Fetch supplier quotes (paginated)
-      const supplierQuotes = await fetchAllRows<any>(async (fromRow, toRow) => {
-        let q = supabase
-          .from('supplier_quotes')
-          .select('*')
-          .order('created_at', { ascending: true });
-        if (!isAllTime) {
-          q = q.gte('created_at', fromISO).lte('created_at', toISO);
-        }
-        return q.range(fromRow, toRow);
-      });
-
-      // Fetch user achievements
-      const { data: achievements, error: achieveError } = await supabase
-        .from('user_achievements')
-        .select('*');
-
-      if (achieveError) console.error('Achievements fetch error:', achieveError);
-
-      // Fetch user streaks
-      const { data: streaks, error: streakError } = await supabase
-        .from('user_activity_streaks')
-        .select('*');
-
-      if (streakError) console.error('Streaks fetch error:', streakError);
+      const achievements = achievementsResult.data;
+      const streaks = streaksResult.data;
 
       // Process each user
       const usersKPIs: UserKPIData[] = (profiles || []).map(profile => {
@@ -875,7 +881,7 @@ const Analytics = () => {
         </Card>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5 border-blue-200/50">
             <CardContent className="pt-4">
               <div className="flex items-center justify-between">
@@ -895,28 +901,6 @@ const Analytics = () => {
                   <p className="text-3xl font-bold text-green-600">{totalTasksCompleted}</p>
                 </div>
                 <TrendingUp className="h-10 w-10 text-green-500/40" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/5 border-purple-200/50">
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Avg Efficiency</p>
-                  <p className="text-3xl font-bold text-purple-600">{avgEfficiency}%</p>
-                </div>
-                <Target className="h-10 w-10 text-purple-500/40" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-orange-500/10 to-amber-500/5 border-orange-200/50">
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Badges Earned</p>
-                  <p className="text-3xl font-bold text-orange-600">{totalBadgesEarned}</p>
-                </div>
-                <Flame className="h-10 w-10 text-orange-500/40" />
               </div>
             </CardContent>
           </Card>
