@@ -103,34 +103,6 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
               iconColor="text-green-500"
               subtitle="Completed quotations"
             />
-            <KPICard
-              title="Approved"
-              value={aggregated.quotationsApproved || 0}
-              icon={CheckCircle}
-              iconColor="text-emerald-500"
-              subtitle="Client approved"
-            />
-            <KPICard
-              title="Rejected"
-              value={aggregated.quotationsRejected || 0}
-              icon={XCircle}
-              iconColor="text-red-500"
-              subtitle="Client rejected"
-            />
-            <KPICard
-              title="Supplier Quotes"
-              value={aggregated.supplierQuotesCollected || 0}
-              icon={Users}
-              iconColor="text-purple-500"
-              subtitle="Quotes collected"
-            />
-            <KPICard
-              title="Avg Time"
-              value={`${aggregated.avgQuotationTimeHours || 0}h`}
-              icon={Clock}
-              iconColor="text-orange-500"
-              subtitle="Per quotation"
-            />
           </>
         );
       
@@ -150,34 +122,6 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
               icon={Send}
               iconColor="text-blue-500"
               subtitle="Awaiting approval"
-            />
-            <KPICard
-              title="Client Approved"
-              value={aggregated.mockupsApproved || 0}
-              icon={CheckCircle}
-              iconColor="text-green-500"
-              subtitle="Ready for production"
-            />
-            <KPICard
-              title="Revisions"
-              value={aggregated.mockupsRevised || 0}
-              icon={XCircle}
-              iconColor="text-orange-500"
-              subtitle="Sent back for changes"
-            />
-            <KPICard
-              title="Production Files"
-              value={aggregated.productionFilesCreated || 0}
-              icon={FileText}
-              iconColor="text-cyan-500"
-              subtitle="Created for ops"
-            />
-            <KPICard
-              title="Avg Time"
-              value={`${aggregated.avgMockupTimeHours || 0}h`}
-              icon={Clock}
-              iconColor="text-yellow-500"
-              subtitle="Per mockup"
             />
           </>
         );
@@ -199,20 +143,6 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
               iconColor="text-blue-500"
               subtitle="Items delivered"
             />
-            <KPICard
-              title="Avg Production Time"
-              value={`${aggregated.avgProductionTimeHours || 0}h`}
-              icon={Clock}
-              iconColor="text-orange-500"
-              subtitle="Per task"
-            />
-            <KPICard
-              title="Status Changes"
-              value={aggregated.statusChanges || 0}
-              icon={TrendingUp}
-              iconColor="text-purple-500"
-              subtitle="Updates made"
-            />
           </>
         );
       
@@ -232,20 +162,6 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
               icon={MessageSquare}
               iconColor="text-blue-500"
               subtitle="Client follow-ups"
-            />
-            <KPICard
-              title="Quotations Requested"
-              value={aggregated.quotationsRequested || 0}
-              icon={FileText}
-              iconColor="text-purple-500"
-              subtitle="Sent to estimation"
-            />
-            <KPICard
-              title="Tasks Completed"
-              value={aggregated.tasksCompleted || 0}
-              icon={CheckCircle}
-              iconColor="text-emerald-500"
-              subtitle="Total completed"
             />
           </>
         );
