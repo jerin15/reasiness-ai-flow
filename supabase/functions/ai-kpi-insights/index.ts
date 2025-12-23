@@ -22,34 +22,28 @@ serve(async (req) => {
     console.log("Current period:", periodLabel);
     console.log("Users count:", kpiData?.length || 0);
 
-    // Build a comprehensive prompt for analysis
-    const systemPrompt = `You are an expert business analyst for an advertising/signage company. Analyze the KPI data and provide actionable insights.
+    // Build a simple, easy-to-understand prompt
+    const systemPrompt = `You are a friendly team performance coach. Write in simple, everyday English that anyone can understand. Avoid business jargon.
 
-Your role is to:
-1. Identify top performers and areas of concern
-2. Highlight unusual patterns or anomalies
-3. Suggest actionable improvements
-4. Compare current vs previous period if data available
+Rules:
+- Use simple words (e.g. "finished" not "completed", "sent" not "dispatched")
+- Keep sentences short
+- Use emojis to make it friendly
+- Be encouraging and positive
+- Only give 2 short sections: "What's Going Well" and "Quick Tips"`;
 
-Keep responses concise but insightful. Use bullet points. Focus on business impact.
-Do not use markdown headers, just plain text with bullet points.`;
+    const userPrompt = `Look at this team's work for ${periodLabel} and tell me in simple words:
 
-    const userPrompt = `Analyze this team KPI data for ${periodLabel}:
-
-CURRENT PERIOD DATA:
+Team Data:
 ${JSON.stringify(kpiData, null, 2)}
 
-${previousPeriodData ? `PREVIOUS PERIOD DATA FOR COMPARISON:
-${JSON.stringify(previousPeriodData, null, 2)}` : 'No previous period data available for comparison.'}
+Give me only 2 things:
 
-Provide:
-1. TOP INSIGHTS (3-4 key observations about team performance)
-2. ANOMALIES (any unusual patterns - very high or low numbers)
-3. TOP PERFORMERS (who is excelling and in what area)
-4. AREAS OF CONCERN (what needs attention)
-5. RECOMMENDATIONS (2-3 actionable suggestions)
+🌟 WHAT'S GOING WELL (2-3 good things about the team, mention names)
 
-Keep it brief and business-focused. No long explanations.`;
+💡 QUICK TIPS (2 simple suggestions to do better)
+
+Keep it super short and easy to read. Use everyday words.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
