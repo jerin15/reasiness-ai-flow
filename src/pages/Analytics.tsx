@@ -171,15 +171,22 @@ const Analytics = () => {
 
       if (profileError) throw profileError;
 
-      // Fetch all tasks (never filter by date - we need all for proper counting)
-      const { data: allTasks, error: tasksError } = await supabase
+      // Fetch ALL tasks including soft-deleted ones (for accurate historical counting)
+      const { data: allTasksIncludingDeleted, error: allTasksError } = await supabase
+        .from('tasks')
+        .select('*');
+
+      if (allTasksError) throw allTasksError;
+
+      // Also fetch only active tasks for current state metrics
+      const { data: activeTasks, error: activeTasksError } = await supabase
         .from('tasks')
         .select('*')
         .is('deleted_at', null);
 
-      if (tasksError) throw tasksError;
+      if (activeTasksError) throw activeTasksError;
 
-      // Fetch audit logs - ALL for "all" period, filtered for others
+      // Fetch ALL audit logs (this is the source of truth for historical actions)
       let auditQuery = supabase.from('task_audit_log').select('*');
       if (!isAllTime) {
         auditQuery = auditQuery.gte('created_at', fromISO).lte('created_at', toISO);
@@ -188,8 +195,17 @@ const Analytics = () => {
 
       if (auditError) throw auditError;
 
+      // Fetch ALL task history (another source of truth for status changes)
+      let historyQuery = supabase.from('task_history').select('*');
+      if (!isAllTime) {
+        historyQuery = historyQuery.gte('created_at', fromISO).lte('created_at', toISO);
+      }
+      const { data: taskHistory, error: historyError } = await historyQuery;
+
+      if (historyError) throw historyError;
+
       // Fetch supplier quotes - ALL for "all" period
-      let quotesQuery = supabase.from('supplier_quotes').select('*, tasks!inner(assigned_to)');
+      let quotesQuery = supabase.from('supplier_quotes').select('*');
       if (!isAllTime) {
         quotesQuery = quotesQuery.gte('created_at', fromISO).lte('created_at', toISO);
       }
@@ -216,46 +232,49 @@ const Analytics = () => {
         const userId = profile.id;
         const userRole = profile.user_roles?.[0]?.role || 'unknown';
         
-        // ALL tasks for this user (for calculating total assigned)
-        const allUserTasks = (allTasks || []).filter(t => 
+        // ALL tasks ever assigned to or created by this user (including deleted)
+        const allUserTasksEver = (allTasksIncludingDeleted || []).filter(t => 
           t.assigned_to === userId || t.created_by === userId
         );
 
-        // Tasks assigned TO this user specifically
-        const tasksAssignedToUser = (allTasks || []).filter(t => t.assigned_to === userId);
+        // Tasks assigned TO this user specifically (including deleted)
+        const allTasksAssignedEver = (allTasksIncludingDeleted || []).filter(t => t.assigned_to === userId);
 
-        // Filter tasks by period for period-specific metrics
-        const periodTasks = isAllTime ? allUserTasks : allUserTasks.filter(t => {
+        // Active tasks (not deleted)
+        const activeUserTasks = (activeTasks || []).filter(t => 
+          t.assigned_to === userId || t.created_by === userId
+        );
+
+        // Filter by period if needed
+        const periodTasksAll = isAllTime ? allUserTasksEver : allUserTasksEver.filter(t => {
           const createdAt = new Date(t.created_at || '');
           return createdAt >= from && createdAt <= to;
         });
 
-        // Completed tasks - for "all" period, include ALL done tasks
-        const completedInPeriod = isAllTime 
-          ? tasksAssignedToUser.filter(t => t.status === 'done' || t.completed_at)
-          : tasksAssignedToUser.filter(t => {
-              if (!t.completed_at) return false;
-              const completedAt = new Date(t.completed_at);
-              return completedAt >= from && completedAt <= to;
-            });
-
-        // User's audit logs
+        // User's audit logs - THIS IS THE SOURCE OF TRUTH FOR ACTIONS
         const userAuditLogs = (auditLogs || []).filter(l => l.changed_by === userId);
 
-        // User's supplier quotes for tasks assigned to them
-        const userSupplierQuotes = (supplierQuotes || []).filter((q: any) => 
-          q.tasks?.assigned_to === userId
-        );
+        // User's task history - ALSO SOURCE OF TRUTH
+        const userTaskHistory = (taskHistory || []).filter(h => h.changed_by === userId);
 
-        // Calculate KPIs with all necessary data
+        // User's supplier quotes
+        const userSupplierQuotes = (supplierQuotes || []).filter((q: any) => {
+          const task = allTasksIncludingDeleted?.find(t => t.id === q.task_id);
+          return task?.assigned_to === userId;
+        });
+
+        // Calculate KPIs with all historical data
         const kpis = calculateKPIs(
-          periodTasks,
-          completedInPeriod,
+          periodTasksAll,
+          allTasksAssignedEver,
           userAuditLogs,
+          userTaskHistory,
           userSupplierQuotes,
           userRole,
-          tasksAssignedToUser,
-          userId
+          userId,
+          isAllTime,
+          from,
+          to
         );
 
         // User achievements
@@ -291,21 +310,41 @@ const Analytics = () => {
 
   const calculateKPIs = (
     periodTasks: any[],
-    completedTasks: any[],
+    allAssignedTasks: any[],
     auditLogs: any[],
+    taskHistory: any[],
     supplierQuotes: any[],
     userRole: string,
-    allAssignedTasks: any[],
-    userId: string
+    userId: string,
+    isAllTime: boolean,
+    fromDate: Date,
+    toDate: Date
   ) => {
-    const tasksCompleted = completedTasks.length;
+    // ========== TASKS COMPLETED ==========
+    // Count from AUDIT LOGS (source of truth) - how many times user changed status to 'done'
+    const statusChangesToDone = auditLogs.filter(l => 
+      l.action === 'status_changed' && 
+      (l.new_values?.status === 'done')
+    ).length;
+
+    // Also count from task_history
+    const historyStatusesToDone = taskHistory.filter(h => 
+      h.new_status === 'done'
+    ).length;
+
+    // Tasks with status='done' assigned to this user (from tasks table)
+    const tasksWithDoneStatus = allAssignedTasks.filter(t => t.status === 'done').length;
+
+    // Use the maximum of all sources for accuracy
+    const tasksCompleted = Math.max(statusChangesToDone, historyStatusesToDone, tasksWithDoneStatus);
+
     const tasksCreated = periodTasks.filter(t => t.created_by === userId).length;
     const statusChanges = auditLogs.filter(l => l.action === 'status_changed').length;
     const totalTasksAssigned = allAssignedTasks.length;
 
-    // Avg completion time
+    // Avg completion time (from tasks with both created_at and completed_at)
     let totalTime = 0, timeCount = 0;
-    completedTasks.forEach(t => {
+    allAssignedTasks.forEach(t => {
       if (t.created_at && t.completed_at) {
         const hours = (new Date(t.completed_at).getTime() - new Date(t.created_at).getTime()) / (1000 * 60 * 60);
         if (hours > 0 && hours < 10000) {
@@ -323,16 +362,24 @@ const Analytics = () => {
     );
     const rfqsReceived = quotationTasks.length;
     
-    // Quotations Sent = quotation type tasks that are DONE (completed)
-    const quotationsSent = completedTasks.filter(t => 
+    // Quotations Sent = quotation type tasks that are DONE
+    // Count from tasks table (including deleted)
+    const quotationsDoneFromTasks = allAssignedTasks.filter(t => 
       t.type === 'quotation' && t.status === 'done'
     ).length;
     
-    // Also count from audit logs: tasks moved to 'done' with type quotation
-    const quotationsDoneFromLogs = auditLogs.filter(l => 
+    // Also count from audit logs for accuracy
+    const quotationsDoneFromAudit = auditLogs.filter(l => 
       l.action === 'status_changed' && 
       l.new_values?.status === 'done'
     ).length;
+
+    // Count from task_history
+    const quotationsDoneFromHistory = taskHistory.filter(h => 
+      h.new_status === 'done'
+    ).length;
+
+    const quotationsSent = Math.max(quotationsDoneFromTasks, quotationsDoneFromHistory);
     
     const quotationsApproved = quotationTasks.filter(t => 
       ['approved', 'production', 'done', 'mockup', 'with_client'].includes(t.status)
@@ -345,29 +392,35 @@ const Analytics = () => {
     const mockupTasks = periodTasks.filter(t => 
       t.sent_to_designer_mockup === true || 
       t.status === 'mockup' ||
+      t.type === 'design' ||
       t.assigned_to === userId
     );
     
-    // Mockups Completed = tasks that designer put to 'done' (or production/with_client)
-    // These are tasks where designer finished their work
-    const mockupsCompleted = completedTasks.filter(t => 
-      t.mockup_completed_by_designer === true || 
-      t.completed_by_designer_id === userId ||
-      t.came_from_designer_done === true ||
-      (t.sent_to_designer_mockup === true && ['done', 'production', 'with_client'].includes(t.status))
+    // Mockups Completed = designer moving tasks to done/with_client/production
+    // From tasks table
+    const designTasksDone = allAssignedTasks.filter(t => 
+      (t.type === 'design' || t.sent_to_designer_mockup === true) && 
+      t.status === 'done'
     ).length;
-    
-    // Count from audit logs: designer moving tasks to done/with_client/production
-    const mockupsDoneFromLogs = auditLogs.filter(l => 
+
+    // From audit logs
+    const designerAuditDone = auditLogs.filter(l => 
       l.action === 'status_changed' && 
       ['done', 'with_client', 'production'].includes(l.new_values?.status)
     ).length;
+
+    // From task_history
+    const designerHistoryDone = taskHistory.filter(h => 
+      ['done', 'with_client', 'production'].includes(h.new_status)
+    ).length;
+
+    const mockupsCompleted = Math.max(designTasksDone, designerHistoryDone);
     
     const mockupsSentToClient = auditLogs.filter(l => 
       l.action === 'status_changed' && l.new_values?.status === 'with_client'
-    ).length || periodTasks.filter(t => t.status === 'with_client').length;
+    ).length + taskHistory.filter(h => h.new_status === 'with_client').length;
     
-    const mockupsApproved = periodTasks.filter(t => 
+    const mockupsApproved = allAssignedTasks.filter(t => 
       t.came_from_designer_done === true || 
       (t.mockup_completed_by_designer === true && ['production', 'done'].includes(t.status))
     ).length;
@@ -378,24 +431,29 @@ const Analytics = () => {
        (l.old_values?.status && l.new_values?.status === 'mockup'))
     ).length;
     
-    const productionFilesCreated = periodTasks.filter(t => t.came_from_designer_done === true).length;
+    const productionFilesCreated = allAssignedTasks.filter(t => t.came_from_designer_done === true).length;
 
     // ========== OPERATIONS METRICS ==========
     const productionTasks = periodTasks.filter(t => 
-      t.status === 'production' || t.came_from_designer_done === true
+      t.status === 'production' || t.came_from_designer_done === true || t.type === 'production'
     );
     
-    // Production tasks completed = tasks in production that went to done
-    const productionTasksCompleted = completedTasks.filter(t => 
-      t.status === 'done' && 
-      (t.came_from_designer_done === true || t.type === 'production')
+    // Production tasks completed
+    const productionDoneFromTasks = allAssignedTasks.filter(t => 
+      t.status === 'done' && (t.came_from_designer_done === true || t.type === 'production')
     ).length;
+
+    const productionDoneFromHistory = taskHistory.filter(h => 
+      h.new_status === 'done'
+    ).length;
+
+    const productionTasksCompleted = Math.max(productionDoneFromTasks, productionDoneFromHistory);
     
-    const productionTasksInProgress = productionTasks.filter(t => t.status === 'production').length;
+    const productionTasksInProgress = periodTasks.filter(t => t.status === 'production').length;
     
     const deliveriesMade = auditLogs.filter(l => 
       l.action === 'status_changed' && l.new_values?.status === 'delivery'
-    ).length;
+    ).length + taskHistory.filter(h => h.new_status === 'delivery').length;
 
     // ========== CLIENT SERVICE METRICS ==========
     const newCallsHandled = auditLogs.filter(l => 
@@ -405,11 +463,11 @@ const Analytics = () => {
     
     const followUpsMade = auditLogs.filter(l => 
       l.action === 'status_changed' && l.new_values?.status === 'follow_up'
-    ).length;
+    ).length + taskHistory.filter(h => h.new_status === 'follow_up').length;
     
     const quotationsRequested = auditLogs.filter(l => 
       l.action === 'status_changed' && l.new_values?.status === 'quotation'
-    ).length;
+    ).length + taskHistory.filter(h => h.new_status === 'quotation').length;
 
     return {
       tasksCompleted,
@@ -418,11 +476,11 @@ const Analytics = () => {
       statusChanges,
       avgCompletionTimeHours,
       rfqsReceived,
-      quotationsSent: Math.max(quotationsSent, quotationsDoneFromLogs),
+      quotationsSent,
       quotationsApproved,
       quotationsRejected,
       supplierQuotesCollected,
-      mockupsCompleted: Math.max(mockupsCompleted, mockupsDoneFromLogs),
+      mockupsCompleted,
       mockupsSentToClient,
       mockupsApproved,
       mockupsRevised,
