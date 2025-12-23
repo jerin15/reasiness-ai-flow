@@ -24,9 +24,7 @@ import {
   Truck,
   Phone,
   Crown,
-  TrendingUp,
-  Flame,
-  Target
+  TrendingUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -175,13 +173,6 @@ export const KPIDashboard = () => {
 
   // Calculate totals
   const totalTasksCompleted = filteredUsers.reduce((sum, u) => sum + u.kpis.tasksCompleted, 0);
-  const totalStatusChanges = filteredUsers.reduce((sum, u) => sum + u.kpis.statusChanges, 0);
-  const avgEfficiency = filteredUsers.length > 0 
-    ? Math.round(filteredUsers.reduce((sum, u) => sum + u.efficiencyScore, 0) / filteredUsers.length)
-    : 0;
-  const totalBadgesEarned = filteredUsers.reduce(
-    (sum, u) => sum + u.badges.filter(b => b.earnedAt).length, 0
-  );
 
   const dateRange = getDateRange(period);
 
@@ -243,7 +234,7 @@ export const KPIDashboard = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5 border-blue-200/50">
             <CardContent className="pt-4">
               <div className="flex items-center justify-between">
@@ -263,28 +254,6 @@ export const KPIDashboard = () => {
                   <p className="text-3xl font-bold text-green-600">{totalTasksCompleted}</p>
                 </div>
                 <TrendingUp className="h-10 w-10 text-green-500/40" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/5 border-purple-200/50">
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Avg Efficiency</p>
-                  <p className="text-3xl font-bold text-purple-600">{avgEfficiency}%</p>
-                </div>
-                <Target className="h-10 w-10 text-purple-500/40" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-orange-500/10 to-amber-500/5 border-orange-200/50">
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Badges Earned</p>
-                  <p className="text-3xl font-bold text-orange-600">{totalBadgesEarned}</p>
-                </div>
-                <Flame className="h-10 w-10 text-orange-500/40" />
               </div>
             </CardContent>
           </Card>
