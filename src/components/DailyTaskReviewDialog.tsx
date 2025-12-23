@@ -14,7 +14,7 @@ export const DailyTaskReviewDialog = () => {
 
   useEffect(() => {
     checkDailyReview();
-    const interval = setInterval(checkDailyReview, 5 * 60 * 1000); // Check every 5 minutes
+    const interval = setInterval(checkDailyReview, 15 * 60 * 1000); // Check every 15 minutes (reduced from 5)
     return () => clearInterval(interval);
   }, []);
 

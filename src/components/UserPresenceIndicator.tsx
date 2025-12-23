@@ -112,8 +112,8 @@ export const UserPresenceIndicator = () => {
     // Update immediately on mount
     updatePresence();
 
-    // Then update every 30 seconds
-    const interval = setInterval(updatePresence, 30000);
+    // Then update every 60 seconds (reduced from 30 seconds)
+    const interval = setInterval(updatePresence, 60000);
 
     return () => {
       clearInterval(interval);

@@ -44,7 +44,8 @@ export const ReminderNotification = () => {
       // Only check reminders if not admin/technical_head
       if (!userIsAdmin) {
         checkReminders();
-        checkIntervalRef.current = setInterval(checkReminders, 10000);
+        // Check every 30 seconds instead of 10 seconds
+        checkIntervalRef.current = setInterval(checkReminders, 30000);
       }
     };
 

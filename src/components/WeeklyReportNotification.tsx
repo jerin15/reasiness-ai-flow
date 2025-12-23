@@ -17,8 +17,8 @@ export const WeeklyReportNotification = () => {
     checkUserRoleAndTasks();
     checkForNewReports();
     
-    // Check every minute for new reports
-    const interval = setInterval(checkForNewReports, 60000);
+    // Check every 5 minutes for new reports (reduced from 1 minute)
+    const interval = setInterval(checkForNewReports, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
