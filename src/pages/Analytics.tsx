@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   ArrowLeft,
   Download,
@@ -32,12 +34,16 @@ import {
   XCircle,
   MessageSquare,
   Award,
-  Star
+  Star,
+  Sparkles,
+  Loader2,
+  RefreshCw,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 
-type TimePeriod = 'today' | 'week' | 'month' | 'all';
+type TimePeriod = 'today' | 'week' | 'month' | 'all' | 'custom';
 type Role = 'all' | 'admin' | 'estimation' | 'designer' | 'operations' | 'client_service' | 'technical_head';
 
 interface UserKPIData {
@@ -103,6 +109,17 @@ const Analytics = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [allUsers, setAllUsers] = useState<UserKPIData[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  
+  // Custom date range
+  const [customFromDate, setCustomFromDate] = useState<Date | undefined>(undefined);
+  const [customToDate, setCustomToDate] = useState<Date | undefined>(undefined);
+  const [showFromCalendar, setShowFromCalendar] = useState(false);
+  const [showToCalendar, setShowToCalendar] = useState(false);
+
+  // AI Insights
+  const [aiInsights, setAiInsights] = useState<string>("");
+  const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
+  const [aiInsightsError, setAiInsightsError] = useState<string | null>(null);
 
   useEffect(() => {
     checkAccess();
@@ -112,7 +129,7 @@ const Analytics = () => {
     if (!loading) {
       fetchAllKPIs();
     }
-  }, [period]);
+  }, [period, customFromDate, customToDate]);
 
   const checkAccess = async () => {
     try {
@@ -151,8 +168,69 @@ const Analytics = () => {
         return { from: startOfWeek(now), to: endOfWeek(now) };
       case 'month':
         return { from: startOfMonth(now), to: endOfMonth(now) };
+      case 'custom':
+        return { 
+          from: customFromDate ? startOfDay(customFromDate) : startOfDay(now), 
+          to: customToDate ? endOfDay(customToDate) : endOfDay(now) 
+        };
       case 'all':
+      default:
         return { from: new Date('2000-01-01'), to: endOfDay(now) };
+    }
+  };
+
+  const getPeriodLabel = () => {
+    switch (period) {
+      case 'today': return 'Today';
+      case 'week': return 'This Week';
+      case 'month': return 'This Month';
+      case 'custom': 
+        if (customFromDate && customToDate) {
+          return `${format(customFromDate, 'MMM dd')} - ${format(customToDate, 'MMM dd, yyyy')}`;
+        }
+        return 'Custom Range';
+      case 'all': return 'All Time';
+      default: return 'Unknown';
+    }
+  };
+
+  const fetchAiInsights = async (kpiData: UserKPIData[]) => {
+    try {
+      setAiInsightsLoading(true);
+      setAiInsightsError(null);
+
+      // Prepare simplified KPI data for AI
+      const simplifiedData = kpiData.map(u => ({
+        name: u.userName,
+        role: u.userRole,
+        tasksCompleted: u.kpis.tasksCompleted,
+        rfqsReceived: u.kpis.rfqsReceived,
+        quotationsSent: u.kpis.quotationsSent,
+        mockupsCompleted: u.kpis.mockupsCompleted,
+        productionTasksCompleted: u.kpis.productionTasksCompleted,
+        avgCompletionTimeHours: u.kpis.avgCompletionTimeHours,
+        streak: u.streak,
+        efficiencyScore: u.efficiencyScore,
+      }));
+
+      const response = await supabase.functions.invoke('ai-kpi-insights', {
+        body: { 
+          kpiData: simplifiedData,
+          periodLabel: getPeriodLabel(),
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to get AI insights');
+      }
+
+      setAiInsights(response.data?.insights || 'No insights available.');
+    } catch (error: unknown) {
+      console.error('Error fetching AI insights:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate insights';
+      setAiInsightsError(errorMessage);
+    } finally {
+      setAiInsightsLoading(false);
     }
   };
 
@@ -300,6 +378,11 @@ const Analytics = () => {
       });
 
       setAllUsers(usersKPIs);
+      
+      // Fetch AI insights after KPI data is loaded
+      if (usersKPIs.length > 0) {
+        fetchAiInsights(usersKPIs);
+      }
     } catch (error) {
       console.error('Error fetching KPIs:', error);
       toast.error('Failed to load analytics data');
@@ -640,7 +723,7 @@ const Analytics = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Select value={period} onValueChange={(v) => setPeriod(v as TimePeriod)}>
                 <SelectTrigger className="w-[140px]">
                   <Calendar className="h-4 w-4 mr-2" />
@@ -651,8 +734,54 @@ const Analytics = () => {
                   <SelectItem value="week">This Week</SelectItem>
                   <SelectItem value="month">This Month</SelectItem>
                   <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
                 </SelectContent>
               </Select>
+
+              {period === 'custom' && (
+                <div className="flex items-center gap-2">
+                  <Popover open={showFromCalendar} onOpenChange={setShowFromCalendar}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-[130px] justify-start text-left font-normal">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {customFromDate ? format(customFromDate, 'MMM dd, yyyy') : 'From'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={customFromDate}
+                        onSelect={(date) => {
+                          setCustomFromDate(date);
+                          setShowFromCalendar(false);
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <span className="text-muted-foreground">to</span>
+                  <Popover open={showToCalendar} onOpenChange={setShowToCalendar}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-[130px] justify-start text-left font-normal">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {customToDate ? format(customToDate, 'MMM dd, yyyy') : 'To'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={customToDate}
+                        onSelect={(date) => {
+                          setCustomToDate(date);
+                          setShowToCalendar(false);
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+
               <Button onClick={exportReport} size="sm">
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -667,7 +796,7 @@ const Analytics = () => {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="text-sm text-muted-foreground flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            {format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')}
+            {getPeriodLabel()} ({format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')})
           </div>
           <div className="flex items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
@@ -679,6 +808,57 @@ const Analytics = () => {
             />
           </div>
         </div>
+
+        {/* AI Insights Panel */}
+        <Card className="bg-gradient-to-br from-violet-500/10 to-purple-500/5 border-violet-200/50">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-violet-500" />
+                <CardTitle className="text-lg">AI-Powered Insights</CardTitle>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => fetchAiInsights(allUsers)}
+                disabled={aiInsightsLoading}
+              >
+                {aiInsightsLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <CardDescription>
+              Real-time analysis of your team's performance for {getPeriodLabel()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {aiInsightsLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground py-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Analyzing team performance...</span>
+              </div>
+            ) : aiInsightsError ? (
+              <div className="flex items-center gap-2 text-destructive py-4">
+                <AlertTriangle className="h-4 w-4" />
+                <span>{aiInsightsError}</span>
+                <Button variant="outline" size="sm" onClick={() => fetchAiInsights(allUsers)}>
+                  Retry
+                </Button>
+              </div>
+            ) : aiInsights ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap text-sm font-sans bg-transparent p-0 m-0 border-0">
+                  {aiInsights}
+                </pre>
+              </div>
+            ) : (
+              <p className="text-muted-foreground py-4">No insights available yet.</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
