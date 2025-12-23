@@ -16,7 +16,8 @@ import {
   MessageSquare,
   TrendingUp,
   Sparkles,
-  Loader2
+  Loader2,
+  Timer
 } from "lucide-react";
 
 interface RoleKPISectionProps {
@@ -53,6 +54,16 @@ const roleConfig = {
   },
 };
 
+// Helper to format hours to hours and mins
+const formatTime = (hours: number) => {
+  if (hours <= 0) return 'No data';
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+};
+
 export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => {
   const config = roleConfig[role];
   const [aiInsights, setAiInsights] = useState<string>("");
@@ -70,6 +81,11 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
     {} as Record<string, number>
   );
 
+  // Calculate team average times
+  const avgQuotationTime = users.length > 0 
+    ? users.reduce((sum, u) => sum + (u.kpis.avgQuotationTimeHours || 0), 0) / users.filter(u => u.kpis.avgQuotationTimeHours > 0).length || 0
+    : 0;
+
   // Fetch AI insights when users change
   useEffect(() => {
     if (users.length > 0) {
@@ -80,17 +96,24 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
   const fetchAIInsights = async () => {
     setLoadingInsights(true);
     try {
-      // Prepare time-based data for AI analysis
+      // Prepare detailed time data for AI analysis
       const timeData = users.map(user => ({
         name: user.userName,
         role: user.userRole,
-        avgQuotationTime: user.kpis.avgQuotationTimeHours || 0,
-        avgMockupTime: user.kpis.avgMockupTimeHours || 0,
-        avgProductionTime: user.kpis.avgProductionTimeHours || 0,
+        avgQuotationTimeHours: user.kpis.avgQuotationTimeHours || 0,
+        avgQuotationTimeFormatted: formatTime(user.kpis.avgQuotationTimeHours || 0),
+        avgMockupTimeHours: user.kpis.avgMockupTimeHours || 0,
+        avgMockupTimeFormatted: formatTime(user.kpis.avgMockupTimeHours || 0),
+        avgProductionTimeHours: user.kpis.avgProductionTimeHours || 0,
+        avgProductionTimeFormatted: formatTime(user.kpis.avgProductionTimeHours || 0),
+        avgCompletionTimeHours: user.kpis.avgCompletionTimeHours || 0,
+        avgCompletionTimeFormatted: formatTime(user.kpis.avgCompletionTimeHours || 0),
         quotationsSent: user.kpis.quotationsSent || 0,
         rfqsReceived: user.kpis.rfqsReceived || 0,
         mockupsCompleted: user.kpis.mockupsCompleted || 0,
         tasksCompleted: user.kpis.tasksCompleted || 0,
+        productionTasksCompleted: user.kpis.productionTasksCompleted || 0,
+        deliveriesMade: user.kpis.deliveriesMade || 0,
       }));
 
       const { data, error } = await supabase.functions.invoke('ai-kpi-insights', {
@@ -204,11 +227,11 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
               subtitle="All roles"
             />
             <KPICard
-              title="Status Changes"
-              value={aggregated.statusChanges || 0}
-              icon={TrendingUp}
+              title="Avg Time"
+              value={formatTime(avgQuotationTime)}
+              icon={Timer}
               iconColor="text-blue-500"
-              subtitle="Activity level"
+              subtitle="Per task"
             />
           </>
         );
@@ -227,40 +250,40 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
         {renderKPICards()}
       </div>
 
-      {/* AI-Powered Time Insights */}
+      {/* AI-Powered Detailed Analysis */}
       <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Time & Speed Insights
+            AI Analysis
           </CardTitle>
-          <CardDescription>AI analysis of how fast your team works</CardDescription>
+          <CardDescription>Detailed look at everyone's work speed and output</CardDescription>
         </CardHeader>
         <CardContent>
           {loadingInsights ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Checking speed and times...</span>
+              <span>Analyzing team data...</span>
             </div>
           ) : aiInsights ? (
-            <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap">
+            <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap leading-relaxed">
               {aiInsights}
             </div>
           ) : (
-            <p className="text-muted-foreground text-sm">No insights yet. Add more data to see how fast your team works.</p>
+            <p className="text-muted-foreground text-sm">No insights yet. Complete more tasks to see analysis.</p>
           )}
         </CardContent>
       </Card>
 
-      {/* Team Member Summary */}
+      {/* Individual Team Member Time Stats */}
       {users.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-500" />
-              Team Speed
+              <Timer className="h-5 w-5 text-orange-500" />
+              Avg Time Per {role === 'estimation' ? 'Quotation' : role === 'designer' ? 'Mockup' : 'Task'}
             </CardTitle>
-            <CardDescription>How fast each person finishes their work</CardDescription>
+            <CardDescription>How long each person takes to finish their work</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -269,12 +292,22 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
                   ? user.kpis.avgQuotationTimeHours 
                   : role === 'designer' 
                     ? user.kpis.avgMockupTimeHours 
-                    : user.kpis.avgProductionTimeHours || 0;
+                    : role === 'operations'
+                      ? user.kpis.avgProductionTimeHours
+                      : user.kpis.avgCompletionTimeHours || 0;
+
+                const count = role === 'estimation' 
+                  ? user.kpis.quotationsSent
+                  : role === 'designer' 
+                    ? user.kpis.mockupsCompleted
+                    : role === 'operations'
+                      ? user.kpis.productionTasksCompleted
+                      : user.kpis.tasksCompleted;
                 
                 return (
                   <div 
                     key={user.userId} 
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={user.avatarUrl} />
@@ -284,32 +317,19 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{user.userName}</p>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={avgTime <= 4 ? "default" : avgTime <= 8 ? "secondary" : "destructive"} className="text-xs">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {avgTime > 0 ? `${avgTime}h avg` : 'No data yet'}
-                        </Badge>
-                        {role === 'estimation' && (
-                          <span className="text-xs text-muted-foreground">
-                            {user.kpis.quotationsSent} quotations
-                          </span>
-                        )}
-                        {role === 'designer' && (
-                          <span className="text-xs text-muted-foreground">
-                            {user.kpis.mockupsCompleted} mockups
-                          </span>
-                        )}
-                        {role === 'operations' && (
-                          <span className="text-xs text-muted-foreground">
-                            {user.kpis.productionTasksCompleted} tasks
-                          </span>
-                        )}
-                        {role === 'client_service' && (
-                          <span className="text-xs text-muted-foreground">
-                            {user.kpis.newCallsHandled} calls
-                          </span>
-                        )}
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {count} {role === 'estimation' ? 'quotations' : role === 'designer' ? 'mockups' : 'tasks'} completed
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <Badge 
+                        variant={avgTime <= 2 ? "default" : avgTime <= 4 ? "secondary" : avgTime <= 8 ? "outline" : "destructive"} 
+                        className="text-sm font-mono"
+                      >
+                        <Clock className="h-3 w-3 mr-1" />
+                        {formatTime(avgTime)}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground mt-1">avg time</p>
                     </div>
                   </div>
                 );

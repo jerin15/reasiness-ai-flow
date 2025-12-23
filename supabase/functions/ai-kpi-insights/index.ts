@@ -18,34 +18,38 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Analyzing time-based KPI data...");
+    console.log("Analyzing detailed KPI data...");
     console.log("Role:", roleType);
     console.log("Period:", periodLabel);
     console.log("Team members:", kpiData?.length || 0);
 
-    // Build a simple prompt focused on TIME and SPEED
-    const systemPrompt = `You are a friendly team helper. Write in very simple English that anyone can understand.
+    // Build detailed analysis prompt
+    const systemPrompt = `You are a work analyst. Look at the data and tell everyone how they are doing. 
 
-Rules:
-- Use simple words like "fast", "slow", "quick", "takes time"
-- Keep sentences super short (5-10 words max)
-- Use emojis to make it friendly
-- Focus ONLY on time and speed
-- Mention team member names
-- Be nice and helpful
-- Just 2-3 short lines each section`;
+Write in simple English:
+- Use names
+- Talk about time taken (use the formatted times given)
+- Say who is fast and who could be faster
+- Give specific numbers
+- Be helpful and fair
+- Keep each point short (1-2 lines)`;
 
-    const userPrompt = `Look at this ${roleType} team's speed for ${periodLabel}:
+    const userPrompt = `Here is the ${roleType || 'team'} data for ${periodLabel}:
 
 ${JSON.stringify(kpiData, null, 2)}
 
-Tell me in simple words:
+Write a detailed analysis for EACH person. Include:
 
-⏱️ SPEED CHECK (who is fast, who needs help)
+📊 **Individual Breakdown:**
+(For each person, say: their name, how many tasks they did, their average time, and if they are fast/normal/slow)
 
-💡 QUICK TIP (one simple way to be faster)
+⏱️ **Time Comparison:**
+(Who is the fastest? Who takes the longest? Give actual times)
 
-Keep each point to 1-2 short sentences. Use names. Be friendly.`;
+💡 **Tips:**
+(2 specific things the slower people can do to speed up)
+
+Be specific. Use the actual numbers and times from the data. Mention everyone by name.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -83,7 +87,7 @@ Keep each point to 1-2 short sentences. Use names. Be friendly.`;
     const data = await response.json();
     const insights = data.choices?.[0]?.message?.content || "No insights right now.";
 
-    console.log("Got time insights successfully");
+    console.log("Got detailed insights successfully");
 
     return new Response(JSON.stringify({ insights }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
