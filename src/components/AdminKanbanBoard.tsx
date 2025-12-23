@@ -154,6 +154,8 @@ export const AdminKanbanBoard = () => {
       // Fetch tasks from designer's DONE pipeline
       // These are tasks that designers see in their DONE column
       // Show EXACTLY what designer sees: status='done' AND assigned_to=designer
+      // IMPORTANT: For FOR PRODUCTION section, include tasks even if soft-deleted by weekly cleanup
+      // These tasks should remain visible to admins for production tracking
       const { data: designerUsers } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -161,12 +163,12 @@ export const AdminKanbanBoard = () => {
       
       const designerUserIds = designerUsers?.map(u => u.user_id) || [];
       
+      // Fetch designer done tasks - include soft-deleted ones for FOR PRODUCTION visibility
       const { data: designerDoneTasks, error: designerDoneError } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'done')
         .in('assigned_to', designerUserIds)
-        .is('deleted_at', null)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
