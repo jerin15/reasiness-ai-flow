@@ -1,22 +1,22 @@
+import { useState, useEffect } from "react";
 import { UserKPIData, TimePeriod } from "@/hooks/useKPIAnalytics";
 import { KPICard } from "./KPICard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   FileText, 
   Send, 
   CheckCircle, 
-  XCircle, 
   Clock, 
   Paintbrush, 
-  Users, 
   Truck, 
   Phone, 
   MessageSquare,
-  Target,
   TrendingUp,
-  Award
+  Sparkles,
+  Loader2
 } from "lucide-react";
 
 interface RoleKPISectionProps {
@@ -55,6 +55,8 @@ const roleConfig = {
 
 export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => {
   const config = roleConfig[role];
+  const [aiInsights, setAiInsights] = useState<string>("");
+  const [loadingInsights, setLoadingInsights] = useState(false);
   
   // Aggregate metrics for the role
   const aggregated = users.reduce(
@@ -68,21 +70,46 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
     {} as Record<string, number>
   );
 
-  // Sort users by relevant KPI
-  const sortedUsers = [...users].sort((a, b) => {
-    switch (role) {
-      case 'estimation':
-        return b.kpis.quotationsSent - a.kpis.quotationsSent;
-      case 'designer':
-        return b.kpis.mockupsCompleted - a.kpis.mockupsCompleted;
-      case 'operations':
-        return b.kpis.productionTasksCompleted - a.kpis.productionTasksCompleted;
-      case 'client_service':
-        return b.kpis.newCallsHandled - a.kpis.newCallsHandled;
-      default:
-        return b.kpis.tasksCompleted - a.kpis.tasksCompleted;
+  // Fetch AI insights when users change
+  useEffect(() => {
+    if (users.length > 0) {
+      fetchAIInsights();
     }
-  });
+  }, [users, period]);
+
+  const fetchAIInsights = async () => {
+    setLoadingInsights(true);
+    try {
+      // Prepare time-based data for AI analysis
+      const timeData = users.map(user => ({
+        name: user.userName,
+        role: user.userRole,
+        avgQuotationTime: user.kpis.avgQuotationTimeHours || 0,
+        avgMockupTime: user.kpis.avgMockupTimeHours || 0,
+        avgProductionTime: user.kpis.avgProductionTimeHours || 0,
+        quotationsSent: user.kpis.quotationsSent || 0,
+        rfqsReceived: user.kpis.rfqsReceived || 0,
+        mockupsCompleted: user.kpis.mockupsCompleted || 0,
+        tasksCompleted: user.kpis.tasksCompleted || 0,
+      }));
+
+      const { data, error } = await supabase.functions.invoke('ai-kpi-insights', {
+        body: { 
+          kpiData: timeData, 
+          periodLabel: period,
+          roleType: role 
+        }
+      });
+
+      if (error) throw error;
+      setAiInsights(data?.insights || "");
+    } catch (error) {
+      console.error("Error fetching AI insights:", error);
+      setAiInsights("");
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
 
   const renderKPICards = () => {
     switch (role) {
@@ -188,21 +215,6 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
     }
   };
 
-  const getPrimaryMetric = (user: UserKPIData) => {
-    switch (role) {
-      case 'estimation':
-        return { value: user.kpis.quotationsSent, label: 'quotations' };
-      case 'designer':
-        return { value: user.kpis.mockupsCompleted, label: 'mockups' };
-      case 'operations':
-        return { value: user.kpis.productionTasksCompleted, label: 'tasks' };
-      case 'client_service':
-        return { value: user.kpis.newCallsHandled, label: 'calls' };
-      default:
-        return { value: user.kpis.tasksCompleted, label: 'tasks' };
-    }
-  };
-
   return (
     <div className="space-y-4">
       <div className={`p-4 rounded-lg bg-gradient-to-r ${config.color} text-white`}>
@@ -211,31 +223,59 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
         <p className="text-white/60 text-xs mt-1">{users.length} team member{users.length !== 1 ? 's' : ''}</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {renderKPICards()}
       </div>
 
-      {sortedUsers.length > 0 && (
+      {/* AI-Powered Time Insights */}
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Time & Speed Insights
+          </CardTitle>
+          <CardDescription>AI analysis of how fast your team works</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingInsights ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Checking speed and times...</span>
+            </div>
+          ) : aiInsights ? (
+            <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap">
+              {aiInsights}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">No insights yet. Add more data to see how fast your team works.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Team Member Summary */}
+      {users.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Award className="h-5 w-5 text-yellow-500" />
-              Top Performers
+              <Clock className="h-5 w-5 text-blue-500" />
+              Team Speed
             </CardTitle>
-            <CardDescription>Ranked by primary KPI for this period</CardDescription>
+            <CardDescription>How fast each person finishes their work</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {sortedUsers.slice(0, 5).map((user, index) => {
-                const metric = getPrimaryMetric(user);
+              {users.map((user) => {
+                const avgTime = role === 'estimation' 
+                  ? user.kpis.avgQuotationTimeHours 
+                  : role === 'designer' 
+                    ? user.kpis.avgMockupTimeHours 
+                    : user.kpis.avgProductionTimeHours || 0;
+                
                 return (
                   <div 
                     key={user.userId} 
                     className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 text-white font-bold text-sm">
-                      {index + 1}
-                    </div>
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={user.avatarUrl} />
                       <AvatarFallback>
@@ -245,22 +285,31 @@ export const RoleKPISection = ({ role, users, period }: RoleKPISectionProps) => 
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{user.userName}</p>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          {metric.value} {metric.label}
-                        </span>
-                        {user.streak > 0 && (
-                          <Badge variant="outline" className="text-xs">
-                            🔥 {user.streak} day streak
-                          </Badge>
+                        <Badge variant={avgTime <= 4 ? "default" : avgTime <= 8 ? "secondary" : "destructive"} className="text-xs">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {avgTime > 0 ? `${avgTime}h avg` : 'No data yet'}
+                        </Badge>
+                        {role === 'estimation' && (
+                          <span className="text-xs text-muted-foreground">
+                            {user.kpis.quotationsSent} quotations
+                          </span>
+                        )}
+                        {role === 'designer' && (
+                          <span className="text-xs text-muted-foreground">
+                            {user.kpis.mockupsCompleted} mockups
+                          </span>
+                        )}
+                        {role === 'operations' && (
+                          <span className="text-xs text-muted-foreground">
+                            {user.kpis.productionTasksCompleted} tasks
+                          </span>
+                        )}
+                        {role === 'client_service' && (
+                          <span className="text-xs text-muted-foreground">
+                            {user.kpis.newCallsHandled} calls
+                          </span>
                         )}
                       </div>
-                    </div>
-                    <div className="flex gap-1">
-                      {user.badges.filter(b => b.earnedAt).slice(0, 3).map(badge => (
-                        <span key={badge.id} className="text-lg" title={badge.name}>
-                          {badge.icon}
-                        </span>
-                      ))}
                     </div>
                   </div>
                 );

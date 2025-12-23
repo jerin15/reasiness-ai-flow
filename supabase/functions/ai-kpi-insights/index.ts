@@ -11,39 +11,41 @@ serve(async (req) => {
   }
 
   try {
-    const { kpiData, periodLabel, previousPeriodData } = await req.json();
+    const { kpiData, periodLabel, roleType } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Analyzing KPI data for insights...");
-    console.log("Current period:", periodLabel);
-    console.log("Users count:", kpiData?.length || 0);
+    console.log("Analyzing time-based KPI data...");
+    console.log("Role:", roleType);
+    console.log("Period:", periodLabel);
+    console.log("Team members:", kpiData?.length || 0);
 
-    // Build a simple, easy-to-understand prompt
-    const systemPrompt = `You are a friendly team performance coach. Write in simple, everyday English that anyone can understand. Avoid business jargon.
+    // Build a simple prompt focused on TIME and SPEED
+    const systemPrompt = `You are a friendly team helper. Write in very simple English that anyone can understand.
 
 Rules:
-- Use simple words (e.g. "finished" not "completed", "sent" not "dispatched")
-- Keep sentences short
+- Use simple words like "fast", "slow", "quick", "takes time"
+- Keep sentences super short (5-10 words max)
 - Use emojis to make it friendly
-- Be encouraging and positive
-- Only give 2 short sections: "What's Going Well" and "Quick Tips"`;
+- Focus ONLY on time and speed
+- Mention team member names
+- Be nice and helpful
+- Just 2-3 short lines each section`;
 
-    const userPrompt = `Look at this team's work for ${periodLabel} and tell me in simple words:
+    const userPrompt = `Look at this ${roleType} team's speed for ${periodLabel}:
 
-Team Data:
 ${JSON.stringify(kpiData, null, 2)}
 
-Give me only 2 things:
+Tell me in simple words:
 
-🌟 WHAT'S GOING WELL (2-3 good things about the team, mention names)
+⏱️ SPEED CHECK (who is fast, who needs help)
 
-💡 QUICK TIPS (2 simple suggestions to do better)
+💡 QUICK TIP (one simple way to be faster)
 
-Keep it super short and easy to read. Use everyday words.`;
+Keep each point to 1-2 short sentences. Use names. Be friendly.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -62,26 +64,26 @@ Keep it super short and easy to read. Use everyday words.`;
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
+        return new Response(JSON.stringify({ error: "Too many requests. Try again in a moment." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }), {
+        return new Response(JSON.stringify({ error: "AI credits used up. Please add more credits." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      console.error("AI error:", response.status, errorText);
+      throw new Error(`AI error: ${response.status}`);
     }
 
     const data = await response.json();
-    const insights = data.choices?.[0]?.message?.content || "Unable to generate insights.";
+    const insights = data.choices?.[0]?.message?.content || "No insights right now.";
 
-    console.log("Successfully generated KPI insights");
+    console.log("Got time insights successfully");
 
     return new Response(JSON.stringify({ insights }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -89,7 +91,7 @@ Keep it super short and easy to read. Use everyday words.`;
 
   } catch (error: unknown) {
     console.error("Error in ai-kpi-insights:", error);
-    const errorMessage = error instanceof Error ? error.message : "Failed to generate insights";
+    const errorMessage = error instanceof Error ? error.message : "Something went wrong";
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
