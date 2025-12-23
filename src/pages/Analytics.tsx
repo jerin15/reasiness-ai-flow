@@ -356,118 +356,85 @@ const Analytics = () => {
     const avgCompletionTimeHours = timeCount > 0 ? Math.round(totalTime / timeCount * 10) / 10 : 0;
 
     // ========== ESTIMATION METRICS ==========
-    // RFQs Received = quotation type tasks assigned to OR created by this user
-    const quotationTasks = periodTasks.filter(t => 
-      t.type === 'quotation' && (t.assigned_to === userId || t.created_by === userId)
-    );
-    const rfqsReceived = quotationTasks.length;
+    // RFQs Received = quotation type tasks assigned to OR created by this user within period
+    const quotationTasksAssigned = allAssignedTasks.filter(t => t.type === 'quotation');
+    const rfqsReceived = quotationTasksAssigned.length;
     
-    // Quotations Sent = quotation type tasks that are DONE
-    // Count from tasks table (including deleted)
-    const quotationsDoneFromTasks = allAssignedTasks.filter(t => 
-      t.type === 'quotation' && t.status === 'done'
-    ).length;
+    // Quotations Sent = quotation type tasks that user has moved to DONE
+    // Count only quotation-type tasks with status done
+    const quotationsDoneFromTasks = quotationTasksAssigned.filter(t => t.status === 'done').length;
     
-    // Also count from audit logs for accuracy
-    const quotationsDoneFromAudit = auditLogs.filter(l => 
-      l.action === 'status_changed' && 
-      l.new_values?.status === 'done'
-    ).length;
-
-    // Count from task_history
-    const quotationsDoneFromHistory = taskHistory.filter(h => 
-      h.new_status === 'done'
-    ).length;
-
-    const quotationsSent = Math.max(quotationsDoneFromTasks, quotationsDoneFromHistory);
+    const quotationsSent = quotationsDoneFromTasks;
     
-    const quotationsApproved = quotationTasks.filter(t => 
+    const quotationsApproved = quotationTasksAssigned.filter(t => 
       ['approved', 'production', 'done', 'mockup', 'with_client'].includes(t.status)
     ).length;
-    const quotationsRejected = quotationTasks.filter(t => t.status === 'rejected').length;
+    const quotationsRejected = quotationTasksAssigned.filter(t => t.status === 'rejected').length;
     const supplierQuotesCollected = supplierQuotes.length;
 
     // ========== DESIGNER METRICS ==========
-    // Mockups assigned = tasks sent to designer for mockup
-    const mockupTasks = periodTasks.filter(t => 
-      t.sent_to_designer_mockup === true || 
-      t.status === 'mockup' ||
-      t.type === 'design' ||
-      t.assigned_to === userId
-    );
-    
-    // Mockups Completed = designer moving tasks to done/with_client/production
-    // From tasks table
+    // Mockups Completed = designer tasks that went to done/with_client/production
+    // Count tasks where this designer completed mockup
+    const designerCompletedTasks = allAssignedTasks.filter(t => 
+      t.mockup_completed_by_designer === true || 
+      t.came_from_designer_done === true ||
+      t.completed_by_designer_id === userId
+    ).length;
+
+    // Also count tasks sent to designer that are now done
     const designTasksDone = allAssignedTasks.filter(t => 
-      (t.type === 'design' || t.sent_to_designer_mockup === true) && 
-      t.status === 'done'
+      (t.sent_to_designer_mockup === true || t.type === 'design') && 
+      ['done', 'with_client', 'production'].includes(t.status)
     ).length;
 
-    // From audit logs
-    const designerAuditDone = auditLogs.filter(l => 
-      l.action === 'status_changed' && 
-      ['done', 'with_client', 'production'].includes(l.new_values?.status)
-    ).length;
-
-    // From task_history
-    const designerHistoryDone = taskHistory.filter(h => 
-      ['done', 'with_client', 'production'].includes(h.new_status)
-    ).length;
-
-    const mockupsCompleted = Math.max(designTasksDone, designerHistoryDone);
+    const mockupsCompleted = Math.max(designerCompletedTasks, designTasksDone);
     
-    const mockupsSentToClient = auditLogs.filter(l => 
-      l.action === 'status_changed' && l.new_values?.status === 'with_client'
-    ).length + taskHistory.filter(h => h.new_status === 'with_client').length;
+    // Mockups sent to client
+    const mockupsSentToClient = allAssignedTasks.filter(t => 
+      t.status === 'with_client' || 
+      (t.sent_to_designer_mockup === true && t.status === 'with_client')
+    ).length;
     
     const mockupsApproved = allAssignedTasks.filter(t => 
       t.came_from_designer_done === true || 
       (t.mockup_completed_by_designer === true && ['production', 'done'].includes(t.status))
     ).length;
     
-    const mockupsRevised = auditLogs.filter(l => 
-      l.action === 'status_changed' && 
-      (l.new_values?.sent_back_to_designer === true || 
-       (l.old_values?.status && l.new_values?.status === 'mockup'))
+    // Mockups revised - tasks sent back to designer
+    const mockupsRevised = allAssignedTasks.filter(t => 
+      t.sent_back_to_designer === true
     ).length;
     
     const productionFilesCreated = allAssignedTasks.filter(t => t.came_from_designer_done === true).length;
 
     // ========== OPERATIONS METRICS ==========
-    const productionTasks = periodTasks.filter(t => 
-      t.status === 'production' || t.came_from_designer_done === true || t.type === 'production'
-    );
-    
-    // Production tasks completed
-    const productionDoneFromTasks = allAssignedTasks.filter(t => 
-      t.status === 'done' && (t.came_from_designer_done === true || t.type === 'production')
+    // Production tasks completed - tasks of type production or came from designer that are done
+    const productionTasksDone = allAssignedTasks.filter(t => 
+      (t.came_from_designer_done === true || t.type === 'production') && t.status === 'done'
     ).length;
 
-    const productionDoneFromHistory = taskHistory.filter(h => 
-      h.new_status === 'done'
+    const productionTasksCompleted = productionTasksDone;
+    
+    const productionTasksInProgress = allAssignedTasks.filter(t => t.status === 'production').length;
+    
+    // Deliveries made - tasks with delivery status
+    const deliveriesMade = allAssignedTasks.filter(t => 
+      t.status === 'delivery' || t.status === 'done'
     ).length;
-
-    const productionTasksCompleted = Math.max(productionDoneFromTasks, productionDoneFromHistory);
-    
-    const productionTasksInProgress = periodTasks.filter(t => t.status === 'production').length;
-    
-    const deliveriesMade = auditLogs.filter(l => 
-      l.action === 'status_changed' && l.new_values?.status === 'delivery'
-    ).length + taskHistory.filter(h => h.new_status === 'delivery').length;
 
     // ========== CLIENT SERVICE METRICS ==========
-    const newCallsHandled = auditLogs.filter(l => 
-      (l.action === 'created' && l.new_values?.status === 'new_calls') ||
-      (l.action === 'status_changed' && l.new_values?.status === 'new_calls')
-    ).length + periodTasks.filter(t => t.status === 'new_calls').length;
+    // New calls handled - tasks created with new_calls status
+    const newCallsHandled = allAssignedTasks.filter(t => 
+      t.status === 'new_calls' || periodTasks.some(pt => pt.id === t.id && pt.status === 'new_calls')
+    ).length;
     
-    const followUpsMade = auditLogs.filter(l => 
-      l.action === 'status_changed' && l.new_values?.status === 'follow_up'
-    ).length + taskHistory.filter(h => h.new_status === 'follow_up').length;
+    // Follow ups made
+    const followUpsMade = allAssignedTasks.filter(t => t.status === 'follow_up').length;
     
-    const quotationsRequested = auditLogs.filter(l => 
-      l.action === 'status_changed' && l.new_values?.status === 'quotation'
-    ).length + taskHistory.filter(h => h.new_status === 'quotation').length;
+    // Quotations requested
+    const quotationsRequested = allAssignedTasks.filter(t => 
+      t.status === 'quotation' || t.type === 'quotation'
+    ).length;
 
     return {
       tasksCompleted,
