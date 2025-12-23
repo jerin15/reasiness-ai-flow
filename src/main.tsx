@@ -1,7 +1,12 @@
+// Import logger first to silence console in production
+import './lib/logger';
+
 // Request notification permission on load
 if ('Notification' in window && Notification.permission === 'default') {
   Notification.requestPermission().then(permission => {
-    console.log('🔔 Notification permission:', permission);
+    if (import.meta.env.DEV) {
+      console.log('🔔 Notification permission:', permission);
+    }
   });
 }
 
