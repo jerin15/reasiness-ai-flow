@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import { UserKPIData, TimePeriod, useKPIAnalytics } from "@/hooks/useKPIAnalytics";
 import { KPICard } from "./KPICard";
-import { BadgeDisplay } from "./BadgeDisplay";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -210,115 +208,103 @@ export const IndividualPerformance = ({ userId, onClose }: IndividualPerformance
         </Card>
       </div>
 
-      <Tabs defaultValue="kpis" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="kpis">Role KPIs</TabsTrigger>
-          <TabsTrigger value="badges">Badges & Achievements</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="kpis" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="capitalize">
-                {userData.userRole.replace('_', ' ')} Performance
-              </CardTitle>
-              <CardDescription>
-                Key performance indicators for {periodLabels[period].toLowerCase()}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                {roleKPIs.map((kpi, i) => {
-                  const Icon = kpi.icon;
-                  return (
-                    <div 
-                      key={i}
-                      className="p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Icon className={`h-4 w-4 ${kpi.color}`} />
-                        <span className="text-sm text-muted-foreground">{kpi.label}</span>
-                      </div>
-                      <p className="text-2xl font-bold">{kpi.value}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Detailed breakdown */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Task Overview</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Tasks Created</span>
-                  <span className="font-semibold">{kpis.tasksCreated}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Tasks Completed</span>
-                  <span className="font-semibold text-green-600">{kpis.tasksCompleted}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Status Changes</span>
-                  <span className="font-semibold">{kpis.statusChanges}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Avg Completion Time</span>
-                  <span className="font-semibold">{kpis.avgCompletionTimeHours} hours</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Performance Score</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-center">
-                  <div className="relative w-32 h-32">
-                    <svg className="w-full h-full transform -rotate-90">
-                      <circle
-                        cx="64"
-                        cy="64"
-                        r="56"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="8"
-                        className="text-muted"
-                      />
-                      <circle
-                        cx="64"
-                        cy="64"
-                        r="56"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="8"
-                        strokeDasharray={`${(userData.efficiencyScore / 100) * 352} 352`}
-                        className="text-primary"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-3xl font-bold">{userData.efficiencyScore}</span>
-                    </div>
+      {/* Role KPIs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="capitalize">
+            {userData.userRole.replace('_', ' ')} Performance
+          </CardTitle>
+          <CardDescription>
+            Key performance indicators for {periodLabels[period].toLowerCase()}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {roleKPIs.map((kpi, i) => {
+              const Icon = kpi.icon;
+              return (
+                <div 
+                  key={i}
+                  className="p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className={`h-4 w-4 ${kpi.color}`} />
+                    <span className="text-sm text-muted-foreground">{kpi.label}</span>
                   </div>
+                  <p className="text-2xl font-bold">{kpi.value}</p>
                 </div>
-                <p className="text-center text-sm text-muted-foreground mt-2">
-                  Efficiency Score
-                </p>
-              </CardContent>
-            </Card>
+              );
+            })}
           </div>
-        </TabsContent>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="badges">
-          <BadgeDisplay badges={badges} showProgress={true} />
-        </TabsContent>
-      </Tabs>
+      {/* Detailed breakdown */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Task Overview</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Tasks Created</span>
+              <span className="font-semibold">{kpis.tasksCreated}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Tasks Completed</span>
+              <span className="font-semibold text-green-600">{kpis.tasksCompleted}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Status Changes</span>
+              <span className="font-semibold">{kpis.statusChanges}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Avg Completion Time</span>
+              <span className="font-semibold">{kpis.avgCompletionTimeHours} hours</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Performance Score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center">
+              <div className="relative w-32 h-32">
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r="56"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    className="text-muted"
+                  />
+                  <circle
+                    cx="64"
+                    cy="64"
+                    r="56"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    strokeDasharray={`${(userData.efficiencyScore / 100) * 352} 352`}
+                    className="text-primary"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-3xl font-bold">{userData.efficiencyScore}</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-center text-sm text-muted-foreground mt-2">
+              Efficiency Score
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
