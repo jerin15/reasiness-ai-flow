@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import { Input } from "./ui/input";
 import { Plus } from "lucide-react";
 import { updateTaskOffline } from "@/lib/offlineTaskOperations";
 import { getLocalTasks, saveTasksLocally } from "@/lib/offlineStorage";
+import { useDebouncedCallback } from "@/hooks/useVisibilityAwareSubscription";
 
 type Task = {
   id: string;
@@ -374,50 +375,82 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     }
   };
 
+  // Debounce fetchTasks to prevent rapid successive calls
+  const debouncedFetchTasks = useDebouncedCallback(fetchTasks, 500);
+  const isVisibleRef = useRef(!document.hidden);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   useEffect(() => {
     fetchTasks();
     
     // Listen for custom task-completed events
     const handleTaskCompleted = (event: CustomEvent) => {
-      console.log('🎉 KanbanBoard: Task completed event received', event.detail);
       setTimeout(() => fetchTasks(), 300);
     };
     
     window.addEventListener('task-completed', handleTaskCompleted as EventListener);
 
-    // Subscribe to realtime changes with a unique channel per view
+    // Subscribe to realtime changes with visibility awareness
     const channelName = `tasks-changes-${viewingUserId || 'default'}`;
-    const channel = supabase
-      .channel(channelName, {
-        config: {
-          broadcast: { self: true },
-          presence: { key: viewingUserId || 'default' }
-        }
-      })
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tasks",
-        },
-        (payload) => {
-          console.log('🔄 Real-time update received:', payload.eventType, payload.new);
-          fetchTasks();
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Real-time connected for', channelName);
-        }
-      });
+    
+    const setupChannel = () => {
+      if (channelRef.current) return;
+      
+      channelRef.current = supabase
+        .channel(channelName, {
+          config: {
+            broadcast: { self: true },
+            presence: { key: viewingUserId || 'default' }
+          }
+        })
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "tasks",
+          },
+          () => {
+            // Use debounced fetch to prevent rapid updates
+            debouncedFetchTasks();
+          }
+        )
+        .subscribe();
+    };
+
+    const teardownChannel = () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+
+    // Visibility-aware subscription management
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isVisibleRef.current = false;
+        teardownChannel();
+      } else {
+        isVisibleRef.current = true;
+        setupChannel();
+        // Refresh data when becoming visible
+        fetchTasks();
+      }
+    };
+
+    // Initial setup
+    if (!document.hidden) {
+      setupChannel();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('task-completed', handleTaskCompleted as EventListener);
-      supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      teardownChannel();
     };
-  }, [viewingUserId, isAdmin]);
+  }, [viewingUserId, isAdmin, debouncedFetchTasks]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
