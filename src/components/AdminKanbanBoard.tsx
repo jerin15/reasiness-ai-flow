@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +13,9 @@ import { logTaskAction } from "@/lib/auditLogger";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { SendBackToDesignerDialog } from "./SendBackToDesignerDialog";
+import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
+import { useDebouncedCallback } from "@/hooks/useVisibilityAwareSubscription";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 type Task = {
   id: string;
@@ -335,6 +338,15 @@ export const AdminKanbanBoard = () => {
     }
   };
 
+  // Debounced fetch to prevent rapid successive calls
+  const debouncedFetchTasks = useDebouncedCallback(fetchTasks, 300);
+  
+  // Connection-aware refetch: auto-refetch on internet restore, tab focus, and fallback polling
+  useConnectionAwareRefetch(fetchTasks, { pollingInterval: 30000, enablePolling: true });
+  
+  // Channel ref for managing subscription lifecycle
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
   useEffect(() => {
     console.log('🚀 AdminKanbanBoard: useEffect triggered');
     
@@ -351,45 +363,85 @@ export const AdminKanbanBoard = () => {
     // Listen for custom task-completed events
     const handleTaskCompleted = (event: CustomEvent) => {
       console.log('🎉 AdminKanbanBoard: Task completed event received', event.detail);
-      setTimeout(() => fetchTasks(), 300); // Small delay to ensure DB is updated
+      setTimeout(() => debouncedFetchTasks(), 300); // Small delay to ensure DB is updated
     };
     
     window.addEventListener('task-completed', handleTaskCompleted as EventListener);
     
-    // Real-time subscription for all task changes with aggressive polling
-    const channel = supabase
-      .channel('admin-kanban-realtime', {
-        config: {
-          broadcast: { self: true },
-          presence: { key: 'admin' }
-        }
-      })
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks'
-        },
-        (payload) => {
-          console.log('🔄 Admin received task change:', payload.eventType, payload.new);
-          // Immediate refetch on any task change
-          fetchTasks();
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Admin subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ Admin real-time connected');
-        }
-      });
+    // Subscribe function for visibility-aware subscription
+    const subscribe = () => {
+      if (channelRef.current) return;
+      
+      const channel = supabase
+        .channel('admin-kanban-realtime-' + Date.now(), {
+          config: {
+            broadcast: { self: true },
+            presence: { key: 'admin' }
+          }
+        })
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tasks'
+          },
+          (payload) => {
+            console.log('🔄 Admin received task change:', payload.eventType, payload.new);
+            // Debounced refetch on any task change
+            debouncedFetchTasks();
+          }
+        )
+        .subscribe((status) => {
+          console.log('📡 Admin subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Admin real-time connected');
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('⚠️ Admin subscription error, will retry on visibility');
+            // Clean up failed channel
+            if (channelRef.current) {
+              supabase.removeChannel(channelRef.current);
+              channelRef.current = null;
+            }
+          }
+        });
+      
+      channelRef.current = channel;
+    };
+    
+    const unsubscribe = () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+    
+    // Visibility-aware subscription management
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab hidden - unsubscribe to save resources
+        unsubscribe();
+      } else {
+        // Tab visible - resubscribe and refetch
+        subscribe();
+        debouncedFetchTasks();
+      }
+    };
+    
+    // Initial subscription if tab is visible
+    if (!document.hidden) {
+      subscribe();
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearTimeout(safetyTimeout);
       window.removeEventListener('task-completed', handleTaskCompleted as EventListener);
-      supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      unsubscribe();
     };
-  }, []);
+  }, [debouncedFetchTasks]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);

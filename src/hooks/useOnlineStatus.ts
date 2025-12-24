@@ -94,6 +94,9 @@ export const useOnlineStatus = () => {
       setIsOnline(true);
       toast.success('Connection restored! Syncing changes...');
       syncOfflineChanges();
+      
+      // Dispatch custom event for other components to react to connection restoration
+      window.dispatchEvent(new CustomEvent('connection-restored'));
     };
 
     const handleOffline = () => {

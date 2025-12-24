@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
+import { useDebouncedCallback } from "@/hooks/useVisibilityAwareSubscription";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface PersonalTask {
   id: string;
@@ -23,32 +26,12 @@ export const PersonalAdminTasks = () => {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDescription, setNewTaskDescription] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  
+  // Channel ref for managing subscription lifecycle
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
-  useEffect(() => {
-    fetchPersonalTasks();
-
-    // Subscribe to all task changes - we'll filter client-side
-    const channel = supabase
-      .channel('personal-admin-tasks')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks'
-        },
-        () => {
-          fetchPersonalTasks();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const fetchPersonalTasks = async () => {
+  // Define fetchPersonalTasks with useCallback so it can be used in hooks
+  const fetchPersonalTasks = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -72,7 +55,76 @@ export const PersonalAdminTasks = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Debounced fetch to prevent rapid successive calls
+  const debouncedFetchPersonalTasks = useDebouncedCallback(fetchPersonalTasks, 300);
+  
+  // Connection-aware refetch: auto-refetch on internet restore, tab focus, and fallback polling
+  useConnectionAwareRefetch(fetchPersonalTasks, { pollingInterval: 30000, enablePolling: true });
+
+  useEffect(() => {
+    fetchPersonalTasks();
+
+    // Subscribe function for visibility-aware subscription
+    const subscribe = () => {
+      if (channelRef.current) return;
+      
+      const channel = supabase
+        .channel('personal-admin-tasks-' + Date.now())
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tasks'
+          },
+          () => {
+            debouncedFetchPersonalTasks();
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('⚠️ Personal tasks subscription error, will retry on visibility');
+            if (channelRef.current) {
+              supabase.removeChannel(channelRef.current);
+              channelRef.current = null;
+            }
+          }
+        });
+      
+      channelRef.current = channel;
+    };
+    
+    const unsubscribe = () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+    
+    // Visibility-aware subscription management
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        unsubscribe();
+      } else {
+        subscribe();
+        debouncedFetchPersonalTasks();
+      }
+    };
+    
+    // Initial subscription if tab is visible
+    if (!document.hidden) {
+      subscribe();
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      unsubscribe();
+    };
+  }, [fetchPersonalTasks, debouncedFetchPersonalTasks]);
 
   const handleAddTask = async () => {
     if (!newTaskTitle.trim()) {
