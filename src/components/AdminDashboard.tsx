@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { PersonalAdminTasks } from "./PersonalAdminTasks";
 import { EstimationPipelineAnalytics } from "./EstimationPipelineAnalytics";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
+import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
+import { useDebouncedCallback } from "@/hooks/useVisibilityAwareSubscription";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface Task {
   id: string;
@@ -52,47 +55,12 @@ export const AdminDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
+  
+  // Channel ref for managing subscription lifecycle
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
-  useEffect(() => {
-    console.log('🚀 AdminDashboard: useEffect triggered');
-    
-    // Set a safety timeout
-    const safetyTimeout = setTimeout(() => {
-      console.warn('⚠️ AdminDashboard: fetchTasksAndStats taking too long, forcing loading off');
-      setLoading(false);
-    }, 15000);
-    
-    fetchTasksAndStats().finally(() => {
-      clearTimeout(safetyTimeout);
-    });
-    
-    // Real-time subscription for all task changes
-    const channel = supabase
-      .channel('admin-dashboard-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks'
-        },
-        (payload) => {
-          console.log('Admin dashboard received task change:', payload);
-          // Immediate refetch on any task change
-          fetchTasksAndStats();
-        }
-      )
-      .subscribe((status) => {
-        console.log('Admin dashboard subscription status:', status);
-      });
-
-    return () => {
-      clearTimeout(safetyTimeout);
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const fetchTasksAndStats = async () => {
+  // Define fetchTasksAndStats with useCallback so it can be used in hooks
+  const fetchTasksAndStats = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -166,7 +134,90 @@ export const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Debounced fetch to prevent rapid successive calls
+  const debouncedFetchTasksAndStats = useDebouncedCallback(fetchTasksAndStats, 300);
+  
+  // Connection-aware refetch: auto-refetch on internet restore, tab focus, and fallback polling
+  useConnectionAwareRefetch(fetchTasksAndStats, { pollingInterval: 30000, enablePolling: true });
+
+  useEffect(() => {
+    console.log('🚀 AdminDashboard: useEffect triggered');
+    
+    // Set a safety timeout
+    const safetyTimeout = setTimeout(() => {
+      console.warn('⚠️ AdminDashboard: fetchTasksAndStats taking too long, forcing loading off');
+      setLoading(false);
+    }, 15000);
+    
+    fetchTasksAndStats().finally(() => {
+      clearTimeout(safetyTimeout);
+    });
+    
+    // Subscribe function for visibility-aware subscription
+    const subscribe = () => {
+      if (channelRef.current) return;
+      
+      const channel = supabase
+        .channel('admin-dashboard-realtime-' + Date.now())
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tasks'
+          },
+          (payload) => {
+            console.log('Admin dashboard received task change:', payload);
+            // Debounced refetch on any task change
+            debouncedFetchTasksAndStats();
+          }
+        )
+        .subscribe((status) => {
+          console.log('Admin dashboard subscription status:', status);
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('⚠️ Admin dashboard subscription error, will retry on visibility');
+            if (channelRef.current) {
+              supabase.removeChannel(channelRef.current);
+              channelRef.current = null;
+            }
+          }
+        });
+      
+      channelRef.current = channel;
+    };
+    
+    const unsubscribe = () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+    
+    // Visibility-aware subscription management
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        unsubscribe();
+      } else {
+        subscribe();
+        debouncedFetchTasksAndStats();
+      }
+    };
+    
+    // Initial subscription if tab is visible
+    if (!document.hidden) {
+      subscribe();
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearTimeout(safetyTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      unsubscribe();
+    };
+  }, [fetchTasksAndStats, debouncedFetchTasksAndStats]);
 
 
   const getPriorityColor = (priority: string) => {
