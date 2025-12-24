@@ -1,36 +1,45 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { KanbanBoard } from "@/components/KanbanBoard";
-import { AdminDashboard } from "@/components/AdminDashboard";
-import { MyReportDialog } from "@/components/MyReportDialog";
-import { DueRemindersDialog } from "@/components/DueRemindersDialog";
-import { DueDateReminderDialog } from "@/components/DueDateReminderDialog";
-import { PendingTasksDialog } from "@/components/PendingTasksDialog";
-import { DailyPendingTasksDialog } from "@/components/DailyPendingTasksDialog";
-import { TeamMemberReportDialog } from "@/components/TeamMemberReportDialog";
-import { EstimationTeamReportDialog } from "@/components/EstimationTeamReportDialog";
-import { ChatDialog } from "@/components/ChatDialog";
-import { ModernChatList } from "@/components/ModernChatList";
-import { ReportsDownloadDialog } from "@/components/ReportsDownloadDialog";
-import { AdminTaskReportDialog } from "@/components/AdminTaskReportDialog";
 import { toast } from "sonner";
 import reaLogo from "@/assets/rea_logo_h.jpg";
-import { PersonalAnalytics } from "@/components/PersonalAnalytics";
-import { IncomingCallNotification } from "@/components/IncomingCallNotification";
-import { ProminentMessageNotification } from "@/components/ProminentMessageNotification";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Menu } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { AddTaskDialog } from "@/components/AddTaskDialog";
-import { CreateUserDialog } from "@/components/CreateUserDialog";
-import { ManageTeamDialog } from "@/components/ManageTeamDialog";
-import { EstimationQuotaTracker } from "@/components/EstimationQuotaTracker";
-import { EstimationMockupTracker } from "@/components/EstimationMockupTracker";
-import { OperationsDailyRouting } from "@/components/OperationsDailyRouting";
-import { OperationsDashboard } from "@/components/OperationsDashboard";
+
+// Lazy load heavy components to reduce initial bundle size
+const KanbanBoard = lazy(() => import("@/components/KanbanBoard").then(m => ({ default: m.KanbanBoard })));
+const AdminDashboard = lazy(() => import("@/components/AdminDashboard").then(m => ({ default: m.AdminDashboard })));
+const OperationsDashboard = lazy(() => import("@/components/OperationsDashboard").then(m => ({ default: m.OperationsDashboard })));
+const PersonalAnalytics = lazy(() => import("@/components/PersonalAnalytics").then(m => ({ default: m.PersonalAnalytics })));
+const EstimationQuotaTracker = lazy(() => import("@/components/EstimationQuotaTracker").then(m => ({ default: m.EstimationQuotaTracker })));
+const EstimationMockupTracker = lazy(() => import("@/components/EstimationMockupTracker").then(m => ({ default: m.EstimationMockupTracker })));
+
+// Lazy load dialogs (only loaded when needed)
+const MyReportDialog = lazy(() => import("@/components/MyReportDialog").then(m => ({ default: m.MyReportDialog })));
+const DueRemindersDialog = lazy(() => import("@/components/DueRemindersDialog").then(m => ({ default: m.DueRemindersDialog })));
+const DueDateReminderDialog = lazy(() => import("@/components/DueDateReminderDialog").then(m => ({ default: m.DueDateReminderDialog })));
+const PendingTasksDialog = lazy(() => import("@/components/PendingTasksDialog").then(m => ({ default: m.PendingTasksDialog })));
+const DailyPendingTasksDialog = lazy(() => import("@/components/DailyPendingTasksDialog").then(m => ({ default: m.DailyPendingTasksDialog })));
+const TeamMemberReportDialog = lazy(() => import("@/components/TeamMemberReportDialog").then(m => ({ default: m.TeamMemberReportDialog })));
+const EstimationTeamReportDialog = lazy(() => import("@/components/EstimationTeamReportDialog").then(m => ({ default: m.EstimationTeamReportDialog })));
+const ChatDialog = lazy(() => import("@/components/ChatDialog").then(m => ({ default: m.ChatDialog })));
+const ModernChatList = lazy(() => import("@/components/ModernChatList").then(m => ({ default: m.ModernChatList })));
+const AdminTaskReportDialog = lazy(() => import("@/components/AdminTaskReportDialog").then(m => ({ default: m.AdminTaskReportDialog })));
+const AddTaskDialog = lazy(() => import("@/components/AddTaskDialog").then(m => ({ default: m.AddTaskDialog })));
+const CreateUserDialog = lazy(() => import("@/components/CreateUserDialog").then(m => ({ default: m.CreateUserDialog })));
+const ManageTeamDialog = lazy(() => import("@/components/ManageTeamDialog").then(m => ({ default: m.ManageTeamDialog })));
+const IncomingCallNotification = lazy(() => import("@/components/IncomingCallNotification").then(m => ({ default: m.IncomingCallNotification })));
+const ProminentMessageNotification = lazy(() => import("@/components/ProminentMessageNotification").then(m => ({ default: m.ProminentMessageNotification })));
+
+// Minimal loading component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center p-8">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+);
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -42,6 +51,8 @@ const Dashboard = () => {
   const [selectedUserRole, setSelectedUserRole] = useState<string>("");
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Dialog states - only render when open
   const [showMyReport, setShowMyReport] = useState(false);
   const [showDueReminders, setShowDueReminders] = useState(false);
   const [showDueDateReminder, setShowDueDateReminder] = useState(false);
@@ -51,8 +62,6 @@ const Dashboard = () => {
   const [showEstimationReport, setShowEstimationReport] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showChatList, setShowChatList] = useState(false);
-  const [showReportsDownload, setShowReportsDownload] = useState(false);
-  const [showPendingTasks, setShowPendingTasks] = useState(false);
   const [chatRecipientId, setChatRecipientId] = useState("");
   const [chatRecipientName, setChatRecipientName] = useState("");
   const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
@@ -60,19 +69,17 @@ const Dashboard = () => {
   const [showAddTask, setShowAddTask] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showManageTeam, setShowManageTeam] = useState(false);
-  const [showDailyRouting, setShowDailyRouting] = useState(false);
+  
   const unreadCount = useUnreadMessageCount(currentUserId);
 
   useEffect(() => {
     checkAuth();
   }, []);
 
-
   // Show reminders for all users
   useEffect(() => {
     if (!userRole || !currentUserId) return;
     
-    // Show old due reminders on sign in (for non-admins)
     if (userRole !== "admin") {
       const hasSeenReminders = sessionStorage.getItem("hasSeenReminders");
       if (!hasSeenReminders) {
@@ -81,26 +88,17 @@ const Dashboard = () => {
           sessionStorage.setItem("hasSeenReminders", "true");
         }, 1000);
       }
-    }
 
-    // Show NEW due date reminder dialog for non-admins only
-    if (userRole !== "admin") {
       const today = new Date().toDateString();
       const lastReminderCheck = localStorage.getItem("lastReminderCheck");
-      
       if (lastReminderCheck !== today) {
         setTimeout(() => {
           setShowDueDateReminder(true);
           localStorage.setItem("lastReminderCheck", today);
         }, 1500);
       }
-    }
 
-    // Show daily pending tasks notification (non-admins only)
-    if (userRole !== "admin") {
-      const today = new Date().toDateString();
       const lastPendingCheck = localStorage.getItem("lastPendingCheck");
-      
       if (lastPendingCheck !== today) {
         setTimeout(() => {
           setShowDailyPending(true);
@@ -112,9 +110,7 @@ const Dashboard = () => {
 
   const checkAuth = async () => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
         navigate("/auth");
@@ -160,15 +156,10 @@ const Dashboard = () => {
         .select("id, full_name, email, avatar_url, user_roles(*)")
         .order("full_name");
 
-      if (error) {
-        throw error;
-      }
-      
+      if (error) throw error;
       setTeamMembers(data || []);
     } catch (error) {
       console.error("Dashboard: fetchTeamMembers failed:", error);
-      toast.error("Failed to load team members");
-      // Don't let this block the dashboard from loading
       setTeamMembers([]);
     }
   };
@@ -203,7 +194,6 @@ const Dashboard = () => {
     }
   };
 
-  // Helper function to format role names
   const formatRole = (role: string) => {
     if (role === 'technical_head') return 'Technical Head';
     if (role === 'client_service') return 'Client Service Executive';
@@ -218,9 +208,90 @@ const Dashboard = () => {
     );
   }
 
-  // Show admin dashboard only for admin users viewing their own tasks
+  // Render header component (shared)
+  const renderHeader = () => (
+    <header 
+      className="border-b shadow-sm sticky top-0 z-[5] text-white"
+      style={{ background: 'linear-gradient(90deg, hsl(200, 85%, 22%) 0%, hsl(160, 70%, 28%) 100%)' }}
+    >
+      <div className="container mx-auto px-4 py-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <SidebarTrigger className="lg:hidden text-white hover:bg-white/20">
+              <Menu className="h-5 w-5" />
+            </SidebarTrigger>
+            <div className="bg-white rounded-lg p-1.5 shadow-lg">
+              <img src={reaLogo} alt="REAHUB" className="h-10 w-auto" />
+            </div>
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10 border-2 border-white/30">
+                <AvatarImage src={userAvatar} alt={userName} />
+                <AvatarFallback className="bg-white/20 text-white">{userName.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-semibold text-sm text-white">Welcome, {userName}</p>
+                <p className="text-xs text-white/80 font-medium">{formatRole(userRole)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+
+  // Lazy dialogs - only load when open
+  const renderDialogs = () => (
+    <Suspense fallback={null}>
+      {showMyReport && <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />}
+      {showDueReminders && <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />}
+      {showDueDateReminder && (
+        <DueDateReminderDialog 
+          open={showDueDateReminder} 
+          onOpenChange={setShowDueDateReminder}
+          userId={currentUserId}
+        />
+      )}
+      {showDailyPending && <DailyPendingTasksDialog open={showDailyPending} onOpenChange={setShowDailyPending} />}
+      {showPendingOnSignOut && (
+        <PendingTasksDialog 
+          open={showPendingOnSignOut} 
+          onOpenChange={setShowPendingOnSignOut}
+          onConfirmSignOut={handleSignOut}
+        />
+      )}
+      {showTeamReport && <TeamMemberReportDialog open={showTeamReport} onOpenChange={setShowTeamReport} />}
+      {showEstimationReport && <EstimationTeamReportDialog open={showEstimationReport} onOpenChange={setShowEstimationReport} />}
+      {(showChat || showChatList) && (
+        <ModernChatList open={showChat || showChatList} onOpenChange={(o) => { setShowChat(o); setShowChatList(o); }} currentUserId={currentUserId} />
+      )}
+      {chatRecipientId && (
+        <ChatDialog
+          open={!!chatRecipientId}
+          onOpenChange={(open) => !open && setChatRecipientId("")}
+          recipientId={chatRecipientId}
+          recipientName={chatRecipientName}
+        />
+      )}
+      {showAdminTaskReport && (userRole === "admin" || userRole === "technical_head") && (
+        <AdminTaskReportDialog open={showAdminTaskReport} onOpenChange={setShowAdminTaskReport} teamMembers={teamMembers} />
+      )}
+      {showAddTask && (
+        <AddTaskDialog 
+          open={showAddTask} 
+          onOpenChange={setShowAddTask}
+          onTaskAdded={() => {}}
+          defaultAssignedTo={currentUserId}
+        />
+      )}
+      {showCreateUser && <CreateUserDialog open={showCreateUser} onOpenChange={setShowCreateUser} />}
+      {showManageTeam && <ManageTeamDialog open={showManageTeam} onOpenChange={setShowManageTeam} />}
+      <IncomingCallNotification />
+      <ProminentMessageNotification />
+    </Suspense>
+  );
+
+  // Admin dashboard view
   if (userRole === 'admin' && selectedUserId === currentUserId) {
-    console.log('👑 Dashboard: Rendering AdminDashboard');
     return (
       <SidebarProvider>
         <div className="min-h-screen flex w-full bg-background">
@@ -245,84 +316,20 @@ const Dashboard = () => {
           />
 
           <div className="flex-1 flex flex-col">
-          <header 
-              className="border-b shadow-sm sticky top-0 z-[5] text-white"
-              style={{ background: 'linear-gradient(90deg, hsl(200, 85%, 22%) 0%, hsl(160, 70%, 28%) 100%)' }}
-            >
-              <div className="container mx-auto px-4 py-3">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <SidebarTrigger className="lg:hidden text-white hover:bg-white/20">
-                      <Menu className="h-5 w-5" />
-                    </SidebarTrigger>
-                    <div className="bg-white rounded-lg p-1.5 shadow-lg">
-                      <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-10 w-auto" />
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 border-2 border-white/30">
-                        <AvatarImage src={userAvatar} alt={userName} />
-                        <AvatarFallback className="bg-white/20 text-white">{userName.charAt(0).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-semibold text-sm text-white">Welcome, {userName}</p>
-                        <p className="text-xs text-white/80 font-medium">{formatRole(userRole)}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </header>
-            
+            {renderHeader()}
             <main className="flex-1">
-              <AdminDashboard />
+              <Suspense fallback={<LoadingSpinner />}>
+                <AdminDashboard />
+              </Suspense>
             </main>
           </div>
         </div>
-
-        <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
-        <ModernChatList
-          open={showChatList} 
-          onOpenChange={setShowChatList}
-          currentUserId={currentUserId}
-        />
-        {chatRecipientId && (
-          <ChatDialog
-            open={!!chatRecipientId}
-            onOpenChange={(open) => !open && setChatRecipientId(null)}
-            recipientId={chatRecipientId}
-            recipientName={chatRecipientName}
-          />
-        )}
-        <ReportsDownloadDialog 
-          open={showReportsDownload} 
-          onOpenChange={setShowReportsDownload} 
-        />
-        <TeamMemberReportDialog
-          open={showTeamReport}
-          onOpenChange={setShowTeamReport}
-        />
-      <EstimationTeamReportDialog
-        open={showEstimationReport}
-        onOpenChange={setShowEstimationReport}
-      />
-      <PendingTasksDialog
-        open={showPendingTasks}
-        onOpenChange={setShowPendingTasks}
-        onConfirmSignOut={handleSignOut}
-      />
-      <AddTaskDialog 
-        open={showAddTask} 
-        onOpenChange={setShowAddTask}
-        onTaskAdded={() => {}}
-        defaultAssignedTo={currentUserId}
-      />
-      
-      <IncomingCallNotification />
-      <ProminentMessageNotification />
+        {renderDialogs()}
       </SidebarProvider>
     );
   }
 
+  // Regular user view
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
@@ -343,137 +350,41 @@ const Dashboard = () => {
           onCreateTaskClick={() => setShowAddTask(true)}
           onCreateUserClick={userRole === "admin" ? () => setShowCreateUser(true) : undefined}
           onManageTeamClick={userRole === "admin" ? () => setShowManageTeam(true) : undefined}
-          onDailyRoutingClick={() => setShowDailyRouting(!showDailyRouting)}
           onSignOut={handleSignOut}
           showPersonalAnalytics={showPersonalAnalytics}
-          showDailyRouting={showDailyRouting}
           getSelectedUserName={getSelectedUserName}
           formatRole={formatRole}
         />
 
         <div className="flex-1 flex flex-col">
-          <header 
-            className="border-b shadow-sm sticky top-0 z-[5] text-white"
-            style={{ background: 'linear-gradient(90deg, hsl(200, 85%, 22%) 0%, hsl(160, 70%, 28%) 100%)' }}
-          >
-            <div className="container mx-auto px-4 py-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <SidebarTrigger className="lg:hidden text-white hover:bg-white/20">
-                    <Menu className="h-5 w-5" />
-                  </SidebarTrigger>
-                  <div className="bg-white rounded-lg p-1.5 shadow-lg">
-                    <img src={reaLogo} alt="REAHUB - ANIMA Tech" className="h-10 w-auto" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 border-2 border-white/30">
-                      <AvatarImage src={userAvatar} alt={userName} />
-                      <AvatarFallback className="bg-white/20 text-white">{userName.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold text-sm text-white">Welcome, {userName}</p>
-                      <p className="text-xs text-white/80 font-medium">{formatRole(userRole)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </header>
-
+          {renderHeader()}
           <main className="container mx-auto px-4 py-6 relative">
-            {userRole === "estimation" && (
-              <div className="space-y-6 mb-6">
-                <EstimationQuotaTracker />
-                <EstimationMockupTracker />
-              </div>
-            )}
-            {showPersonalAnalytics && userRole !== "admin" && (
-              <div className="mb-6">
-                <PersonalAnalytics userId={currentUserId} userRole={userRole} />
-              </div>
-            )}
-            {selectedUserRole === "operations" ? (
-              <OperationsDashboard userId={selectedUserId} userRole={userRole} />
-            ) : (
-              <KanbanBoard 
-                userRole={userRole} 
-                viewingUserId={selectedUserId}
-                isAdmin={userRole === "admin" || userRole === "technical_head"}
-                viewingUserRole={selectedUserRole}
-              />
-            )}
+            <Suspense fallback={<LoadingSpinner />}>
+              {userRole === "estimation" && (
+                <div className="space-y-6 mb-6">
+                  <EstimationQuotaTracker />
+                  <EstimationMockupTracker />
+                </div>
+              )}
+              {showPersonalAnalytics && userRole !== "admin" && (
+                <div className="mb-6">
+                  <PersonalAnalytics userId={currentUserId} userRole={userRole} />
+                </div>
+              )}
+              {selectedUserRole === "operations" ? (
+                <OperationsDashboard userId={selectedUserId} userRole={userRole} />
+              ) : (
+                <KanbanBoard 
+                  userRole={userRole} 
+                  viewingUserId={selectedUserId}
+                  isAdmin={userRole === "admin" || userRole === "technical_head"}
+                  viewingUserRole={selectedUserRole}
+                />
+              )}
+            </Suspense>
           </main>
         </div>
-
-      <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />
-      <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />
-      <DueDateReminderDialog 
-        open={showDueDateReminder} 
-        onOpenChange={setShowDueDateReminder}
-        userId={currentUserId}
-      />
-      <DailyPendingTasksDialog open={showDailyPending} onOpenChange={setShowDailyPending} />
-      <PendingTasksDialog 
-        open={showPendingOnSignOut} 
-        onOpenChange={setShowPendingOnSignOut}
-        onConfirmSignOut={handleSignOut}
-      />
-      <TeamMemberReportDialog
-        open={showTeamReport}
-        onOpenChange={setShowTeamReport}
-      />
-      
-      <EstimationTeamReportDialog
-        open={showEstimationReport}
-        onOpenChange={setShowEstimationReport}
-      />
-      
-      <ModernChatList
-        open={showChat}
-        onOpenChange={setShowChat}
-        currentUserId={currentUserId}
-      />
-      
-      {chatRecipientId && (
-        <ChatDialog
-          open={!!chatRecipientId}
-          onOpenChange={(open) => {
-            if (!open) {
-              setChatRecipientId("");
-              setChatRecipientName("");
-            }
-          }}
-          recipientId={chatRecipientId}
-          recipientName={chatRecipientName}
-        />
-      )}
-
-      {(userRole === "admin" || userRole === "technical_head") && (
-        <AdminTaskReportDialog
-          open={showAdminTaskReport}
-          onOpenChange={setShowAdminTaskReport}
-          teamMembers={teamMembers}
-        />
-      )}
-      <AddTaskDialog 
-        open={showAddTask} 
-        onOpenChange={setShowAddTask}
-        onTaskAdded={() => {}}
-        defaultAssignedTo={currentUserId}
-      />
-      
-      <CreateUserDialog 
-        open={showCreateUser}
-        onOpenChange={setShowCreateUser}
-      />
-      
-      <ManageTeamDialog
-        open={showManageTeam}
-        onOpenChange={setShowManageTeam}
-      />
-      
-      <IncomingCallNotification />
-      <ProminentMessageNotification />
+        {renderDialogs()}
       </div>
     </SidebarProvider>
   );
