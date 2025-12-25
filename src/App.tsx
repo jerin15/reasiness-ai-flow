@@ -8,11 +8,10 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { AppUpdateNotifier } from "@/components/AppUpdateNotifier";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { MobileNotificationToast } from "@/components/MobileNotificationToast";
 
 // Lazy load heavy components to reduce initial bundle
 const ReminderNotification = lazy(() => import("@/components/ReminderNotification").then(m => ({ default: m.ReminderNotification })));
-const ChatNotification = lazy(() => import("@/components/ChatNotification").then(m => ({ default: m.ChatNotification })));
-const VoiceCallNotification = lazy(() => import("@/components/VoiceCallNotification").then(m => ({ default: m.VoiceCallNotification })));
 const VoiceAnnouncementPlayer = lazy(() => import("@/components/VoiceAnnouncementPlayer").then(m => ({ default: m.VoiceAnnouncementPlayer })));
 const UrgentNotificationModal = lazy(() => import("@/components/UrgentNotificationModal").then(m => ({ default: m.UrgentNotificationModal })));
 const DailyTaskReviewDialog = lazy(() => import("@/components/DailyTaskReviewDialog").then(m => ({ default: m.DailyTaskReviewDialog })));
@@ -74,10 +73,10 @@ const App = () => (
         <Toaster />
         <Sonner />
         <AppUpdateNotifier />
+        {/* Mobile-first notification system - works on all devices */}
+        <MobileNotificationToast />
         <Suspense fallback={<LoadingFallback />}>
           <ReminderNotification />
-          <ChatNotification />
-          <VoiceCallNotification />
           <VoiceAnnouncementPlayer />
           <DailyTaskReviewDialog />
           <EstimationBlockingModal />
