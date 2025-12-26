@@ -11,7 +11,7 @@ import { AddTaskDialog } from "./AddTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
 import { EstimationPipelineAnalytics } from "./EstimationPipelineAnalytics";
-import { OperationsLocationMap } from "./operations/OperationsLocationMap";
+import { AdminLiveMap } from "./operations/AdminLiveMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
@@ -468,41 +468,27 @@ export const AdminDashboard = () => {
         </TabsContent>
 
         <TabsContent value="livemap">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
-                Operations Team Live Location
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Track Melvin and Jigeesh's live locations in real-time
-              </p>
-            </CardHeader>
-            <CardContent className="p-0">
-              {mapLoading ? (
-                <div className="h-[500px] flex flex-col items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="text-muted-foreground mt-2">Loading map...</p>
-                </div>
-              ) : mapboxToken ? (
-                <div className="h-[500px]">
-                  <OperationsLocationMap
-                    userId={currentUserId}
-                    mapboxToken={mapboxToken}
-                    operationsUsers={operationsUsers}
-                  />
-                </div>
-              ) : (
-                <div className="h-[500px] flex flex-col items-center justify-center text-center p-6">
-                  <MapPin className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold">Map Not Available</h3>
-                  <p className="text-muted-foreground text-sm max-w-md">
-                    Mapbox token is not configured. Please contact your administrator.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {mapLoading ? (
+            <div className="h-[600px] flex flex-col items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-muted-foreground mt-2">Loading map...</p>
+            </div>
+          ) : mapboxToken ? (
+            <AdminLiveMap
+              mapboxToken={mapboxToken}
+              operationsUsers={operationsUsers}
+            />
+          ) : (
+            <Card>
+              <CardContent className="h-[600px] flex flex-col items-center justify-center text-center p-6">
+                <MapPin className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold">Map Not Available</h3>
+                <p className="text-muted-foreground text-sm max-w-md">
+                  Mapbox token is not configured. Please add MAPBOX_PUBLIC_TOKEN to your backend secrets.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

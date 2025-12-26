@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
-    const allowedRoles = ['operations', 'admin'];
+    const allowedRoles = ['operations', 'admin', 'technical_head'];
     if (!userRole || !allowedRoles.includes(userRole.role)) {
       console.log(`Access denied for user ${user.id} with role ${userRole?.role}`);
       return new Response(
