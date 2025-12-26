@@ -29,6 +29,7 @@ const ChatDialog = lazy(() => import("@/components/ChatDialog").then(m => ({ def
 const ModernChatList = lazy(() => import("@/components/ModernChatList").then(m => ({ default: m.ModernChatList })));
 const AdminTaskReportDialog = lazy(() => import("@/components/AdminTaskReportDialog").then(m => ({ default: m.AdminTaskReportDialog })));
 const AddTaskDialog = lazy(() => import("@/components/AddTaskDialog").then(m => ({ default: m.AddTaskDialog })));
+const CreateOperationsWhiteboardTaskDialog = lazy(() => import("@/components/CreateOperationsWhiteboardTaskDialog").then(m => ({ default: m.CreateOperationsWhiteboardTaskDialog })));
 const CreateUserDialog = lazy(() => import("@/components/CreateUserDialog").then(m => ({ default: m.CreateUserDialog })));
 const ManageTeamDialog = lazy(() => import("@/components/ManageTeamDialog").then(m => ({ default: m.ManageTeamDialog })));
 const IncomingCallNotification = lazy(() => import("@/components/IncomingCallNotification").then(m => ({ default: m.IncomingCallNotification })));
@@ -67,6 +68,7 @@ const Dashboard = () => {
   const [showAdminTaskReport, setShowAdminTaskReport] = useState(false);
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [showCreateOpsTask, setShowCreateOpsTask] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showManageTeam, setShowManageTeam] = useState(false);
   
@@ -309,7 +311,7 @@ const Dashboard = () => {
             onAdminTaskReportClick={() => {}}
             onChatClick={() => setShowChatList(true)}
             onPersonalAnalyticsClick={() => {}}
-            onCreateTaskClick={() => setShowAddTask(true)}
+            onCreateTaskClick={() => setShowCreateOpsTask(true)}
             onSignOut={handleSignOut}
             getSelectedUserName={getSelectedUserName}
             formatRole={formatRole}
