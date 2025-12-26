@@ -78,6 +78,7 @@ export const CreateOperationsTaskDialog = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [clientName, setClientName] = useState('');
+  const [supplierName, setSupplierName] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
@@ -116,6 +117,7 @@ export const CreateOperationsTaskDialog = ({
     setTitle('');
     setDescription('');
     setClientName('');
+    setSupplierName('');
     setAssignedTo('');
     setDueDate('');
     setPriority('medium');
@@ -171,6 +173,7 @@ export const CreateOperationsTaskDialog = ({
           title: title.trim(),
           description: description.trim() || null,
           client_name: clientName.trim() || null,
+          supplier_name: supplierName.trim() || null,
           assigned_to: assignedTo || null,
           due_date: dueDate || null,
           priority,
@@ -263,23 +266,33 @@ export const CreateOperationsTaskDialog = ({
               </div>
 
               <div className="grid gap-2">
-                <Label>Assign To</Label>
-                <Select value={assignedTo} onValueChange={setAssignedTo}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select team member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {operationsUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          {user.full_name || user.email}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="supplier">Supplier Name</Label>
+                <Input
+                  id="supplier"
+                  placeholder="Supplier name"
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                />
               </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Assign To</Label>
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {operationsUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        {user.full_name || user.email}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
