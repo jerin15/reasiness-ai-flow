@@ -72,21 +72,16 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              networkTimeoutSeconds: 3,
-              expiration: {
-                maxEntries: 30,
-                maxAgeSeconds: 60 * 2
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
+           {
+             // Never cache backend API traffic (prevents stale/ghost data)
+             urlPattern: /^https:\/\/.*\.supabase\.co\/(rest|auth|realtime)\/v1\/.*/i,
+             handler: 'NetworkOnly',
+           },
+           {
+             // Never cache backend functions traffic
+             urlPattern: /^https:\/\/.*\.supabase\.co\/functions\/v1\/.*/i,
+             handler: 'NetworkOnly',
+           },
           {
             urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
             handler: 'CacheFirst',
