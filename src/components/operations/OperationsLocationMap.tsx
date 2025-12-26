@@ -11,11 +11,15 @@ import {
   AlertTriangle,
   Radio,
   User,
-  RefreshCw
+  RefreshCw,
+  Route,
+  Plus
 } from 'lucide-react';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { RoutePinDialog } from './RoutePinDialog';
+import { RoutePinsList, RoutePin } from './RoutePinsList';
 
 interface TeamMemberLocation {
   userId: string;
@@ -40,9 +44,16 @@ export const OperationsLocationMap = ({
   const map = useRef<mapboxgl.Map | null>(null);
   const userMarker = useRef<mapboxgl.Marker | null>(null);
   const teamMarkers = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const routeMarkers = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   
   const [teamLocations, setTeamLocations] = useState<TeamMemberLocation[]>([]);
   const [mapReady, setMapReady] = useState(false);
+  const [routePins, setRoutePins] = useState<RoutePin[]>([]);
+  const [selectedPinId, setSelectedPinId] = useState<string>();
+  const [showRoutePanel, setShowRoutePanel] = useState(false);
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [pendingPinCoords, setPendingPinCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const {
     latitude,
@@ -59,6 +70,24 @@ export const OperationsLocationMap = ({
     enableHighAccuracy: true,
     updateInterval: 3000,
   });
+
+  // Fetch route pins for today
+  const fetchRoutePins = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('operations_route_pins')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('route_date', today)
+        .order('pin_order', { ascending: true });
+
+      if (error) throw error;
+      setRoutePins((data as RoutePin[]) || []);
+    } catch (error) {
+      console.error('Error fetching route pins:', error);
+    }
+  }, [userId]);
 
   // Fetch team locations from database
   const fetchTeamLocations = useCallback(async () => {
@@ -158,11 +187,69 @@ export const OperationsLocationMap = ({
     setTimeout(initMap, 50);
 
     return () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+      }
       map.current?.remove();
       map.current = null;
       setMapReady(false);
     };
   }, [mapboxToken]);
+
+  // Add long-press handler for adding pins
+  useEffect(() => {
+    if (!mapReady || !map.current) return;
+
+    const handleMouseDown = (e: mapboxgl.MapMouseEvent) => {
+      longPressTimer.current = setTimeout(() => {
+        setPendingPinCoords({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+        setPinDialogOpen(true);
+      }, 600);
+    };
+
+    const handleMouseUp = () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    };
+
+    const handleTouchStart = (e: mapboxgl.MapTouchEvent) => {
+      if (e.originalEvent.touches.length === 1) {
+        longPressTimer.current = setTimeout(() => {
+          setPendingPinCoords({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+          setPinDialogOpen(true);
+        }, 600);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    };
+
+    map.current.on('mousedown', handleMouseDown);
+    map.current.on('mouseup', handleMouseUp);
+    map.current.on('mouseleave', handleMouseUp);
+    map.current.on('touchstart', handleTouchStart);
+    map.current.on('touchend', handleTouchEnd);
+    map.current.on('touchcancel', handleTouchEnd);
+    map.current.on('dragstart', handleMouseUp);
+
+    return () => {
+      if (map.current) {
+        map.current.off('mousedown', handleMouseDown);
+        map.current.off('mouseup', handleMouseUp);
+        map.current.off('mouseleave', handleMouseUp);
+        map.current.off('touchstart', handleTouchStart);
+        map.current.off('touchend', handleTouchEnd);
+        map.current.off('touchcancel', handleTouchEnd);
+        map.current.off('dragstart', handleMouseUp);
+      }
+    };
+  }, [mapReady]);
 
   // Update user marker when location changes
   useEffect(() => {
@@ -235,17 +322,21 @@ export const OperationsLocationMap = ({
     });
   }, [mapReady, teamLocations, userId]);
 
-  // Fetch team locations periodically
+  // Fetch team locations and route pins periodically
   useEffect(() => {
     fetchTeamLocations();
-    const interval = setInterval(fetchTeamLocations, 10000);
+    fetchRoutePins();
+    const interval = setInterval(() => {
+      fetchTeamLocations();
+      fetchRoutePins();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [fetchTeamLocations]);
+  }, [fetchTeamLocations, fetchRoutePins]);
 
-  // Real-time subscription for team locations
+  // Real-time subscription for team locations and route pins
   useEffect(() => {
     const channel = supabase
-      .channel('team-locations')
+      .channel('team-locations-and-pins')
       .on(
         'postgres_changes',
         {
@@ -257,18 +348,98 @@ export const OperationsLocationMap = ({
           fetchTeamLocations();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'operations_route_pins',
+        },
+        () => {
+          fetchRoutePins();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchTeamLocations]);
+  }, [fetchTeamLocations, fetchRoutePins]);
+
+  // Update route markers
+  useEffect(() => {
+    if (!mapReady || !map.current) return;
+
+    // Remove old route markers
+    routeMarkers.current.forEach((marker, id) => {
+      if (!routePins.find(pin => pin.id === id)) {
+        marker.remove();
+        routeMarkers.current.delete(id);
+      }
+    });
+
+    // Add or update route markers
+    routePins.forEach((pin, index) => {
+      const existingMarker = routeMarkers.current.get(pin.id);
+
+      if (existingMarker) {
+        existingMarker.setLngLat([pin.longitude, pin.latitude]);
+      } else {
+        const el = document.createElement('div');
+        el.className = 'route-pin-marker';
+        const isCompleted = pin.status === 'completed';
+        el.innerHTML = `
+          <div class="relative cursor-pointer">
+            <div class="w-8 h-8 ${isCompleted ? 'bg-green-500' : 'bg-orange-500'} rounded-full border-3 border-white shadow-lg flex items-center justify-center text-white font-bold text-sm">
+              ${index + 1}
+            </div>
+          </div>
+        `;
+
+        el.addEventListener('click', () => {
+          setSelectedPinId(pin.id);
+          setShowRoutePanel(true);
+          map.current?.flyTo({
+            center: [pin.longitude, pin.latitude],
+            zoom: 16,
+            duration: 800,
+          });
+        });
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([pin.longitude, pin.latitude])
+          .setPopup(new mapboxgl.Popup({ offset: 15 }).setHTML(`
+            <div class="p-2">
+              <div class="font-bold">${pin.title}</div>
+              ${pin.address ? `<p class="text-xs text-gray-500">${pin.address}</p>` : ''}
+              <p class="text-xs mt-1 ${isCompleted ? 'text-green-600' : 'text-orange-600'}">
+                ${isCompleted ? '✓ Completed' : '○ Pending'}
+              </p>
+            </div>
+          `))
+          .addTo(map.current!);
+
+        routeMarkers.current.set(pin.id, marker);
+      }
+    });
+  }, [mapReady, routePins]);
 
   const centerOnMe = () => {
     if (latitude && longitude && map.current) {
       map.current.flyTo({
         center: [longitude, latitude],
         zoom: 15,
+        duration: 800,
+      });
+    }
+  };
+
+  const handlePinClick = (pin: RoutePin) => {
+    setSelectedPinId(pin.id);
+    if (map.current) {
+      map.current.flyTo({
+        center: [pin.longitude, pin.latitude],
+        zoom: 16,
         duration: 800,
       });
     }
@@ -304,6 +475,20 @@ export const OperationsLocationMap = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={showRoutePanel ? 'default' : 'outline'}
+            onClick={() => setShowRoutePanel(!showRoutePanel)}
+            className="gap-1"
+          >
+            <Route className="h-4 w-4" />
+            {routePins.length > 0 && (
+              <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                {routePins.length}
+              </Badge>
+            )}
+          </Button>
+
           {permissionStatus !== 'granted' && (
             <Button 
               size="sm" 
@@ -312,7 +497,7 @@ export const OperationsLocationMap = ({
               className="gap-1"
             >
               <MapPin className="h-4 w-4" />
-              Enable Location
+              Enable
             </Button>
           )}
 
@@ -324,7 +509,7 @@ export const OperationsLocationMap = ({
               className="gap-1"
             >
               <Navigation className="h-4 w-4" />
-              Start Tracking
+              Track
             </Button>
           )}
 
@@ -360,6 +545,43 @@ export const OperationsLocationMap = ({
         </div>
       )}
 
+      {/* Route Planning Panel */}
+      {showRoutePanel && (
+        <div className="p-3 bg-background border-b">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium text-sm flex items-center gap-2">
+              <Route className="h-4 w-4 text-primary" />
+              Today's Route
+            </h3>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                if (latitude && longitude) {
+                  setPendingPinCoords({ lat: latitude, lng: longitude });
+                  setPinDialogOpen(true);
+                }
+              }}
+              disabled={!latitude || !longitude}
+              className="gap-1"
+            >
+              <Plus className="h-4 w-4" />
+              Add Current
+            </Button>
+          </div>
+          <RoutePinsList
+            pins={routePins}
+            onPinClick={handlePinClick}
+            onPinsChange={fetchRoutePins}
+            selectedPinId={selectedPinId}
+            canEdit={true}
+          />
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            Long press on map to add a pin
+          </p>
+        </div>
+      )}
+
       {/* Map Container */}
       <div className="flex-1 relative" style={{ minHeight: '300px' }}>
         <div ref={mapContainer} className="absolute inset-0 w-full h-full" style={{ minHeight: '300px' }} />
@@ -382,6 +604,7 @@ export const OperationsLocationMap = ({
           onClick={() => {
             getCurrentPosition();
             fetchTeamLocations();
+            fetchRoutePins();
           }}
         >
           <RefreshCw className="h-4 w-4" />
@@ -416,6 +639,21 @@ export const OperationsLocationMap = ({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Route Pin Dialog */}
+      {pendingPinCoords && (
+        <RoutePinDialog
+          open={pinDialogOpen}
+          onOpenChange={(open) => {
+            setPinDialogOpen(open);
+            if (!open) setPendingPinCoords(null);
+          }}
+          latitude={pendingPinCoords.lat}
+          longitude={pendingPinCoords.lng}
+          userId={userId}
+          onPinAdded={fetchRoutePins}
+        />
       )}
     </div>
   );
