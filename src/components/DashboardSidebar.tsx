@@ -132,7 +132,7 @@ export function DashboardSidebar({
         )}
 
         {/* Quick Actions - Admin Only */}
-        {isAdminOrHead && (
+        {userRole === 'admin' && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-white font-bold uppercase tracking-wide text-xs">Quick Actions</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -146,16 +146,7 @@ export function DashboardSidebar({
                     <span className="font-bold">Create Task</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={() => navigate('/operations-whiteboard')}
-                    className="bg-white/20 hover:bg-white/30 text-white font-bold"
-                  >
-                    <ClipboardList className="h-4 w-4" />
-                    <span className="font-bold">Operations Whiteboard</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                {userRole === 'admin' && onManageTeamClick && (
+                {onManageTeamClick && (
                   <SidebarMenuItem>
                     <SidebarMenuButton onClick={onManageTeamClick} className="text-white font-semibold hover:bg-white/15">
                       <Settings className="h-4 w-4" />
