@@ -30,6 +30,9 @@ export type WorkflowStep = {
   supplier_name: string | null;
   status: 'pending' | 'in_progress' | 'completed' | 'skipped';
   location_address: string | null;
+  location_notes: string | null;
+  notes: string | null;
+  due_date: string | null;
 };
 
 export type OperationsTaskWithSteps = {
@@ -297,26 +300,57 @@ export const OperationsMobileTaskCard = ({
                       )}
                     </div>
 
-                    {/* Step Info */}
-                    <div className="flex-1 min-w-0">
+                    {/* Step Info - Full Details */}
+                    <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
                         <StepTypeIcon className={cn("h-4 w-4", stepConfig.color)} />
                         <span className="text-sm font-medium">
                           {stepConfig.label}
                         </span>
+                        <Badge 
+                          variant={step.status === 'completed' ? 'default' : step.status === 'in_progress' ? 'secondary' : 'outline'}
+                          className="text-xs capitalize shrink-0 ml-auto"
+                        >
+                          {step.status.replace('_', ' ')}
+                        </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {step.supplier_name || step.location_address || 'No details'}
-                      </p>
+                      
+                      {/* Supplier Name */}
+                      {step.supplier_name && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <Package className="h-3 w-3 text-primary" />
+                          <span className="font-medium text-foreground">{step.supplier_name}</span>
+                        </div>
+                      )}
+                      
+                      {/* Location Address */}
+                      {step.location_address && (
+                        <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                          <span className="line-clamp-2">{step.location_address}</span>
+                        </div>
+                      )}
+                      
+                      {/* Location Notes */}
+                      {step.location_notes && (
+                        <div className="flex items-start gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                          <Clock className="h-3 w-3 mt-0.5 shrink-0" />
+                          <span className="line-clamp-2">{step.location_notes}</span>
+                        </div>
+                      )}
+                      
+                      {/* General Notes */}
+                      {step.notes && (
+                        <div className="text-xs text-blue-600 dark:text-blue-400 italic bg-blue-50 dark:bg-blue-950/30 rounded px-2 py-1 mt-1">
+                          📝 {step.notes}
+                        </div>
+                      )}
+                      
+                      {/* No details fallback */}
+                      {!step.supplier_name && !step.location_address && !step.notes && (
+                        <p className="text-xs text-muted-foreground">No details added</p>
+                      )}
                     </div>
-
-                    {/* Status Badge */}
-                    <Badge 
-                      variant={step.status === 'completed' ? 'default' : step.status === 'in_progress' ? 'secondary' : 'outline'}
-                      className="text-xs capitalize shrink-0"
-                    >
-                      {step.status.replace('_', ' ')}
-                    </Badge>
                   </div>
                 );
               })}
