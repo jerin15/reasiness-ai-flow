@@ -29,7 +29,8 @@ const ChatDialog = lazy(() => import("@/components/ChatDialog").then(m => ({ def
 const ModernChatList = lazy(() => import("@/components/ModernChatList").then(m => ({ default: m.ModernChatList })));
 const AdminTaskReportDialog = lazy(() => import("@/components/AdminTaskReportDialog").then(m => ({ default: m.AdminTaskReportDialog })));
 const AddTaskDialog = lazy(() => import("@/components/AddTaskDialog").then(m => ({ default: m.AddTaskDialog })));
-const CreateOperationsWhiteboardTaskDialog = lazy(() => import("@/components/CreateOperationsWhiteboardTaskDialog").then(m => ({ default: m.CreateOperationsWhiteboardTaskDialog })));
+const CreateOperationsTaskDialog = lazy(() => import("@/components/CreateOperationsTaskDialog").then(m => ({ default: m.CreateOperationsTaskDialog })));
+const CreateTaskChooserDialog = lazy(() => import("@/components/CreateTaskChooserDialog").then(m => ({ default: m.CreateTaskChooserDialog })));
 const CreateUserDialog = lazy(() => import("@/components/CreateUserDialog").then(m => ({ default: m.CreateUserDialog })));
 const ManageTeamDialog = lazy(() => import("@/components/ManageTeamDialog").then(m => ({ default: m.ManageTeamDialog })));
 const IncomingCallNotification = lazy(() => import("@/components/IncomingCallNotification").then(m => ({ default: m.IncomingCallNotification })));
@@ -69,6 +70,7 @@ const Dashboard = () => {
   const [showPersonalAnalytics, setShowPersonalAnalytics] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
   const [showCreateOpsTask, setShowCreateOpsTask] = useState(false);
+  const [showTaskChooser, setShowTaskChooser] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showManageTeam, setShowManageTeam] = useState(false);
   
@@ -278,11 +280,20 @@ const Dashboard = () => {
         <AdminTaskReportDialog open={showAdminTaskReport} onOpenChange={setShowAdminTaskReport} teamMembers={teamMembers} />
       )}
 
+      {showTaskChooser && userRole === "admin" && (
+        <CreateTaskChooserDialog
+          open={showTaskChooser}
+          onOpenChange={setShowTaskChooser}
+          onChooseOperations={() => setShowCreateOpsTask(true)}
+          onChooseGeneral={() => setShowAddTask(true)}
+        />
+      )}
+
       {showCreateOpsTask && userRole === "admin" && (
-        <CreateOperationsWhiteboardTaskDialog
+        <CreateOperationsTaskDialog
           open={showCreateOpsTask}
           onOpenChange={setShowCreateOpsTask}
-          onCreated={() => {}}
+          onTaskCreated={() => {}}
         />
       )}
 
@@ -320,7 +331,7 @@ const Dashboard = () => {
             onAdminTaskReportClick={() => {}}
             onChatClick={() => setShowChatList(true)}
             onPersonalAnalyticsClick={() => {}}
-            onCreateTaskClick={() => setShowCreateOpsTask(true)}
+            onCreateTaskClick={() => setShowTaskChooser(true)}
             onSignOut={handleSignOut}
             getSelectedUserName={getSelectedUserName}
             formatRole={formatRole}
@@ -358,7 +369,7 @@ const Dashboard = () => {
           onAdminTaskReportClick={() => setShowAdminTaskReport(true)}
           onChatClick={() => setShowChat(true)}
           onPersonalAnalyticsClick={() => setShowPersonalAnalytics(!showPersonalAnalytics)}
-          onCreateTaskClick={() => (userRole === "admin" ? setShowCreateOpsTask(true) : setShowAddTask(true))}
+          onCreateTaskClick={() => (userRole === "admin" ? setShowTaskChooser(true) : setShowAddTask(true))}
           onCreateUserClick={userRole === "admin" ? () => setShowCreateUser(true) : undefined}
           onManageTeamClick={userRole === "admin" ? () => setShowManageTeam(true) : undefined}
           onSignOut={handleSignOut}
