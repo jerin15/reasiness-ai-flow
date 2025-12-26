@@ -403,7 +403,7 @@ export const OperationsMobileShell = ({
           </ScrollArea>
         ) : (
           // Map View
-          <div className="h-full">
+          <div className="h-full w-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
             {isMapLoading ? (
               <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-4">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -440,12 +440,17 @@ export const OperationsMobileShell = ({
                   </a>
                 </div>
               </div>
-            ) : (
+            ) : mapboxToken ? (
               <OperationsLocationMap
                 userId={userId}
                 mapboxToken={mapboxToken}
                 operationsUsers={operationsUsers}
               />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-4">
+                <MapPin className="h-12 w-12 text-muted-foreground" />
+                <p className="text-muted-foreground">Map token not available</p>
+              </div>
             )}
           </div>
         )}
