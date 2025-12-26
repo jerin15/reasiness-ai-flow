@@ -49,6 +49,7 @@ export const OperationsDashboard = ({ userId, userRole }: OperationsDashboardPro
         userId={userId}
         userName={currentUserName}
         operationsUsers={operationsUsers}
+        isAdmin={userRole === 'admin' || userRole === 'technical_head'}
       />
     </div>
   );
