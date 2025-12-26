@@ -12,6 +12,7 @@ import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
 import { EstimationPipelineAnalytics } from "./EstimationPipelineAnalytics";
 import { AdminLiveMap } from "./operations/AdminLiveMap";
+import { AdminWhiteboardEmbed } from "./operations/AdminWhiteboardEmbed";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
@@ -208,6 +209,10 @@ export const AdminDashboard = () => {
       clearTimeout(safetyTimeout);
     });
     
+    // Fetch mapbox token and operations users on mount for the Live Map tab
+    fetchMapboxToken();
+    fetchOperationsUsers();
+    
     // Subscribe function for visibility-aware subscription
     const subscribe = () => {
       if (channelRef.current) return;
@@ -270,7 +275,7 @@ export const AdminDashboard = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       unsubscribe();
     };
-  }, [fetchTasksAndStats, debouncedFetchTasksAndStats]);
+  }, [fetchTasksAndStats, debouncedFetchTasksAndStats, fetchMapboxToken, fetchOperationsUsers]);
 
 
   const getPriorityColor = (priority: string) => {
@@ -311,7 +316,11 @@ export const AdminDashboard = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="analytics">Pipeline Analytics</TabsTrigger>
-          <TabsTrigger value="livemap" onClick={() => { fetchMapboxToken(); fetchOperationsUsers(); }}>
+          <TabsTrigger value="whiteboard">
+            <ClipboardList className="h-4 w-4 mr-1" />
+            Whiteboard
+          </TabsTrigger>
+          <TabsTrigger value="livemap">
             <MapPin className="h-4 w-4 mr-1" />
             Live Map
           </TabsTrigger>
@@ -456,6 +465,10 @@ export const AdminDashboard = () => {
         onTaskAdded={fetchTasksAndStats}
       />
 
+        </TabsContent>
+
+        <TabsContent value="whiteboard">
+          <AdminWhiteboardEmbed />
         </TabsContent>
 
         <TabsContent value="analytics">
