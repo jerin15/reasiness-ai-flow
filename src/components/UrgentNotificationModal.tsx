@@ -170,30 +170,43 @@ export const UrgentNotificationModal = () => {
       const titleLower = notification.title?.toLowerCase() || '';
       const messageLower = notification.message?.toLowerCase() || '';
       
+      // Comprehensive estimation-related keywords
       const isEstimationRelated = 
         titleLower.includes('estimation') || 
         titleLower.includes('quotation') ||
         titleLower.includes('rfq') ||
         titleLower.includes('mockup completed') ||
         titleLower.includes('ready for review') ||
+        titleLower.includes('good morning') ||  // Morning broadcasts
+        titleLower.includes('progress update') ||  // Progress broadcasts
+        titleLower.includes('daily goal') ||  // End of day broadcasts
+        titleLower.includes("today's goal") ||
+        titleLower.includes("today's results") ||
         messageLower.includes('estimation') ||
         messageLower.includes('quotation task stuck') ||
-        messageLower.includes('progress update');
+        messageLower.includes('progress update') ||
+        messageLower.includes('quotations') ||
+        messageLower.includes('daily quota') ||
+        messageLower.includes('rfqs waiting');
 
       // Filter out estimation notifications for non-estimation users
       if (isEstimationRelated && currentRole !== 'estimation') {
-        console.log('⏭️ Skipping estimation notification for', currentRole, 'user');
+        console.log('⏭️ Skipping estimation notification for', currentRole, 'user. Title:', titleLower);
         return;
       }
 
-      // Additional filter for broadcast messages
+      // Additional filter for broadcast messages - more comprehensive matching
       const isEstimationBroadcast = notification.is_broadcast && 
-        (titleLower.includes('estimation team') || 
-         titleLower.includes('good morning estimation') ||
-         titleLower.includes('team alert'));
+        (titleLower.includes('estimation') || 
+         titleLower.includes('good morning') ||
+         titleLower.includes('progress update') ||
+         titleLower.includes('daily goal') ||
+         titleLower.includes('end of day') ||
+         messageLower.includes('quotation') ||
+         messageLower.includes('estimation'));
 
       if (isEstimationBroadcast && currentRole !== 'estimation') {
-        console.log('⏭️ Skipping estimation broadcast for non-estimation user');
+        console.log('⏭️ Skipping estimation broadcast for non-estimation user. Role:', currentRole);
         return;
       }
 
@@ -311,14 +324,14 @@ export const UrgentNotificationModal = () => {
 
   return (
     <AlertDialog open={!!notification}>
-      <AlertDialogContent className="max-w-md border-4 border-destructive shadow-2xl">
+      <AlertDialogContent className="max-w-md border-4 border-destructive shadow-2xl bg-background">
         <AlertDialogHeader>
           <div className="flex items-center gap-3 mb-2">
-            <div className="h-12 w-12 rounded-full bg-destructive/20 flex items-center justify-center animate-pulse">
-              <AlertTriangle className="h-6 w-6 text-destructive" />
+            <div className="h-12 w-12 rounded-full bg-destructive flex items-center justify-center animate-pulse">
+              <AlertTriangle className="h-6 w-6 text-destructive-foreground" />
             </div>
             <div className="flex-1">
-              <AlertDialogTitle className="text-xl flex items-center gap-2">
+              <AlertDialogTitle className="text-xl flex items-center gap-2 text-foreground">
                 <Bell className="h-5 w-5 animate-bounce" />
                 {notification.title}
               </AlertDialogTitle>
@@ -327,14 +340,14 @@ export const UrgentNotificationModal = () => {
               </p>
             </div>
           </div>
-          <AlertDialogDescription className="text-base text-foreground whitespace-pre-wrap">
+          <AlertDialogDescription className="text-base text-foreground whitespace-pre-wrap bg-muted/50 p-3 rounded-md">
             {notification.message}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogAction
             onClick={acknowledgeNotification}
-            className="w-full bg-primary hover:bg-primary/90 text-lg py-6"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6"
           >
             ✓ Got It!
           </AlertDialogAction>
