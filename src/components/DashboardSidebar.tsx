@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus, Brain, CalendarDays, Settings } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus, Brain, CalendarDays, Settings, ClipboardList } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -143,6 +143,15 @@ export function DashboardSidebar({
                   >
                     <Plus className="h-4 w-4" />
                     <span className="font-bold">Create Task</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    onClick={() => navigate('/operations-whiteboard')}
+                    className="bg-white/20 hover:bg-white/30 text-white font-bold"
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    <span className="font-bold">Operations Whiteboard</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 {userRole === 'admin' && onManageTeamClick && (
