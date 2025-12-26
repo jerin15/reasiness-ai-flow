@@ -41,6 +41,12 @@ export type WorkflowStep = {
   location_notes: string | null;
   notes: string | null;
   due_date: string | null;
+  completed_at: string | null;
+  completed_by: string | null;
+  completed_by_profile?: {
+    full_name: string | null;
+    email: string;
+  };
   products?: WorkflowStepProduct[];
 };
 
@@ -135,11 +141,12 @@ export const OperationsMobileTaskCard = ({
       }
 
       const updates: any = { status: newStatus };
+      const nowIso = new Date().toISOString();
       
       if (newStatus === 'in_progress') {
-        updates.started_at = new Date().toISOString();
+        updates.started_at = nowIso;
       } else if (newStatus === 'completed') {
-        updates.completed_at = new Date().toISOString();
+        updates.completed_at = nowIso;
         updates.completed_by = currentUserId;
       } else {
         updates.started_at = null;
@@ -153,6 +160,31 @@ export const OperationsMobileTaskCard = ({
         .eq('id', step.id);
 
       if (error) throw error;
+
+      // Create notification for step completion
+      if (newStatus === 'completed') {
+        const stepConfig = stepTypeLabels[step.step_type];
+        const { data: currentUserProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', currentUserId)
+          .single();
+        
+        const completedByName = currentUserProfile?.full_name || 'Team member';
+        
+        // Insert notification for admins/operations
+        await supabase
+          .from('urgent_notifications')
+          .insert({
+            sender_id: currentUserId,
+            recipient_id: null, // broadcast
+            is_broadcast: true,
+            title: `✅ Step Completed: ${stepConfig.label}`,
+            message: `${completedByName} completed "${stepConfig.label}" step for task "${task.title}".\n\nSupplier: ${step.supplier_name || 'N/A'}\nCompleted at: ${format(new Date(), 'MMM d, yyyy h:mm a')}`,
+            priority: 'medium',
+            is_acknowledged: false
+          });
+      }
 
       toast.success(`Step marked as ${newStatus.replace('_', ' ')}`);
       onStepUpdated();
@@ -409,9 +441,23 @@ export const OperationsMobileTaskCard = ({
                           📝 {step.notes}
                         </div>
                       )}
+
+                      {/* Completed by audit */}
+                      {step.status === 'completed' && step.completed_at && (
+                        <div className="flex items-center gap-1.5 text-xs bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 rounded px-2 py-1.5 border border-green-200 dark:border-green-800">
+                          <CheckCircle className="h-3 w-3 shrink-0" />
+                          <span>
+                            Completed by{' '}
+                            <span className="font-semibold">
+                              {step.completed_by_profile?.full_name || step.completed_by_profile?.email || 'Team member'}
+                            </span>
+                            {' '}at {format(new Date(step.completed_at), 'MMM d, h:mm a')}
+                          </span>
+                        </div>
+                      )}
                       
                       {/* No details fallback */}
-                      {!step.supplier_name && !step.location_address && !step.notes && (!step.products || step.products.length === 0) && (
+                      {!step.supplier_name && !step.location_address && !step.notes && (!step.products || step.products.length === 0) && step.status !== 'completed' && (
                         <p className="text-xs text-muted-foreground">No details added</p>
                       )}
                     </div>

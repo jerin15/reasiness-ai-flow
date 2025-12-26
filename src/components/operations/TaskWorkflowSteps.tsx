@@ -49,6 +49,10 @@ interface WorkflowStep {
   started_at: string | null;
   completed_at: string | null;
   completed_by: string | null;
+  completed_by_profile?: {
+    full_name: string | null;
+    email: string;
+  };
   notes: string | null;
   due_date: string | null;
   created_at: string;
@@ -156,9 +160,27 @@ export const TaskWorkflowSteps = ({
         .select('id, workflow_step_id, product_name, quantity, unit, supplier_name')
         .eq('task_id', taskId);
 
-      // Map products to steps
+      // Fetch completed_by profiles
+      const completedByIds = (stepsData || [])
+        .filter(s => s.completed_by)
+        .map(s => s.completed_by);
+      
+      let completedByProfiles: Record<string, { full_name: string | null; email: string }> = {};
+      if (completedByIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', completedByIds);
+        
+        (profilesData || []).forEach(p => {
+          completedByProfiles[p.id] = { full_name: p.full_name, email: p.email };
+        });
+      }
+
+      // Map products and completed_by profiles to steps
       const stepsWithProducts = (stepsData || []).map(step => ({
         ...step,
+        completed_by_profile: step.completed_by ? completedByProfiles[step.completed_by] : undefined,
         products: (productsData || [])
           .filter(p => p.workflow_step_id === step.id || (!p.workflow_step_id))
           .map(p => ({
@@ -295,7 +317,7 @@ export const TaskWorkflowSteps = ({
 
       if (error) throw error;
 
-      // Push notification for status change
+      // Push local notification for status change
       const stepConfig = stepTypeConfig[step.step_type];
       pushNotification({
         type: newStatus === 'completed' ? 'task' : 'reminder',
@@ -303,6 +325,29 @@ export const TaskWorkflowSteps = ({
         body: `${stepConfig.shortLabel}: ${step.supplier_name || 'Delivery'} - ${taskTitle}`,
         priority: 'normal'
       });
+
+      // Create bell notification for step completion
+      if (newStatus === 'completed' && currentUserId) {
+        const { data: currentUserProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', currentUserId)
+          .single();
+        
+        const completedByName = currentUserProfile?.full_name || 'Team member';
+        
+        await supabase
+          .from('urgent_notifications')
+          .insert({
+            sender_id: currentUserId,
+            recipient_id: null,
+            is_broadcast: true,
+            title: `✅ Step Completed: ${stepConfig.shortLabel}`,
+            message: `${completedByName} completed "${stepConfig.shortLabel}" step for task "${taskTitle}".\n\nSupplier: ${step.supplier_name || 'N/A'}\nCompleted at: ${format(new Date(), 'MMM d, yyyy h:mm a')}`,
+            priority: 'medium',
+            is_acknowledged: false
+          });
+      }
 
       toast.success(`Step marked as ${newStatus.replace('_', ' ')}`);
       fetchSteps();
@@ -505,6 +550,20 @@ export const TaskWorkflowSteps = ({
                                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">
                                         📝 {step.notes}
                                       </p>
+                                    )}
+
+                                    {/* Completed by audit */}
+                                    {step.status === 'completed' && step.completed_at && (
+                                      <div className="flex items-center gap-1.5 text-xs bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 rounded px-2 py-1.5 mt-2 border border-green-200 dark:border-green-800">
+                                        <CheckCircle className="h-3 w-3 shrink-0" />
+                                        <span>
+                                          Completed by{' '}
+                                          <span className="font-semibold">
+                                            {step.completed_by_profile?.full_name || step.completed_by_profile?.email || 'Team member'}
+                                          </span>
+                                          {' '}at {format(new Date(step.completed_at), 'MMM d, h:mm a')}
+                                        </span>
+                                      </div>
                                     )}
                                   </>
                                 );
