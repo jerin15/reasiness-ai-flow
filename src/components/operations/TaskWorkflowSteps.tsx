@@ -408,21 +408,52 @@ export const TaskWorkflowSteps = ({
                                 <StatusIcon className="h-3 w-3 mr-1" />
                                 {statusCfg.label}
                               </Badge>
-                              <h4 className="font-medium text-sm">
-                                {typeConfig.shortLabel}: {step.supplier_name || 'Client'}
-                              </h4>
-                              {step.due_date && (
-                                <p className="text-xs text-orange-600 flex items-center gap-1 mt-0.5">
-                                  <Clock className="h-3 w-3" />
-                                  Due: {format(new Date(step.due_date), 'MMM d, h:mm a')}
-                                </p>
-                              )}
-                              {step.location_address && (
-                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                                  <MapPin className="h-3 w-3" />
-                                  {step.location_address}
-                                </p>
-                              )}
+                              {(() => {
+                                const fromLine = step.step_type === 'supplier_to_supplier' && step.location_notes?.startsWith('FROM:')
+                                  ? step.location_notes.split('\n')[0].replace(/^FROM:\s*/i, '').trim()
+                                  : null;
+                                const remainingLocationNotes = step.step_type === 'supplier_to_supplier' && step.location_notes?.startsWith('FROM:')
+                                  ? step.location_notes.split('\n').slice(1).join('\n').trim() || null
+                                  : step.location_notes;
+
+                                const title = step.step_type === 'supplier_to_supplier' && fromLine
+                                  ? `${typeConfig.shortLabel}: ${fromLine} → ${step.supplier_name || 'Supplier'}`
+                                  : `${typeConfig.shortLabel}: ${step.supplier_name || 'Client'}`;
+
+                                return (
+                                  <>
+                                    <h4 className="font-medium text-sm">
+                                      {title}
+                                    </h4>
+
+                                    {step.due_date && (
+                                      <p className="text-xs text-primary flex items-center gap-1 mt-0.5">
+                                        <Clock className="h-3 w-3" />
+                                        Due: {format(new Date(step.due_date), 'MMM d, h:mm a')}
+                                      </p>
+                                    )}
+
+                                    {step.location_address && (
+                                      <p className="text-xs text-muted-foreground flex items-start gap-1 mt-1">
+                                        <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                                        <span className="line-clamp-2">{step.location_address}</span>
+                                      </p>
+                                    )}
+
+                                    {remainingLocationNotes && (
+                                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                        ℹ️ {remainingLocationNotes}
+                                      </p>
+                                    )}
+
+                                    {step.notes && (
+                                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">
+                                        📝 {step.notes}
+                                      </p>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
 
                             <CollapsibleTrigger asChild>
