@@ -126,6 +126,10 @@ export const TaskWorkflowSteps = ({
   const [newAddress, setNewAddress] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
+  
+  // For supplier_to_supplier step
+  const [fromSupplierName, setFromSupplierName] = useState('');
+  const [fromSupplierAddress, setFromSupplierAddress] = useState('');
 
   const fetchSteps = useCallback(async () => {
     try {
@@ -179,7 +183,17 @@ export const TaskWorkflowSteps = ({
   }, [taskId, fetchSteps, onStepChange]);
 
   const handleAddStep = async () => {
-    if (!newSupplierName.trim() && newStepType !== 'deliver_to_client') {
+    // Validation for supplier_to_supplier
+    if (newStepType === 'supplier_to_supplier') {
+      if (!fromSupplierName.trim()) {
+        toast.error('Please enter the "From" supplier name');
+        return;
+      }
+      if (!newSupplierName.trim()) {
+        toast.error('Please enter the "To" supplier name');
+        return;
+      }
+    } else if (!newSupplierName.trim() && newStepType !== 'deliver_to_client') {
       toast.error('Please enter a supplier/location name');
       return;
     }
@@ -187,6 +201,11 @@ export const TaskWorkflowSteps = ({
     setAdding(true);
     try {
       const newOrder = steps.length > 0 ? Math.max(...steps.map(s => s.step_order)) + 1 : 0;
+
+      // For supplier_to_supplier, store from info in location_notes
+      const notesWithFromInfo = newStepType === 'supplier_to_supplier'
+        ? `FROM: ${fromSupplierName.trim()}${fromSupplierAddress ? ` (${fromSupplierAddress.trim()})` : ''}\n${newNotes.trim() || ''}`
+        : newNotes.trim() || null;
 
       const { error } = await supabase
         .from('task_workflow_steps')
@@ -196,7 +215,7 @@ export const TaskWorkflowSteps = ({
           step_type: newStepType,
           supplier_name: newSupplierName.trim() || null,
           location_address: newAddress.trim() || null,
-          location_notes: newNotes.trim() || null,
+          location_notes: notesWithFromInfo,
           due_date: newDueDate || null,
           status: 'pending'
         });
@@ -209,6 +228,8 @@ export const TaskWorkflowSteps = ({
       setNewNotes('');
       setNewDueDate('');
       setNewStepType('collect');
+      setFromSupplierName('');
+      setFromSupplierAddress('');
       fetchSteps();
       onStepChange?.();
     } catch (error: any) {
@@ -554,39 +575,73 @@ export const TaskWorkflowSteps = ({
                 </Select>
               </div>
 
-              {/* Supplier/Location Name */}
-              <div>
-                <Label className="text-xs">
-                  {newStepType === 'deliver_to_client'
-                    ? 'Client Name (optional)'
-                    : newStepType === 'supplier_to_supplier'
-                      ? 'From → To Supplier'
-                      : 'Supplier Name'}
-                </Label>
-                <Input
-                  value={newSupplierName}
-                  onChange={(e) => setNewSupplierName(e.target.value)}
-                  placeholder={
-                    newStepType === 'deliver_to_client'
-                      ? 'Client name'
-                      : newStepType === 'supplier_to_supplier'
-                        ? 'e.g., Supplier A → Supplier B'
-                        : 'Enter supplier name'
-                  }
-                  className="h-11 mt-1"
-                />
-              </div>
+              {/* Supplier fields - conditional based on step type */}
+              {newStepType === 'supplier_to_supplier' ? (
+                <>
+                  {/* FROM Supplier */}
+                  <div className="border rounded-lg p-3 space-y-2 bg-blue-50 dark:bg-blue-950/30">
+                    <Label className="text-xs text-blue-700 dark:text-blue-400 font-semibold flex items-center gap-2">
+                      <Package className="h-3 w-3" />
+                      Collect FROM
+                    </Label>
+                    <Input
+                      value={fromSupplierName}
+                      onChange={(e) => setFromSupplierName(e.target.value)}
+                      placeholder="From Supplier Name"
+                      className="h-10"
+                    />
+                    <Input
+                      value={fromSupplierAddress}
+                      onChange={(e) => setFromSupplierAddress(e.target.value)}
+                      placeholder="From Supplier Address"
+                      className="h-10"
+                    />
+                  </div>
 
-              {/* Address */}
-              <div>
-                <Label className="text-xs">Address</Label>
-                <Input
-                  value={newAddress}
-                  onChange={(e) => setNewAddress(e.target.value)}
-                  placeholder="Enter location address"
-                  className="h-11 mt-1"
-                />
-              </div>
+                  {/* TO Supplier */}
+                  <div className="border rounded-lg p-3 space-y-2 bg-purple-50 dark:bg-purple-950/30">
+                    <Label className="text-xs text-purple-700 dark:text-purple-400 font-semibold flex items-center gap-2">
+                      <Truck className="h-3 w-3" />
+                      Deliver TO
+                    </Label>
+                    <Input
+                      value={newSupplierName}
+                      onChange={(e) => setNewSupplierName(e.target.value)}
+                      placeholder="To Supplier Name"
+                      className="h-10"
+                    />
+                    <Input
+                      value={newAddress}
+                      onChange={(e) => setNewAddress(e.target.value)}
+                      placeholder="To Supplier Address"
+                      className="h-10"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <Label className="text-xs">
+                      {newStepType === 'deliver_to_client' ? 'Client Name (optional)' : 'Supplier Name'}
+                    </Label>
+                    <Input
+                      value={newSupplierName}
+                      onChange={(e) => setNewSupplierName(e.target.value)}
+                      placeholder={newStepType === 'deliver_to_client' ? 'Client name' : 'Enter supplier name'}
+                      className="h-11 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Address</Label>
+                    <Input
+                      value={newAddress}
+                      onChange={(e) => setNewAddress(e.target.value)}
+                      placeholder="Enter location address"
+                      className="h-11 mt-1"
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Due Date */}
               <div>

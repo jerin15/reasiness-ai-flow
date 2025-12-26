@@ -46,6 +46,9 @@ interface WorkflowStepDraft {
   location_notes: string;
   due_date: string;
   products: ProductDraft[];
+  // For supplier_to_supplier: from supplier info
+  from_supplier_name?: string;
+  from_supplier_address?: string;
 }
 
 interface OperationsUser {
@@ -103,10 +106,14 @@ export const SendToProductionDialog = ({
   const [newAddress, setNewAddress] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [newStepDueDate, setNewStepDueDate] = useState('');
+  
+  // For supplier_to_supplier step
+  const [fromSupplierName, setFromSupplierName] = useState('');
+  const [fromSupplierAddress, setFromSupplierAddress] = useState('');
 
   // Products for new step
   const [tempProductName, setTempProductName] = useState('');
-  const [tempProductQty, setTempProductQty] = useState<number>(1);
+  const [tempProductQty, setTempProductQty] = useState<string>('');
   const [tempProductUnit, setTempProductUnit] = useState('pcs');
   const [tempProductPrice, setTempProductPrice] = useState('');
   const [newStepProducts, setNewStepProducts] = useState<ProductDraft[]>([]);
@@ -143,21 +150,32 @@ export const SendToProductionDialog = ({
       toast.error('Please enter a product name');
       return;
     }
+    const qty = parseFloat(tempProductQty) || 1;
     setNewStepProducts([...newStepProducts, {
       id: crypto.randomUUID(),
       product_name: tempProductName.trim(),
-      quantity: tempProductQty,
+      quantity: qty,
       unit: tempProductUnit,
       estimated_price: tempProductPrice ? parseFloat(tempProductPrice) : null
     }]);
     setTempProductName('');
-    setTempProductQty(1);
+    setTempProductQty('');
     setTempProductUnit('pcs');
     setTempProductPrice('');
   };
 
   const handleAddStep = () => {
-    if (!newSupplierName.trim() && newStepType !== 'deliver_to_client') {
+    // Validation for supplier_to_supplier
+    if (newStepType === 'supplier_to_supplier') {
+      if (!fromSupplierName.trim()) {
+        toast.error('Please enter the "From" supplier name');
+        return;
+      }
+      if (!newSupplierName.trim()) {
+        toast.error('Please enter the "To" supplier name');
+        return;
+      }
+    } else if (!newSupplierName.trim() && newStepType !== 'deliver_to_client') {
       toast.error('Please enter a supplier/location name');
       return;
     }
@@ -169,7 +187,11 @@ export const SendToProductionDialog = ({
       location_address: newAddress.trim(),
       location_notes: newNotes.trim(),
       due_date: newStepDueDate,
-      products: [...newStepProducts]
+      products: [...newStepProducts],
+      ...(newStepType === 'supplier_to_supplier' && {
+        from_supplier_name: fromSupplierName.trim(),
+        from_supplier_address: fromSupplierAddress.trim()
+      })
     };
 
     setWorkflowSteps([...workflowSteps, newStep]);
@@ -179,6 +201,8 @@ export const SendToProductionDialog = ({
     setNewStepDueDate('');
     setNewStepType('collect');
     setNewStepProducts([]);
+    setFromSupplierName('');
+    setFromSupplierAddress('');
   };
 
   const handleRemoveStep = (stepId: string) => {
@@ -463,9 +487,24 @@ export const SendToProductionDialog = ({
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
-                      <p className="text-sm">{step.supplier_name || 'Client'}</p>
-                      {step.location_address && (
-                        <p className="text-xs text-muted-foreground">{step.location_address}</p>
+                      {step.step_type === 'supplier_to_supplier' ? (
+                        <div className="text-sm space-y-1">
+                          <p className="text-blue-600 dark:text-blue-400">
+                            <span className="font-medium">From:</span> {step.from_supplier_name || 'N/A'}
+                            {step.from_supplier_address && <span className="text-xs text-muted-foreground ml-1">({step.from_supplier_address})</span>}
+                          </p>
+                          <p className="text-purple-600 dark:text-purple-400">
+                            <span className="font-medium">To:</span> {step.supplier_name || 'N/A'}
+                            {step.location_address && <span className="text-xs text-muted-foreground ml-1">({step.location_address})</span>}
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm">{step.supplier_name || 'Client'}</p>
+                          {step.location_address && (
+                            <p className="text-xs text-muted-foreground">{step.location_address}</p>
+                          )}
+                        </>
                       )}
                       {step.products.length > 0 && (
                         <div className="mt-2">
@@ -490,44 +529,92 @@ export const SendToProductionDialog = ({
                     Add Workflow Step
                   </h4>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Step Type</Label>
-                      <Select value={newStepType} onValueChange={(v: any) => setNewStepType(v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="collect">Collect from Supplier</SelectItem>
-                          <SelectItem value="deliver_to_supplier">Deliver to Supplier</SelectItem>
-                          <SelectItem value="supplier_to_supplier">Supplier to Supplier</SelectItem>
-                          <SelectItem value="deliver_to_client">Deliver to Client</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="grid gap-2">
-                      <Label>Supplier/Location Name</Label>
-                      <Input
-                        placeholder={
-                          newStepType === 'supplier_to_supplier'
-                            ? 'e.g., Supplier A → Supplier B'
-                            : 'e.g., ABC Suppliers'
-                        }
-                        value={newSupplierName}
-                        onChange={(e) => setNewSupplierName(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
                   <div className="grid gap-2">
-                    <Label>Address</Label>
-                    <Input
-                      placeholder="Location address"
-                      value={newAddress}
-                      onChange={(e) => setNewAddress(e.target.value)}
-                    />
+                    <Label>Step Type</Label>
+                    <Select value={newStepType} onValueChange={(v: any) => {
+                      setNewStepType(v);
+                      // Reset fields when switching type
+                      if (v !== 'supplier_to_supplier') {
+                        setFromSupplierName('');
+                        setFromSupplierAddress('');
+                      }
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="collect">Collect from Supplier</SelectItem>
+                        <SelectItem value="deliver_to_supplier">Deliver to Supplier</SelectItem>
+                        <SelectItem value="supplier_to_supplier">Supplier to Supplier</SelectItem>
+                        <SelectItem value="deliver_to_client">Deliver to Client</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+
+                  {newStepType === 'supplier_to_supplier' ? (
+                    <>
+                      {/* FROM Supplier */}
+                      <div className="border rounded-lg p-3 space-y-3 bg-blue-50 dark:bg-blue-950/30">
+                        <Label className="text-blue-700 dark:text-blue-400 font-semibold flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          Collect FROM
+                        </Label>
+                        <div className="grid gap-2">
+                          <Input
+                            placeholder="From Supplier Name"
+                            value={fromSupplierName}
+                            onChange={(e) => setFromSupplierName(e.target.value)}
+                          />
+                          <Input
+                            placeholder="From Supplier Address"
+                            value={fromSupplierAddress}
+                            onChange={(e) => setFromSupplierAddress(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* TO Supplier */}
+                      <div className="border rounded-lg p-3 space-y-3 bg-purple-50 dark:bg-purple-950/30">
+                        <Label className="text-purple-700 dark:text-purple-400 font-semibold flex items-center gap-2">
+                          <Truck className="h-4 w-4" />
+                          Deliver TO
+                        </Label>
+                        <div className="grid gap-2">
+                          <Input
+                            placeholder="To Supplier Name"
+                            value={newSupplierName}
+                            onChange={(e) => setNewSupplierName(e.target.value)}
+                          />
+                          <Input
+                            placeholder="To Supplier Address"
+                            value={newAddress}
+                            onChange={(e) => setNewAddress(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="grid gap-2">
+                        <Label>
+                          {newStepType === 'deliver_to_client' ? 'Client/Location Name' : 'Supplier Name'}
+                        </Label>
+                        <Input
+                          placeholder={newStepType === 'deliver_to_client' ? 'e.g., Client Office' : 'e.g., ABC Suppliers'}
+                          value={newSupplierName}
+                          onChange={(e) => setNewSupplierName(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Address</Label>
+                        <Input
+                          placeholder="Location address"
+                          value={newAddress}
+                          onChange={(e) => setNewAddress(e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
@@ -573,7 +660,7 @@ export const SendToProductionDialog = ({
                         type="number"
                         placeholder="Qty"
                         value={tempProductQty}
-                        onChange={(e) => setTempProductQty(parseInt(e.target.value) || 1)}
+                        onChange={(e) => setTempProductQty(e.target.value)}
                       />
                       <Input
                         placeholder="Unit"
