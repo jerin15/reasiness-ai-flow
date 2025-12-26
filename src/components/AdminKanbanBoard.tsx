@@ -658,58 +658,95 @@ export const AdminKanbanBoard = () => {
   };
 
   const handleSendToProduction = async (taskId: string) => {
-    try {
-      // Find the item to check if it's a product or regular task
-      const item = tasks.find(t => t.id === taskId) as any;
-      
-      if (!item) {
-        console.error('❌ Item not found:', taskId);
-        toast.error('Item not found');
-        return;
-      }
-
-      // If it's a product, update the parent task to production
-      if (item.is_product && item.parent_task_id) {
-        console.log('📦 Sending product to production via parent task:', item.parent_task_id);
-        
-        const { error } = await supabase
-          .from('tasks')
-          .update({ 
-            status: 'production',
-            previous_status: 'done',
-            assigned_to: null,  // Unassign from designer
-            updated_at: new Date().toISOString(),
-            status_changed_at: new Date().toISOString(),
-            came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
-          })
-          .eq('id', item.parent_task_id);
-
-        if (error) throw error;
-      } else {
-        // Regular task - update it directly
-        console.log('📋 Sending regular task to production:', taskId);
-        
-        const { error } = await supabase
-          .from('tasks')
-          .update({ 
-            status: 'production',
-            previous_status: 'done',
-            assigned_to: null,  // Unassign from designer
-            updated_at: new Date().toISOString(),
-            status_changed_at: new Date().toISOString(),
-            came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
-          })
-          .eq('id', taskId);
-
-        if (error) throw error;
-      }
-
-      toast.success("Task sent to Production pipeline for estimation and operations teams");
-      await fetchTasks();
-    } catch (error) {
-      console.error('Error sending task to production:', error);
-      toast.error('Failed to send task to production');
+    // Find the item to check if it's a product or regular task
+    const item = tasks.find(t => t.id === taskId) as any;
+    
+    if (!item) {
+      console.error('❌ Item not found:', taskId);
+      toast.error('Item not found');
+      return;
     }
+
+    // First check if a linked operations task already exists to prevent duplicates
+    const targetTaskId = item.is_product && item.parent_task_id ? item.parent_task_id : taskId;
+    
+    const { data: existingLinkedTask } = await supabase
+      .from('tasks')
+      .select('id')
+      .eq('linked_task_id', targetTaskId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (existingLinkedTask) {
+      console.log('⚠️ Operations task already exists for this task:', existingLinkedTask.id);
+      // Just update the original task and show success - don't create duplicate
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: 'production',
+          previous_status: 'done',
+          assigned_to: null,
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString(),
+          came_from_designer_done: false,
+          admin_removed_from_production: true // Hide from FOR PRODUCTION since it's already sent
+        })
+        .eq('id', targetTaskId);
+
+      if (error) {
+        console.error('Error updating task:', error);
+      }
+      
+      toast.success("Task sent to Production pipeline for operations team");
+      await fetchTasks();
+      return;
+    }
+
+    // If it's a product, update the parent task to production
+    if (item.is_product && item.parent_task_id) {
+      console.log('📦 Sending product to production via parent task:', item.parent_task_id);
+      
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: 'production',
+          previous_status: 'done',
+          assigned_to: null,  // Unassign from designer
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString(),
+          came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
+        })
+        .eq('id', item.parent_task_id);
+
+      if (error) {
+        console.error('Error updating parent task:', error);
+        // Don't show error toast - the task may still have been sent
+      }
+    } else {
+      // Regular task - update it directly
+      console.log('📋 Sending regular task to production:', taskId);
+      
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: 'production',
+          previous_status: 'done',
+          assigned_to: null,  // Unassign from designer
+          updated_at: new Date().toISOString(),
+          status_changed_at: new Date().toISOString(),
+          came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
+        })
+        .eq('id', taskId);
+
+      if (error) {
+        console.error('Error updating task:', error);
+        // Don't show error toast - the task may still have been sent
+      }
+    }
+
+    // Always show success since the database trigger handles creating the operations task
+    toast.success("Task sent to Production pipeline for operations team");
+    await fetchTasks();
   };
 
   const handleDeleteFromProduction = async (taskId: string) => {
