@@ -23,7 +23,7 @@ export function CreateTaskChooserDialog({
 }: CreateTaskChooserDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md sm:w-full overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardList className="h-5 w-5 text-primary" />
@@ -38,24 +38,24 @@ export function CreateTaskChooserDialog({
           {/* Operations Task */}
           <Button
             variant="outline"
-            className="h-auto p-4 flex flex-col items-start gap-2 text-left hover:border-primary hover:bg-primary/5"
+            className="h-auto w-full max-w-full p-4 flex flex-col items-start gap-2 text-left whitespace-normal hover:border-primary hover:bg-primary/5"
             onClick={() => {
               onOpenChange(false);
               onChooseOperations();
             }}
           >
-            <div className="flex items-center gap-3 w-full">
+            <div className="flex items-center gap-3 w-full min-w-0">
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-950 flex items-center justify-center">
                 <Truck className="h-5 w-5 text-amber-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold">Operations Task</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground break-words">
                   For Melvin/Jigeesh - with workflow steps, supplier pickups, and deliveries
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 ml-13 pl-13">
+            <div className="flex gap-2 pl-[3.25rem]">
               <span className="inline-flex items-center text-xs text-muted-foreground">
                 <Package className="h-3 w-3 mr-1" /> Workflow Steps
               </span>
@@ -65,19 +65,19 @@ export function CreateTaskChooserDialog({
           {/* General Task */}
           <Button
             variant="outline"
-            className="h-auto p-4 flex flex-col items-start gap-2 text-left hover:border-primary hover:bg-primary/5"
+            className="h-auto w-full max-w-full p-4 flex flex-col items-start gap-2 text-left whitespace-normal hover:border-primary hover:bg-primary/5"
             onClick={() => {
               onOpenChange(false);
               onChooseGeneral();
             }}
           >
-            <div className="flex items-center gap-3 w-full">
+            <div className="flex items-center gap-3 w-full min-w-0">
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-950 flex items-center justify-center">
                 <Users className="h-5 w-5 text-blue-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold">General Task</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground break-words">
                   For estimation, designers, or other team members
                 </p>
               </div>
