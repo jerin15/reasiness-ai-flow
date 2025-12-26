@@ -354,7 +354,7 @@ export const EditTaskDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[700px] h-[90vh] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Edit Task
@@ -371,15 +371,15 @@ export const EditTaskDialog = ({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="edit" className="flex-1 overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs defaultValue="edit" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
             <TabsTrigger value="edit">Edit Task</TabsTrigger>
             <TabsTrigger value="activity">Activity Timeline</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="edit" className="h-full overflow-hidden">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4 h-full overflow-hidden">
-              <div className="space-y-4 overflow-y-auto pr-2 max-h-[calc(90vh-16rem)]">
+          <TabsContent value="edit" className="flex-1 overflow-hidden mt-2">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 h-full">
+              <div className="space-y-4 overflow-y-auto pr-2 flex-1">
               {/* ... keep existing form fields ... */}
               <div className="space-y-2">
                 <Label htmlFor="edit-title">Title *</Label>
