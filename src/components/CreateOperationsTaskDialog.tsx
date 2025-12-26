@@ -47,12 +47,15 @@ interface WorkflowStepDraft {
   location_notes: string;
   due_date: string;
   products: ProductDraft[];
+  // For supplier_to_supplier: from supplier info
+  from_supplier_name?: string;
+  from_supplier_address?: string;
 }
 
 // Product being drafted for new step
 interface NewStepProduct {
   product_name: string;
-  quantity: number;
+  quantity: string;
   unit: string;
   estimated_price: string;
 }
@@ -118,11 +121,15 @@ export const CreateOperationsTaskDialog = ({
   const [newNotes, setNewNotes] = useState('');
   const [newStepDueDate, setNewStepDueDate] = useState('');
   
+  // For supplier_to_supplier step
+  const [fromSupplierName, setFromSupplierName] = useState('');
+  const [fromSupplierAddress, setFromSupplierAddress] = useState('');
+  
   // Products being drafted for the new step
   const [newStepProducts, setNewStepProducts] = useState<NewStepProduct[]>([]);
   const [showNewProductForm, setShowNewProductForm] = useState(false);
   const [tempProductName, setTempProductName] = useState('');
-  const [tempProductQty, setTempProductQty] = useState<number>(1);
+  const [tempProductQty, setTempProductQty] = useState<string>('');
   const [tempProductUnit, setTempProductUnit] = useState('pcs');
   const [tempProductPrice, setTempProductPrice] = useState('');
 
@@ -166,9 +173,11 @@ export const CreateOperationsTaskDialog = ({
     setNewStepProducts([]);
     setShowNewProductForm(false);
     setTempProductName('');
-    setTempProductQty(1);
+    setTempProductQty('');
     setTempProductUnit('pcs');
     setTempProductPrice('');
+    setFromSupplierName('');
+    setFromSupplierAddress('');
   };
 
   const handleAddTempProduct = () => {
@@ -183,7 +192,7 @@ export const CreateOperationsTaskDialog = ({
       estimated_price: tempProductPrice
     }]);
     setTempProductName('');
-    setTempProductQty(1);
+    setTempProductQty('');
     setTempProductUnit('pcs');
     setTempProductPrice('');
     setShowNewProductForm(false);
@@ -194,7 +203,17 @@ export const CreateOperationsTaskDialog = ({
   };
 
   const handleAddStep = () => {
-    if (!newSupplierName.trim() && newStepType !== 'deliver_to_client') {
+    // Validation for supplier_to_supplier
+    if (newStepType === 'supplier_to_supplier') {
+      if (!fromSupplierName.trim()) {
+        toast.error('Please enter the "From" supplier name');
+        return;
+      }
+      if (!newSupplierName.trim()) {
+        toast.error('Please enter the "To" supplier name');
+        return;
+      }
+    } else if (!newSupplierName.trim() && newStepType !== 'deliver_to_client') {
       toast.error('Please enter a supplier/location name');
       return;
     }
@@ -209,10 +228,14 @@ export const CreateOperationsTaskDialog = ({
       products: newStepProducts.map(p => ({
         id: crypto.randomUUID(),
         product_name: p.product_name,
-        quantity: p.quantity,
+        quantity: parseFloat(p.quantity) || 1,
         unit: p.unit,
         estimated_price: p.estimated_price ? parseFloat(p.estimated_price) : null
-      }))
+      })),
+      ...(newStepType === 'supplier_to_supplier' && {
+        from_supplier_name: fromSupplierName.trim(),
+        from_supplier_address: fromSupplierAddress.trim()
+      })
     };
 
     setWorkflowSteps([...workflowSteps, newStep]);
@@ -223,6 +246,8 @@ export const CreateOperationsTaskDialog = ({
     setNewStepType('collect');
     setNewStepProducts([]);
     setShowNewProductForm(false);
+    setFromSupplierName('');
+    setFromSupplierAddress('');
   };
 
   const handleRemoveStep = (stepId: string) => {
@@ -512,7 +537,14 @@ export const CreateOperationsTaskDialog = ({
                       <Label>Step Type</Label>
                       <Select 
                         value={newStepType} 
-                        onValueChange={(v: any) => setNewStepType(v)}
+                        onValueChange={(v: any) => {
+                          setNewStepType(v);
+                          // Reset fields when switching type
+                          if (v !== 'supplier_to_supplier') {
+                            setFromSupplierName('');
+                            setFromSupplierAddress('');
+                          }
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -546,35 +578,70 @@ export const CreateOperationsTaskDialog = ({
                       </Select>
                     </div>
 
-                    <div className="grid gap-2">
-                      <Label>
-                        {newStepType === 'deliver_to_client'
-                          ? 'Location Name'
-                          : newStepType === 'supplier_to_supplier'
-                            ? 'From → To Supplier'
-                            : 'Supplier Name'}
-                      </Label>
-                      <Input
-                        placeholder={
-                          newStepType === 'deliver_to_client'
-                            ? 'e.g., Client Office'
-                            : newStepType === 'supplier_to_supplier'
-                              ? 'e.g., Supplier A → Supplier B'
-                              : 'e.g., ABC Suppliers'
-                        }
-                        value={newSupplierName}
-                        onChange={(e) => setNewSupplierName(e.target.value)}
-                      />
-                    </div>
+                    {newStepType === 'supplier_to_supplier' ? (
+                      <>
+                        {/* FROM Supplier */}
+                        <div className="border rounded-lg p-3 space-y-3 bg-blue-50 dark:bg-blue-950/30">
+                          <Label className="text-blue-700 dark:text-blue-400 font-semibold flex items-center gap-2">
+                            <Package className="h-4 w-4" />
+                            Collect FROM
+                          </Label>
+                          <div className="grid gap-2">
+                            <Input
+                              placeholder="From Supplier Name"
+                              value={fromSupplierName}
+                              onChange={(e) => setFromSupplierName(e.target.value)}
+                            />
+                            <Input
+                              placeholder="From Supplier Address"
+                              value={fromSupplierAddress}
+                              onChange={(e) => setFromSupplierAddress(e.target.value)}
+                            />
+                          </div>
+                        </div>
 
-                    <div className="grid gap-2">
-                      <Label>Address</Label>
-                      <Input
-                        placeholder="Full address"
-                        value={newAddress}
-                        onChange={(e) => setNewAddress(e.target.value)}
-                      />
-                    </div>
+                        {/* TO Supplier */}
+                        <div className="border rounded-lg p-3 space-y-3 bg-purple-50 dark:bg-purple-950/30">
+                          <Label className="text-purple-700 dark:text-purple-400 font-semibold flex items-center gap-2">
+                            <Truck className="h-4 w-4" />
+                            Deliver TO
+                          </Label>
+                          <div className="grid gap-2">
+                            <Input
+                              placeholder="To Supplier Name"
+                              value={newSupplierName}
+                              onChange={(e) => setNewSupplierName(e.target.value)}
+                            />
+                            <Input
+                              placeholder="To Supplier Address"
+                              value={newAddress}
+                              onChange={(e) => setNewAddress(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid gap-2">
+                          <Label>
+                            {newStepType === 'deliver_to_client' ? 'Client/Location Name' : 'Supplier Name'}
+                          </Label>
+                          <Input
+                            placeholder={newStepType === 'deliver_to_client' ? 'e.g., Client Office' : 'e.g., ABC Suppliers'}
+                            value={newSupplierName}
+                            onChange={(e) => setNewSupplierName(e.target.value)}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Address</Label>
+                          <Input
+                            placeholder="Full address"
+                            value={newAddress}
+                            onChange={(e) => setNewAddress(e.target.value)}
+                          />
+                        </div>
+                      </>
+                    )}
 
                     <div className="grid gap-2">
                       <Label>Notes (optional)</Label>
@@ -649,9 +716,8 @@ export const CreateOperationsTaskDialog = ({
                         <div className="grid grid-cols-3 gap-2">
                           <Input
                             type="number"
-                            min={1}
                             value={tempProductQty}
-                            onChange={(e) => setTempProductQty(parseInt(e.target.value) || 1)}
+                            onChange={(e) => setTempProductQty(e.target.value)}
                             className="h-9"
                             placeholder="Qty"
                           />
