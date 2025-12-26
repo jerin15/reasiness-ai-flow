@@ -25,7 +25,7 @@ import { toast } from "sonner";
 export type WorkflowStep = {
   id: string;
   step_order: number;
-  step_type: 'collect' | 'deliver_to_supplier' | 'deliver_to_client';
+  step_type: 'collect' | 'deliver_to_supplier' | 'deliver_to_client' | 'supplier_to_supplier';
   supplier_name: string | null;
   status: 'pending' | 'in_progress' | 'completed' | 'skipped';
   location_address: string | null;

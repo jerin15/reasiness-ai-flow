@@ -40,7 +40,7 @@ interface ProductDraft {
 
 interface WorkflowStepDraft {
   id: string;
-  step_type: 'collect' | 'deliver_to_supplier' | 'deliver_to_client';
+  step_type: 'collect' | 'deliver_to_supplier' | 'deliver_to_client' | 'supplier_to_supplier';
   supplier_name: string;
   location_address: string;
   location_notes: string;
@@ -500,6 +500,7 @@ export const SendToProductionDialog = ({
                         <SelectContent>
                           <SelectItem value="collect">Collect from Supplier</SelectItem>
                           <SelectItem value="deliver_to_supplier">Deliver to Supplier</SelectItem>
+                          <SelectItem value="supplier_to_supplier">Supplier to Supplier</SelectItem>
                           <SelectItem value="deliver_to_client">Deliver to Client</SelectItem>
                         </SelectContent>
                       </Select>
@@ -508,7 +509,11 @@ export const SendToProductionDialog = ({
                     <div className="grid gap-2">
                       <Label>Supplier/Location Name</Label>
                       <Input
-                        placeholder="e.g., ABC Suppliers"
+                        placeholder={
+                          newStepType === 'supplier_to_supplier'
+                            ? 'e.g., Supplier A → Supplier B'
+                            : 'e.g., ABC Suppliers'
+                        }
                         value={newSupplierName}
                         onChange={(e) => setNewSupplierName(e.target.value)}
                       />
