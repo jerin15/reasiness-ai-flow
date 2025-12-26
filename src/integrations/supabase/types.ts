@@ -905,6 +905,7 @@ export type Database = {
           position: number
           product_name: string
           quantity: number | null
+          supplier_name: string | null
           task_id: string
           unit: string | null
           updated_at: string | null
@@ -923,6 +924,7 @@ export type Database = {
           position?: number
           product_name: string
           quantity?: number | null
+          supplier_name?: string | null
           task_id: string
           unit?: string | null
           updated_at?: string | null
@@ -941,6 +943,7 @@ export type Database = {
           position?: number
           product_name?: string
           quantity?: number | null
+          supplier_name?: string | null
           task_id?: string
           unit?: string | null
           updated_at?: string | null
@@ -1045,6 +1048,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string | null
+          due_date: string | null
           id: string
           location_address: string | null
           location_notes: string | null
@@ -1061,6 +1065,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
+          due_date?: string | null
           id?: string
           location_address?: string | null
           location_notes?: string | null
@@ -1077,6 +1082,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
+          due_date?: string | null
           id?: string
           location_address?: string | null
           location_notes?: string | null

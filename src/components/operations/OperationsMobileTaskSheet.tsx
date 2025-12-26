@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { 
@@ -26,10 +25,12 @@ import {
   User, 
   Route,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  ShoppingCart
 } from "lucide-react";
 import { TaskWorkflowSteps } from "./TaskWorkflowSteps";
 import { OperationsActivityLog } from "../OperationsActivityLog";
+import { TaskProductsManager } from "../TaskProductsManager";
 import { format, isToday, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { OperationsTaskWithSteps } from "./OperationsMobileTaskCard";
@@ -145,16 +146,20 @@ export const OperationsMobileTaskSheet = ({
         </DrawerHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <TabsList className="w-full grid grid-cols-3 h-12 rounded-none border-b px-2 bg-muted/30 shrink-0">
-            <TabsTrigger value="workflow" className="text-xs data-[state=active]:bg-background gap-1.5">
+          <TabsList className="w-full grid grid-cols-4 h-12 rounded-none border-b px-2 bg-muted/30 shrink-0">
+            <TabsTrigger value="workflow" className="text-xs data-[state=active]:bg-background gap-1">
               <Route className="h-4 w-4" />
               Steps
             </TabsTrigger>
-            <TabsTrigger value="details" className="text-xs data-[state=active]:bg-background gap-1.5">
-              <MapPin className="h-4 w-4" />
-              Details
+            <TabsTrigger value="products" className="text-xs data-[state=active]:bg-background gap-1">
+              <ShoppingCart className="h-4 w-4" />
+              Items
             </TabsTrigger>
-            <TabsTrigger value="activity" className="text-xs data-[state=active]:bg-background gap-1.5">
+            <TabsTrigger value="details" className="text-xs data-[state=active]:bg-background gap-1">
+              <MapPin className="h-4 w-4" />
+              Info
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="text-xs data-[state=active]:bg-background gap-1">
               <ClipboardList className="h-4 w-4" />
               Log
             </TabsTrigger>
@@ -167,6 +172,15 @@ export const OperationsMobileTaskSheet = ({
                   taskId={task.id} 
                   taskTitle={task.title}
                   onStepChange={onTaskUpdated}
+                />
+              </TabsContent>
+
+              <TabsContent value="products" className="mt-0">
+                <TaskProductsManager 
+                  taskId={task.id}
+                  isAdmin={false}
+                  userRole="operations"
+                  readOnly={false}
                 />
               </TabsContent>
 
