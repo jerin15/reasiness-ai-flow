@@ -182,7 +182,7 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
     setFilteredTasks(filtered);
   };
 
-  const uniqueClients = Array.from(new Set(tasks.map(t => t.client_name).filter(Boolean)));
+  const uniqueClients = Array.from(new Set(tasks.map(t => t.client_name).filter((c): c is string => Boolean(c) && c.trim() !== '')));
   const uniquePipelines = Array.from(new Set(Object.values(statusPipelines)));
 
   const getTasksByPipeline = () => {
@@ -343,7 +343,7 @@ export function TeamMemberReportDialog({ open, onOpenChange }: TeamMemberReportD
                 <SelectContent>
                   <SelectItem value="all">All Clients</SelectItem>
                   {uniqueClients.map(client => (
-                    <SelectItem key={client} value={client || ""}>{client}</SelectItem>
+                    <SelectItem key={client} value={client}>{client}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
