@@ -337,6 +337,24 @@ const OperationsWhiteboard = () => {
     }
   };
 
+  const deleteProductionTask = async (taskId: string) => {
+    if (!confirm('Are you sure you want to delete this production task?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+      toast.success("Production task deleted");
+      fetchOperationsTasks();
+    } catch (error) {
+      console.error('Error deleting production task:', error);
+      toast.error("Failed to delete task");
+    }
+  };
+
   const getStepProgress = (task: OperationsTask) => {
     if (!task.workflow_steps || task.workflow_steps.length === 0) return null;
     const completed = task.workflow_steps.filter(s => s.status === 'completed').length;
@@ -483,12 +501,24 @@ const OperationsWhiteboard = () => {
 
                         <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                           <span>Created {format(new Date(task.created_at), 'MMM d, h:mm a')}</span>
-                          {task.due_date && (
-                            <span className="flex items-center gap-1">
-                              <AlertTriangle className="h-3 w-3" />
-                              Due {format(new Date(task.due_date), 'MMM d')}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {task.due_date && (
+                              <span className="flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Due {format(new Date(task.due_date), 'MMM d')}
+                              </span>
+                            )}
+                            {isAdmin && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => deleteProductionTask(task.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
