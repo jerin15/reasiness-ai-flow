@@ -166,8 +166,9 @@ export const MobileNotificationToast = () => {
           try {
             const notif = payload.new as any;
 
-            // Check if notification is for this user
-            if (notif.recipient_id && notif.recipient_id !== currentUserId && !notif.is_broadcast) {
+            // CRITICAL: Only show notifications meant for THIS user
+            // recipient_id must match current user (even for broadcasts, they have specific recipient_ids)
+            if (notif.recipient_id !== currentUserId) {
               return;
             }
 
