@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ListTodo, Plus } from "lucide-react";
+import { ListTodo, Plus, MapPin, Loader2 } from "lucide-react";
 import { AddTaskDialog } from "./AddTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
 import { EstimationPipelineAnalytics } from "./EstimationPipelineAnalytics";
+import { OperationsLocationMap } from "./operations/OperationsLocationMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
@@ -55,6 +56,10 @@ export const AdminDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [mapboxToken, setMapboxToken] = useState<string>('');
+  const [mapLoading, setMapLoading] = useState(false);
+  const [operationsUsers, setOperationsUsers] = useState<Array<{ id: string; full_name: string | null; email: string }>>([]);
   
   // Channel ref for managing subscription lifecycle
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -64,6 +69,8 @@ export const AdminDashboard = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      setCurrentUserId(user.id);
 
       // Fetch tasks created by this admin
       const { data: myTasks, error: myTasksError } = await supabase
@@ -141,6 +148,49 @@ export const AdminDashboard = () => {
   
   // Connection-aware refetch: auto-refetch on internet restore, tab focus, and fallback polling
   useConnectionAwareRefetch(fetchTasksAndStats, { pollingInterval: 30000, enablePolling: true });
+
+  // Fetch operations users for the map
+  const fetchOperationsUsers = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('user_id, profiles(id, full_name, email)')
+        .eq('role', 'operations');
+      
+      if (data) {
+        const users = data
+          .map(d => d.profiles)
+          .filter(Boolean) as Array<{ id: string; full_name: string | null; email: string }>;
+        setOperationsUsers(users);
+      }
+    } catch (error) {
+      console.error('Error fetching operations users:', error);
+    }
+  }, []);
+
+  // Fetch Mapbox token for admins
+  const fetchMapboxToken = useCallback(async () => {
+    try {
+      setMapLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.access_token) {
+        const response = await supabase.functions.invoke('get-mapbox-token', {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+        
+        if (response.data?.token) {
+          setMapboxToken(response.data.token);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching mapbox token:', error);
+    } finally {
+      setMapLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     console.log('🚀 AdminDashboard: useEffect triggered');
@@ -258,6 +308,10 @@ export const AdminDashboard = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="analytics">Pipeline Analytics</TabsTrigger>
+          <TabsTrigger value="livemap" onClick={() => { fetchMapboxToken(); fetchOperationsUsers(); }}>
+            <MapPin className="h-4 w-4 mr-1" />
+            Live Map
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -394,6 +448,44 @@ export const AdminDashboard = () => {
 
         <TabsContent value="analytics">
           <EstimationPipelineAnalytics />
+        </TabsContent>
+
+        <TabsContent value="livemap">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                Operations Team Live Location
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Track Melvin and Jigeesh's live locations in real-time
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {mapLoading ? (
+                <div className="h-[500px] flex flex-col items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="text-muted-foreground mt-2">Loading map...</p>
+                </div>
+              ) : mapboxToken ? (
+                <div className="h-[500px]">
+                  <OperationsLocationMap
+                    userId={currentUserId}
+                    mapboxToken={mapboxToken}
+                    operationsUsers={operationsUsers}
+                  />
+                </div>
+              ) : (
+                <div className="h-[500px] flex flex-col items-center justify-center text-center p-6">
+                  <MapPin className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold">Map Not Available</h3>
+                  <p className="text-muted-foreground text-sm max-w-md">
+                    Mapbox token is not configured. Please contact your administrator.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
