@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAlwaysOnLocation } from '@/hooks/useAlwaysOnLocation';
 import { 
   Map, 
   Bell, 
@@ -18,7 +19,8 @@ import {
   AlertTriangle,
   LayoutList,
   RefreshCw,
-  CalendarDays
+  CalendarDays,
+  Navigation
 } from 'lucide-react';
 import {
   Sheet,
@@ -60,6 +62,13 @@ export const OperationsMobileShell = ({
   const [selectedTask, setSelectedTask] = useState<OperationsTaskWithSteps | null>(null);
   const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
+
+  // Always-on location tracking - starts automatically for operations team
+  const { isTracking } = useAlwaysOnLocation({
+    userId,
+    enabled: true,
+    updateInterval: 10000, // Update every 10 seconds
+  });
 
   // Fetch tasks with workflow steps
   const fetchTasks = useCallback(async () => {
@@ -232,6 +241,12 @@ export const OperationsMobileShell = ({
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Radio className="h-3 w-3 text-green-500 animate-pulse" />
                 <span>Operations</span>
+                {isTracking && (
+                  <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] gap-0.5 border-green-500/50 text-green-600">
+                    <Navigation className="h-2.5 w-2.5" />
+                    Live
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
