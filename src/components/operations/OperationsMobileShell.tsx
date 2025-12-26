@@ -79,8 +79,9 @@ export const OperationsMobileShell = ({
         .select(`
           id, title, description, client_name, suppliers, 
           delivery_address, delivery_instructions, due_date,
-          status, priority, created_at, assigned_to,
-          profiles:assigned_to (id, full_name, email)
+          status, priority, created_at, updated_at, assigned_to, last_updated_by,
+          profiles:assigned_to (id, full_name, email),
+          last_updated_profile:last_updated_by (id, full_name, email)
         `)
         .eq('status', 'production')
         .is('deleted_at', null)
@@ -105,6 +106,7 @@ export const OperationsMobileShell = ({
         const tasksWithSteps = taskData.map(task => ({
           ...task,
           assigned_profile: task.profiles as any,
+          last_updated_profile: task.last_updated_profile as any,
           workflow_steps: (stepsData || []).filter(s => s.task_id === task.id) as WorkflowStep[]
         }));
 

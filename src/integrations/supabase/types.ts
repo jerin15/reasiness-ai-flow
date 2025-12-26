@@ -1182,6 +1182,7 @@ export type Database = {
           id: string
           is_personal_admin_task: boolean | null
           last_activity_at: string | null
+          last_updated_by: string | null
           linked_task_id: string | null
           mockup_completed_by_designer: boolean | null
           my_status: Database["public"]["Enums"]["my_task_status"] | null
@@ -1222,6 +1223,7 @@ export type Database = {
           id?: string
           is_personal_admin_task?: boolean | null
           last_activity_at?: string | null
+          last_updated_by?: string | null
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
@@ -1262,6 +1264,7 @@ export type Database = {
           id?: string
           is_personal_admin_task?: boolean | null
           last_activity_at?: string | null
+          last_updated_by?: string | null
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
@@ -1292,6 +1295,13 @@ export type Database = {
           {
             foreignKeyName: "tasks_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_last_updated_by_fkey"
+            columns: ["last_updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

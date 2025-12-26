@@ -15,7 +15,8 @@ import {
   Circle,
   PlayCircle,
   Truck,
-  ArrowRight
+  ArrowRight,
+  Edit3
 } from "lucide-react";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -43,8 +44,15 @@ export type OperationsTaskWithSteps = {
   status: string;
   priority: string;
   created_at: string;
+  updated_at: string | null;
   assigned_to: string | null;
+  last_updated_by: string | null;
   assigned_profile?: {
+    id: string;
+    full_name: string | null;
+    email: string;
+  };
+  last_updated_profile?: {
     id: string;
     full_name: string | null;
     email: string;
@@ -82,9 +90,10 @@ export const OperationsMobileTaskCard = ({
   const [updatingStep, setUpdatingStep] = useState<string | null>(null);
   
   const isAssignedToMe = task.assigned_to === currentUserId;
+  const lastUpdatedByName = task.last_updated_profile?.full_name || task.last_updated_profile?.email;
   const priority = priorityConfig[task.priority as keyof typeof priorityConfig] || priorityConfig.medium;
   const isUrgent = task.priority === 'urgent' || task.priority === 'high';
-  
+
   // Date status
   const dueDate = task.due_date ? new Date(task.due_date) : null;
   const isOverdue = dueDate && isPast(dueDate) && !isToday(dueDate);
@@ -221,6 +230,16 @@ export const OperationsMobileTaskCard = ({
               </Badge>
             )}
           </div>
+
+          {/* Last Updated By Badge */}
+          {lastUpdatedByName && (
+            <div className="mb-3">
+              <Badge variant="outline" className="text-xs bg-violet-50 dark:bg-violet-950 border-violet-300 text-violet-700 dark:text-violet-300">
+                <Edit3 className="h-3 w-3 mr-1" />
+                Updated by {lastUpdatedByName.split(' ')[0]}
+              </Badge>
+            </div>
+          )}
 
           {/* Delivery Address Preview */}
           {task.delivery_address && (
