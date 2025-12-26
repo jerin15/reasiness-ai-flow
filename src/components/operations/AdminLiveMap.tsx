@@ -14,11 +14,13 @@ import {
   Navigation,
   Signal,
   SignalZero,
-  Truck
+  Truck,
+  Route
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { RoutePin } from './RoutePinsList';
 
 interface TeamMemberLocation {
   userId: string;
@@ -48,12 +50,15 @@ export const AdminLiveMap = ({
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const routeMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   
   const [teamLocations, setTeamLocations] = useState<TeamMemberLocation[]>([]);
+  const [allRoutePins, setAllRoutePins] = useState<Map<string, RoutePin[]>>(new Map());
   const [mapReady, setMapReady] = useState(false);
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showRoutePins, setShowRoutePins] = useState(true);
 
   // Fetch team locations from database
   const fetchTeamLocations = useCallback(async () => {
@@ -108,6 +113,39 @@ export const AdminLiveMap = ({
       console.error('Error fetching team locations:', error);
     } finally {
       setIsRefreshing(false);
+    }
+  }, [operationsUsers]);
+
+  // Fetch all route pins for all operations users
+  const fetchAllRoutePins = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const teamIds = operationsUsers.map(u => u.id);
+      
+      if (teamIds.length === 0) {
+        setAllRoutePins(new Map());
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('operations_route_pins')
+        .select('*')
+        .in('user_id', teamIds)
+        .eq('route_date', today)
+        .order('pin_order', { ascending: true });
+
+      if (error) throw error;
+
+      const pinsMap = new Map<string, RoutePin[]>();
+      (data as RoutePin[])?.forEach(pin => {
+        const existing = pinsMap.get(pin.user_id) || [];
+        existing.push(pin);
+        pinsMap.set(pin.user_id, existing);
+      });
+
+      setAllRoutePins(pinsMap);
+    } catch (error) {
+      console.error('Error fetching route pins:', error);
     }
   }, [operationsUsers]);
 
@@ -217,31 +255,65 @@ export const AdminLiveMap = ({
   // Initial fetch and periodic refresh
   useEffect(() => {
     fetchTeamLocations();
-    const interval = setInterval(fetchTeamLocations, 10000); // Refresh every 10 seconds
+    fetchAllRoutePins();
+    const interval = setInterval(() => {
+      fetchTeamLocations();
+      fetchAllRoutePins();
+    }, 10000);
     return () => clearInterval(interval);
-  }, [fetchTeamLocations]);
+  }, [fetchTeamLocations, fetchAllRoutePins]);
 
-  // Real-time subscription for presence changes
+  // Real-time subscription for presence and route pins changes
   useEffect(() => {
     const channel = supabase
-      .channel('admin-team-locations')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_presence',
-        },
-        () => {
-          fetchTeamLocations();
-        }
-      )
+      .channel('admin-team-locations-pins')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, () => fetchTeamLocations())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'operations_route_pins' }, () => fetchAllRoutePins())
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchTeamLocations]);
+  }, [fetchTeamLocations, fetchAllRoutePins]);
+
+  // Update route pin markers
+  useEffect(() => {
+    if (!mapReady || !map.current || !showRoutePins) {
+      routeMarkersRef.current.forEach(m => m.remove());
+      routeMarkersRef.current.clear();
+      return;
+    }
+
+    const allPinIds = new Set<string>();
+    allRoutePins.forEach((pins, memberId) => {
+      const member = operationsUsers.find(u => u.id === memberId);
+      const memberName = member?.full_name || member?.email?.split('@')[0] || 'Unknown';
+      
+      pins.forEach((pin, index) => {
+        allPinIds.add(pin.id);
+        const existing = routeMarkersRef.current.get(pin.id);
+        if (existing) {
+          existing.setLngLat([pin.longitude, pin.latitude]);
+        } else {
+          const el = document.createElement('div');
+          const isCompleted = pin.status === 'completed';
+          el.innerHTML = `<div class="w-6 h-6 ${isCompleted ? 'bg-green-500' : 'bg-orange-500'} rounded-full border-2 border-white shadow-md flex items-center justify-center text-white font-bold text-xs">${index + 1}</div>`;
+          
+          const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+            .setLngLat([pin.longitude, pin.latitude])
+            .setPopup(new mapboxgl.Popup({ offset: 15 }).setHTML(`
+              <div class="p-2"><strong>${memberName}</strong><br/><span class="text-sm">${pin.title}</span><br/><span class="text-xs ${isCompleted ? 'text-green-600' : 'text-orange-600'}">${isCompleted ? '✓ Done' : '○ Pending'}</span></div>
+            `))
+            .addTo(map.current!);
+          routeMarkersRef.current.set(pin.id, marker);
+        }
+      });
+    });
+
+    routeMarkersRef.current.forEach((m, id) => {
+      if (!allPinIds.has(id)) { m.remove(); routeMarkersRef.current.delete(id); }
+    });
+  }, [mapReady, allRoutePins, showRoutePins, operationsUsers]);
 
   const focusOnMember = (member: TeamMemberLocation) => {
     setSelectedMember(member.userId);
@@ -287,14 +359,24 @@ export const AdminLiveMap = ({
               <Users className="h-5 w-5 text-primary" />
               Operations Team
             </h3>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={fetchTeamLocations}
-              disabled={isRefreshing}
-            >
-              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button 
+                variant={showRoutePins ? "default" : "ghost"} 
+                size="icon" 
+                onClick={() => setShowRoutePins(!showRoutePins)}
+                title="Toggle route pins"
+              >
+                <Route className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => { fetchTeamLocations(); fetchAllRoutePins(); }}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              </Button>
+            </div>
           </div>
           
           <div className="flex items-center justify-between text-sm">
