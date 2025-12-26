@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Loader2, Plus, User } from "lucide-react";
 
 type OpsUser = { id: string; full_name: string | null; email: string };
@@ -28,6 +29,8 @@ export function CreateOperationsWhiteboardTaskDialog({
 }: CreateOperationsWhiteboardTaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [supplierName, setSupplierName] = useState("");
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [opsUsers, setOpsUsers] = useState<OpsUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -41,6 +44,8 @@ export function CreateOperationsWhiteboardTaskDialog({
     // Reset form on open
     setTitle("");
     setDescription("");
+    setClientName("");
+    setSupplierName("");
     setAssigneeId("");
 
     const load = async () => {
@@ -84,11 +89,20 @@ export function CreateOperationsWhiteboardTaskDialog({
         return;
       }
 
+      // Build description with client/supplier info
+      let fullDescription = description.trim() || "";
+      if (clientName.trim() || supplierName.trim()) {
+        const parts = [];
+        if (clientName.trim()) parts.push(`Client: ${clientName.trim()}`);
+        if (supplierName.trim()) parts.push(`Supplier: ${supplierName.trim()}`);
+        fullDescription = parts.join("\n") + (fullDescription ? "\n\n" + fullDescription : "");
+      }
+
       const { error } = await supabase
         .from("operations_whiteboard" as any)
         .insert({
           title: title.trim(),
-          description: description.trim() || null,
+          description: fullDescription || null,
           assigned_to: assigneeId || null,
           created_by: user.id,
         });
@@ -112,23 +126,55 @@ export function CreateOperationsWhiteboardTaskDialog({
         <DialogHeader>
           <DialogTitle>Create Operations Task</DialogTitle>
           <DialogDescription>
-            This will appear on the Operations Whiteboard for Melvin/Jigeesh to tick off.
+            Create a task for the operations team.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Title</label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Pick up supplier materials" />
+            <Label htmlFor="title">Title</Label>
+            <Input 
+              id="title"
+              value={title} 
+              onChange={(e) => setTitle(e.target.value)} 
+              placeholder="e.g., Pick up supplier materials" 
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="client">Client Name</Label>
+              <Input 
+                id="client"
+                value={clientName} 
+                onChange={(e) => setClientName(e.target.value)} 
+                placeholder="Client name" 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="supplier">Supplier Name</Label>
+              <Input 
+                id="supplier"
+                value={supplierName} 
+                onChange={(e) => setSupplierName(e.target.value)} 
+                placeholder="Supplier name" 
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Description (optional)</label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Add any notes, addresses, or instructions..." />
+            <Label htmlFor="description">Description (optional)</Label>
+            <Textarea 
+              id="description"
+              value={description} 
+              onChange={(e) => setDescription(e.target.value)} 
+              rows={3} 
+              placeholder="Add any notes, addresses, or instructions..." 
+            />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Assign to (optional)</label>
+            <Label>Assign to (optional)</Label>
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
               <select
