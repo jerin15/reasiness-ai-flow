@@ -48,6 +48,14 @@ interface WorkflowStepDraft {
   products: ProductDraft[];
 }
 
+// Product being drafted for new step
+interface NewStepProduct {
+  product_name: string;
+  quantity: number;
+  unit: string;
+  estimated_price: string;
+}
+
 interface OperationsUser {
   id: string;
   full_name: string | null;
@@ -102,6 +110,14 @@ export const CreateOperationsTaskDialog = ({
   const [newAddress, setNewAddress] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [newStepDueDate, setNewStepDueDate] = useState('');
+  
+  // Products being drafted for the new step
+  const [newStepProducts, setNewStepProducts] = useState<NewStepProduct[]>([]);
+  const [showNewProductForm, setShowNewProductForm] = useState(false);
+  const [tempProductName, setTempProductName] = useState('');
+  const [tempProductQty, setTempProductQty] = useState<number>(1);
+  const [tempProductUnit, setTempProductUnit] = useState('pcs');
+  const [tempProductPrice, setTempProductPrice] = useState('');
 
   // Fetch operations team members
   useEffect(() => {
@@ -140,6 +156,34 @@ export const CreateOperationsTaskDialog = ({
     setNewAddress('');
     setNewNotes('');
     setNewStepDueDate('');
+    setNewStepProducts([]);
+    setShowNewProductForm(false);
+    setTempProductName('');
+    setTempProductQty(1);
+    setTempProductUnit('pcs');
+    setTempProductPrice('');
+  };
+
+  const handleAddTempProduct = () => {
+    if (!tempProductName.trim()) {
+      toast.error('Please enter a product name');
+      return;
+    }
+    setNewStepProducts([...newStepProducts, {
+      product_name: tempProductName.trim(),
+      quantity: tempProductQty,
+      unit: tempProductUnit,
+      estimated_price: tempProductPrice
+    }]);
+    setTempProductName('');
+    setTempProductQty(1);
+    setTempProductUnit('pcs');
+    setTempProductPrice('');
+    setShowNewProductForm(false);
+  };
+
+  const handleRemoveTempProduct = (index: number) => {
+    setNewStepProducts(newStepProducts.filter((_, i) => i !== index));
   };
 
   const handleAddStep = () => {
@@ -155,7 +199,13 @@ export const CreateOperationsTaskDialog = ({
       location_address: newAddress.trim(),
       location_notes: newNotes.trim(),
       due_date: newStepDueDate,
-      products: []
+      products: newStepProducts.map(p => ({
+        id: crypto.randomUUID(),
+        product_name: p.product_name,
+        quantity: p.quantity,
+        unit: p.unit,
+        estimated_price: p.estimated_price ? parseFloat(p.estimated_price) : null
+      }))
     };
 
     setWorkflowSteps([...workflowSteps, newStep]);
@@ -164,6 +214,8 @@ export const CreateOperationsTaskDialog = ({
     setNewNotes('');
     setNewStepDueDate('');
     setNewStepType('collect');
+    setNewStepProducts([]);
+    setShowNewProductForm(false);
   };
 
   const handleRemoveStep = (stepId: string) => {
@@ -520,13 +572,106 @@ export const CreateOperationsTaskDialog = ({
                     </div>
                   </div>
 
+                  {/* Products Section for new step */}
+                  <div className="border-t pt-3 mt-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <FileText className="h-4 w-4" />
+                        Products for this step ({newStepProducts.length})
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setShowNewProductForm(!showNewProductForm)}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add Product
+                      </Button>
+                    </div>
+
+                    {/* List of products added to new step */}
+                    {newStepProducts.length > 0 && (
+                      <div className="space-y-1">
+                        {newStepProducts.map((product, idx) => (
+                          <div key={idx} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2 text-sm">
+                            <span>
+                              {idx + 1}. {product.product_name} ({product.quantity} {product.unit})
+                              {product.estimated_price && ` - AED ${product.estimated_price}`}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              onClick={() => handleRemoveTempProduct(idx)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add product form */}
+                    {showNewProductForm && (
+                      <div className="bg-muted/30 rounded-lg p-3 space-y-2 border border-dashed">
+                        <Input
+                          placeholder="Product name"
+                          value={tempProductName}
+                          onChange={(e) => setTempProductName(e.target.value)}
+                          className="h-9"
+                        />
+                        <div className="grid grid-cols-3 gap-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            value={tempProductQty}
+                            onChange={(e) => setTempProductQty(parseInt(e.target.value) || 1)}
+                            className="h-9"
+                            placeholder="Qty"
+                          />
+                          <Select value={tempProductUnit} onValueChange={setTempProductUnit}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pcs">pcs</SelectItem>
+                              <SelectItem value="sqft">sqft</SelectItem>
+                              <SelectItem value="sqm">sqm</SelectItem>
+                              <SelectItem value="meters">meters</SelectItem>
+                              <SelectItem value="kg">kg</SelectItem>
+                              <SelectItem value="sets">sets</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            placeholder="Price (AED)"
+                            value={tempProductPrice}
+                            onChange={(e) => setTempProductPrice(e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" size="sm" className="flex-1 h-8" onClick={handleAddTempProduct}>
+                            Add Product
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setShowNewProductForm(false)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <Button
                     variant="outline"
                     className="w-full"
                     onClick={handleAddStep}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Step
+                    Add Step {newStepProducts.length > 0 && `(${newStepProducts.length} products)`}
                   </Button>
                 </CardContent>
               </Card>
