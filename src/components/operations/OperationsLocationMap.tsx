@@ -105,36 +105,62 @@ export const OperationsLocationMap = ({
   useEffect(() => {
     if (!mapContainer.current || !mapboxToken) return;
 
-    mapboxgl.accessToken = mapboxToken;
+    // Wait for container to have dimensions
+    const initMap = () => {
+      if (!mapContainer.current) return;
+      
+      const rect = mapContainer.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        // Container not ready, retry
+        setTimeout(initMap, 100);
+        return;
+      }
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [55.2708, 25.2048], // Dubai default
-      zoom: 12,
-      attributionControl: false,
-    });
+      try {
+        mapboxgl.accessToken = mapboxToken;
 
-    map.current.addControl(
-      new mapboxgl.NavigationControl({ visualizePitch: true }),
-      'bottom-right'
-    );
+        map.current = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: [55.2708, 25.2048], // Dubai default
+          zoom: 12,
+          attributionControl: false,
+        });
 
-    map.current.addControl(
-      new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserHeading: true,
-      }),
-      'bottom-right'
-    );
+        map.current.addControl(
+          new mapboxgl.NavigationControl({ visualizePitch: true }),
+          'bottom-right'
+        );
 
-    map.current.on('load', () => {
-      setMapReady(true);
-    });
+        map.current.addControl(
+          new mapboxgl.GeolocateControl({
+            positionOptions: { enableHighAccuracy: true },
+            trackUserLocation: true,
+            showUserHeading: true,
+          }),
+          'bottom-right'
+        );
+
+        map.current.on('load', () => {
+          console.log('Mapbox map loaded successfully');
+          setMapReady(true);
+        });
+
+        map.current.on('error', (e) => {
+          console.error('Mapbox error:', e);
+        });
+      } catch (err) {
+        console.error('Error initializing Mapbox:', err);
+      }
+    };
+
+    // Small delay to ensure container is rendered
+    setTimeout(initMap, 50);
 
     return () => {
       map.current?.remove();
+      map.current = null;
+      setMapReady(false);
     };
   }, [mapboxToken]);
 
@@ -249,7 +275,7 @@ export const OperationsLocationMap = ({
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full w-full flex flex-col" style={{ minHeight: '400px' }}>
       {/* Map Status Bar */}
       <div className="p-3 bg-background border-b flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
@@ -335,8 +361,8 @@ export const OperationsLocationMap = ({
       )}
 
       {/* Map Container */}
-      <div className="flex-1 relative min-h-[300px]">
-        <div ref={mapContainer} className="absolute inset-0" />
+      <div className="flex-1 relative" style={{ minHeight: '300px' }}>
+        <div ref={mapContainer} className="absolute inset-0 w-full h-full" style={{ minHeight: '300px' }} />
 
         {/* Team Online Indicator */}
         {teamLocations.length > 0 && (
