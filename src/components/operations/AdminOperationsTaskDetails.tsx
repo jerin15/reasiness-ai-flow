@@ -176,7 +176,7 @@ export const AdminOperationsTaskDetails = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[750px] max-w-[95vw] max-h-[90vh] overflow-hidden p-0">
+      <DialogContent className="sm:max-w-[750px] max-w-[95vw] h-[90vh] max-h-[90vh] flex flex-col overflow-hidden p-0">
         {/* Header */}
         <DialogHeader className="p-4 pb-2 border-b">
           <div className="flex items-center justify-between gap-2">
@@ -239,8 +239,8 @@ export const AdminOperationsTaskDetails = ({
         </DialogHeader>
 
         {/* Tabbed Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="w-full grid grid-cols-4 h-12 rounded-none border-b px-2 bg-muted/30">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <TabsList className="w-full grid grid-cols-4 h-12 rounded-none border-b px-2 bg-muted/30 flex-shrink-0">
             <TabsTrigger value="workflow" className="text-xs sm:text-sm data-[state=active]:bg-background">
               <Route className="h-4 w-4 sm:mr-1.5" />
               <span className="hidden sm:inline">Workflow</span>
@@ -259,7 +259,7 @@ export const AdminOperationsTaskDetails = ({
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 min-h-0">
             {/* Workflow Tab */}
             <TabsContent value="workflow" className="mt-0 space-y-4">
               <TaskWorkflowSteps 

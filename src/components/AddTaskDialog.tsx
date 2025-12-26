@@ -251,8 +251,8 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       />
       
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[500px] h-[90vh] max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center justify-between">
               <span>Create New Task</span>
               {aiGenerated && (
@@ -268,14 +268,14 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
             type="button"
             variant="outline"
             onClick={() => setShowAIInput(true)}
-            className="w-full"
+            className="w-full flex-shrink-0"
           >
             <Sparkles className="mr-2 h-4 w-4" />
             Create with AI Assistant
           </Button>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 overflow-hidden">
-            <div className="space-y-4 overflow-y-auto pr-2 max-h-[calc(90vh-16rem)]">
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
+            <div className="flex-1 space-y-4 overflow-y-auto pr-2">
             <div className="space-y-2">
               <Label htmlFor="title">Title *</Label>
               <Input
