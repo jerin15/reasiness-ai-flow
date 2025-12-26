@@ -112,8 +112,8 @@ export const OperationsMobileTaskSheet = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[95vh]">
-        <DrawerHeader className="border-b pb-4">
+      <DrawerContent className="max-h-[90vh] flex flex-col">
+        <DrawerHeader className="border-b pb-4 shrink-0">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <Package className="h-5 w-5 text-primary" />
@@ -144,7 +144,7 @@ export const OperationsMobileTaskSheet = ({
           </div>
         </DrawerHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <TabsList className="w-full grid grid-cols-3 h-12 rounded-none border-b px-2 bg-muted/30 shrink-0">
             <TabsTrigger value="workflow" className="text-xs data-[state=active]:bg-background gap-1.5">
               <Route className="h-4 w-4" />
@@ -160,8 +160,8 @@ export const OperationsMobileTaskSheet = ({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 max-h-[50vh]">
-            <div className="p-4">
+          <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div className="p-4 pb-6">
               <TabsContent value="workflow" className="mt-0">
                 <TaskWorkflowSteps 
                   taskId={task.id} 
@@ -189,7 +189,7 @@ export const OperationsMobileTaskSheet = ({
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="Select team member" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[100] bg-popover">
                       <SelectItem value="unassigned">Unassigned</SelectItem>
                       {operationsUsers.map((user) => (
                         <SelectItem key={user.id} value={user.id}>
@@ -268,10 +268,10 @@ export const OperationsMobileTaskSheet = ({
                 <OperationsActivityLog taskId={task.id} />
               </TabsContent>
             </div>
-          </ScrollArea>
+          </div>
         </Tabs>
 
-        <DrawerFooter className="border-t pt-4">
+        <DrawerFooter className="border-t pt-4 shrink-0">
           <DrawerClose asChild>
             <Button variant="outline" className="w-full h-12">
               Close
