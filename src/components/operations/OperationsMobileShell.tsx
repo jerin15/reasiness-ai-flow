@@ -17,7 +17,8 @@ import {
   Clock,
   AlertTriangle,
   LayoutList,
-  RefreshCw
+  RefreshCw,
+  CalendarDays
 } from 'lucide-react';
 import {
   Sheet,
@@ -29,6 +30,7 @@ import {
 import { OperationsLocationMap } from './OperationsLocationMap';
 import { OperationsMobileTaskCard, type OperationsTaskWithSteps, type WorkflowStep } from './OperationsMobileTaskCard';
 import { OperationsMobileTaskSheet } from './OperationsMobileTaskSheet';
+import { OperationsRouteCalendar } from './OperationsRouteCalendar';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -38,7 +40,7 @@ interface OperationsMobileShellProps {
   operationsUsers: Array<{ id: string; full_name: string | null; email: string }>;
 }
 
-type ViewMode = 'tasks' | 'map';
+type ViewMode = 'tasks' | 'calendar' | 'map';
 
 export const OperationsMobileShell = ({ 
   userId, 
@@ -286,20 +288,29 @@ export const OperationsMobileShell = ({
           <Button
             variant={viewMode === 'tasks' ? 'default' : 'outline'}
             size="sm"
-            className="flex-1 gap-2"
+            className="flex-1 gap-1.5"
             onClick={() => setViewMode('tasks')}
           >
             <LayoutList className="h-4 w-4" />
-            Tasks
+            <span className="hidden sm:inline">Tasks</span>
+          </Button>
+          <Button
+            variant={viewMode === 'calendar' ? 'default' : 'outline'}
+            size="sm"
+            className="flex-1 gap-1.5"
+            onClick={() => setViewMode('calendar')}
+          >
+            <CalendarDays className="h-4 w-4" />
+            <span className="hidden sm:inline">Routes</span>
           </Button>
           <Button
             variant={viewMode === 'map' ? 'default' : 'outline'}
             size="sm"
-            className="flex-1 gap-2"
+            className="flex-1 gap-1.5"
             onClick={() => setViewMode('map')}
           >
             <Map className="h-4 w-4" />
-            Map
+            <span className="hidden sm:inline">Map</span>
           </Button>
         </div>
 
@@ -318,7 +329,6 @@ export const OperationsMobileShell = ({
         )}
       </div>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-hidden">
         {viewMode === 'tasks' ? (
           <ScrollArea className="h-full">
@@ -401,8 +411,19 @@ export const OperationsMobileShell = ({
               )}
             </div>
           </ScrollArea>
+        ) : viewMode === 'calendar' ? (
+          // Calendar Route View
+          <OperationsRouteCalendar 
+            userId={userId}
+            onStepClick={(step) => {
+              // Find the task for this step and open it
+              const task = tasks.find(t => t.id === step.task_id);
+              if (task) {
+                handleTaskClick(task);
+              }
+            }}
+          />
         ) : (
-          // Map View
           <div className="h-full w-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
             {isMapLoading ? (
               <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-4">
