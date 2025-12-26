@@ -163,32 +163,42 @@ export const MobileNotificationToast = () => {
           table: 'urgent_notifications',
         },
         async (payload) => {
-          const notif = payload.new as any;
-          
-          // Check if notification is for this user
-          if (notif.recipient_id && notif.recipient_id !== currentUserId && !notif.is_broadcast) {
-            return;
+          try {
+            const notif = payload.new as any;
+
+            // Check if notification is for this user
+            if (notif.recipient_id && notif.recipient_id !== currentUserId && !notif.is_broadcast) {
+              return;
+            }
+
+            // Get sender info (never throw inside realtime handler)
+            const { data: sender, error: senderError } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', notif.sender_id)
+              .maybeSingle();
+
+            if (senderError) {
+              console.warn('⚠️ Urgent sender lookup failed:', senderError);
+            }
+
+            addNotification({
+              id: notif.id,
+              type: 'urgent',
+              title: notif.title,
+              body: notif.message,
+              priority: 'high',
+              timestamp: new Date(notif.created_at),
+              data: { senderId: notif.sender_id, senderName: sender?.full_name || 'Someone' },
+            });
+          } catch (e) {
+            console.error('❌ Urgent notification handler failed:', e);
           }
-
-          // Get sender info
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', notif.sender_id)
-            .single();
-
-          addNotification({
-            id: notif.id,
-            type: 'urgent',
-            title: notif.title,
-            body: notif.message,
-            priority: 'high',
-            timestamp: new Date(notif.created_at),
-            data: { senderId: notif.sender_id, senderName: sender?.full_name },
-          });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Realtime status (urgent):', status);
+      });
 
     // Messages channel
     const messagesChannel = supabase
@@ -201,30 +211,40 @@ export const MobileNotificationToast = () => {
           table: 'messages',
         },
         async (payload) => {
-          const msg = payload.new as any;
-          
-          // Only show notifications for messages sent to this user
-          if (msg.recipient_id !== currentUserId || msg.sender_id === currentUserId) {
-            return;
+          try {
+            const msg = payload.new as any;
+
+            // Only show notifications for messages sent to this user
+            if (msg.recipient_id !== currentUserId || msg.sender_id === currentUserId) {
+              return;
+            }
+
+            const { data: sender, error: senderError } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', msg.sender_id)
+              .maybeSingle();
+
+            if (senderError) {
+              console.warn('⚠️ Message sender lookup failed:', senderError);
+            }
+
+            addNotification({
+              id: msg.id,
+              type: 'message',
+              title: `Message from ${sender?.full_name || 'Someone'}`,
+              body: msg.message?.substring(0, 100) || 'New message',
+              priority: 'normal',
+              timestamp: new Date(msg.created_at),
+            });
+          } catch (e) {
+            console.error('❌ Message notification handler failed:', e);
           }
-
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', msg.sender_id)
-            .single();
-
-          addNotification({
-            id: msg.id,
-            type: 'message',
-            title: `Message from ${sender?.full_name || 'Someone'}`,
-            body: msg.message?.substring(0, 100) || 'New message',
-            priority: 'normal',
-            timestamp: new Date(msg.created_at),
-          });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Realtime status (messages):', status);
+      });
 
     // Voice announcements channel
     const voiceChannel = supabase
@@ -237,29 +257,39 @@ export const MobileNotificationToast = () => {
           table: 'voice_announcements',
         },
         async (payload) => {
-          const announcement = payload.new as any;
-          
-          if (announcement.recipient_id && announcement.recipient_id !== currentUserId && !announcement.is_broadcast) {
-            return;
+          try {
+            const announcement = payload.new as any;
+
+            if (announcement.recipient_id && announcement.recipient_id !== currentUserId && !announcement.is_broadcast) {
+              return;
+            }
+
+            const { data: sender, error: senderError } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', announcement.sender_id)
+              .maybeSingle();
+
+            if (senderError) {
+              console.warn('⚠️ Voice sender lookup failed:', senderError);
+            }
+
+            addNotification({
+              id: announcement.id,
+              type: 'announcement',
+              title: 'Voice Message',
+              body: `${sender?.full_name || 'Someone'} sent a voice message`,
+              priority: 'normal',
+              timestamp: new Date(announcement.created_at),
+            });
+          } catch (e) {
+            console.error('❌ Voice notification handler failed:', e);
           }
-
-          const { data: sender } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', announcement.sender_id)
-            .single();
-
-          addNotification({
-            id: announcement.id,
-            type: 'announcement',
-            title: 'Voice Message',
-            body: `${sender?.full_name || 'Someone'} sent a voice message`,
-            priority: 'normal',
-            timestamp: new Date(announcement.created_at),
-          });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Realtime status (voice):', status);
+      });
 
     // Task updates channel (for assigned tasks)
     const taskChannel = supabase
@@ -272,24 +302,30 @@ export const MobileNotificationToast = () => {
           table: 'tasks',
         },
         async (payload) => {
-          const task = payload.new as any;
-          const oldTask = payload.old as any;
-          
-          // Only notify if assigned to this user and status changed
-          if (task.assigned_to !== currentUserId) return;
-          if (oldTask.status === task.status) return;
+          try {
+            const task = payload.new as any;
+            const oldTask = payload.old as any;
 
-          addNotification({
-            id: `task-${task.id}-${Date.now()}`,
-            type: 'task',
-            title: 'Task Updated',
-            body: `\"${task.title}\" moved to ${task.status.replace(/_/g, ' ')}`,
-            priority: 'normal',
-            timestamp: new Date(),
-          });
+            // Only notify if assigned to this user and status changed
+            if (task.assigned_to !== currentUserId) return;
+            if (oldTask.status === task.status) return;
+
+            addNotification({
+              id: `task-${task.id}-${Date.now()}`,
+              type: 'task',
+              title: 'Task Updated',
+              body: `"${task.title}" moved to ${String(task.status).replace(/_/g, ' ')}`,
+              priority: 'normal',
+              timestamp: new Date(),
+            });
+          } catch (e) {
+            console.error('❌ Task notification handler failed:', e);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Realtime status (tasks):', status);
+      });
 
     // Walkie-talkie calls channel
     const walkieChannel = supabase
@@ -303,25 +339,35 @@ export const MobileNotificationToast = () => {
           filter: `callee_id=eq.${currentUserId}`,
         },
         async (payload) => {
-          const call = payload.new as any;
+          try {
+            const call = payload.new as any;
 
-          const { data: caller } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', call.caller_id)
-            .single();
+            const { data: caller, error: callerError } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', call.caller_id)
+              .maybeSingle();
 
-          addNotification({
-            id: call.id,
-            type: 'call',
-            title: 'Incoming Call',
-            body: `${caller?.full_name || 'Someone'} is calling`,
-            priority: 'high',
-            timestamp: new Date(),
-          });
+            if (callerError) {
+              console.warn('⚠️ Caller lookup failed:', callerError);
+            }
+
+            addNotification({
+              id: call.id,
+              type: 'call',
+              title: 'Incoming Call',
+              body: `${caller?.full_name || 'Someone'} is calling`,
+              priority: 'high',
+              timestamp: new Date(),
+            });
+          } catch (e) {
+            console.error('❌ Walkie notification handler failed:', e);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Realtime status (walkie):', status);
+      });
 
     console.log('✅ Real-time notification channels active');
 

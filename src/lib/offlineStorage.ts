@@ -36,11 +36,13 @@ export const initOfflineDB = async () => {
   return db;
 };
 
-// Store tasks locally
+// Store tasks locally (snapshot-style to avoid stale/ghost tasks)
 export const saveTasksLocally = async (tasks: any[]) => {
   const database = await initOfflineDB();
   const tx = database.transaction('tasks', 'readwrite');
-  
+
+  // Ensure local cache matches the latest server snapshot
+  await tx.store.clear();
   await Promise.all(tasks.map(task => tx.store.put(task)));
   await tx.done;
 };
@@ -52,6 +54,15 @@ export const getLocalTasks = async () => {
 
 export const saveTaskLocally = async (task: any) => {
   const database = await initOfflineDB();
+  const taskId = task?.id;
+
+  // Merge partial updates (offline updates often only contain changed fields)
+  if (taskId) {
+    const existing = await database.get('tasks', taskId);
+    await database.put('tasks', existing ? { ...existing, ...task } : task);
+    return;
+  }
+
   await database.put('tasks', task);
 };
 

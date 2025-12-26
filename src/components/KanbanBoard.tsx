@@ -16,6 +16,8 @@ import { Plus } from "lucide-react";
 import { updateTaskOffline } from "@/lib/offlineTaskOperations";
 import { getLocalTasks, saveTasksLocally } from "@/lib/offlineStorage";
 import { useDebouncedCallback } from "@/hooks/useVisibilityAwareSubscription";
+import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
+
 
 type Task = {
   id: string;
@@ -356,19 +358,31 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
       // Combine regular tasks with approved product tasks for designers
       const allTasks = [...transformedData, ...approvedProductTasks];
-      setTasks(allTasks);
+      
+      // Deduplicate by ID to prevent occasional double-render/ghost entries
+      const seenTaskIds = new Set<string>();
+      const uniqueTasks = allTasks.filter((t: any) => {
+        if (seenTaskIds.has(t.id)) return false;
+        seenTaskIds.add(t.id);
+        return true;
+      });
+
+      setTasks(uniqueTasks);
       
       // Save to local storage for offline access
-      await saveTasksLocally(allTasks);
+      await saveTasksLocally(uniqueTasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       toast.error("Failed to load tasks");
-      
-      // Try loading from local storage on error
-      const localTasks = await getLocalTasks();
-      if (localTasks.length > 0) {
-        setTasks(localTasks);
-        toast.info("Loaded cached tasks (offline mode)");
+
+      // Only use local cache when truly offline.
+      // When online, using cached tasks can show stale/ghost items.
+      if (!navigator.onLine) {
+        const localTasks = await getLocalTasks();
+        if (localTasks.length > 0) {
+          setTasks(localTasks);
+          toast.info("Loaded cached tasks (offline mode)");
+        }
       }
     } finally {
       setLoading(false);
@@ -379,6 +393,10 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   const debouncedFetchTasks = useDebouncedCallback(fetchTasks, 500);
   const isVisibleRef = useRef(!document.hidden);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Safety net: if realtime silently drops, keep data fresh while tab is visible
+  useConnectionAwareRefetch(fetchTasks, { pollingInterval: 20000, enablePolling: true });
 
   useEffect(() => {
     fetchTasks();
@@ -395,8 +413,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     
     const setupChannel = () => {
       if (channelRef.current) return;
-      
-      channelRef.current = supabase
+
+      const channel = supabase
         .channel(channelName, {
           config: {
             broadcast: { self: true },
@@ -415,10 +433,40 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
             debouncedFetchTasks();
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('📡 Kanban realtime status:', status, '| channel:', channelName);
+
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.warn('⚠️ Kanban realtime dropped; scheduling resubscribe...');
+
+            // Tear down and retry (avoids “stuck until refresh”)
+            if (channelRef.current) {
+              supabase.removeChannel(channelRef.current);
+              channelRef.current = null;
+            }
+
+            if (retryTimeoutRef.current) {
+              clearTimeout(retryTimeoutRef.current);
+            }
+
+            retryTimeoutRef.current = setTimeout(() => {
+              // Only resubscribe if still visible
+              if (!document.hidden) {
+                setupChannel();
+                debouncedFetchTasks();
+              }
+            }, 2000);
+          }
+        });
+
+      channelRef.current = channel;
     };
 
     const teardownChannel = () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
@@ -765,7 +813,15 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                     task.status !== 'done' && // Don't duplicate done tasks
                     task.status !== 'production' // Don't show production tasks here
                   );
-                  columnTasks = [...columnTasks, ...additionalTasks];
+
+                  // Deduplicate by task id to prevent occasional double entries
+                  const merged = [...columnTasks, ...additionalTasks];
+                  const seen = new Set<string>();
+                  columnTasks = merged.filter(t => {
+                    if (seen.has(t.id)) return false;
+                    seen.add(t.id);
+                    return true;
+                  });
                 }
                 
                 return (
