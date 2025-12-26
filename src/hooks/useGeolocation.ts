@@ -73,16 +73,17 @@ export const useGeolocation = (
   }, []);
 
   // Update location in database for team visibility
+  // Note: Location data is stored separately, not in custom_message to avoid showing coordinates in UI
   const updateLocationInDb = useCallback(async (lat: number, lng: number) => {
     if (!userId) return;
 
     try {
+      // Only update status and last_active - don't overwrite custom_message with coordinates
       const { error } = await supabase
         .from('user_presence')
         .upsert({
           user_id: userId,
           status: 'online',
-          custom_message: JSON.stringify({ lat, lng, updated_at: new Date().toISOString() }),
           last_active: new Date().toISOString(),
         }, { onConflict: 'user_id' });
 
