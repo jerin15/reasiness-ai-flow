@@ -311,7 +311,7 @@ export const UserPresenceIndicator = () => {
                 </p>
                 <p className="text-[10px] text-white/70 truncate font-medium">
                   {STATUS_OPTIONS.find(s => s.value === presence.status)?.label || presence.status}
-                  {presence.custom_message && !presence.custom_message.startsWith('{') && ` • ${presence.custom_message}`}
+                  {presence.custom_message && !presence.custom_message.trim().startsWith('{') && ` • ${presence.custom_message}`}
                 </p>
               </div>
               {presence.user_id !== currentUserId && (
