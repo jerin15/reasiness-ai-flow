@@ -19,7 +19,8 @@ import {
   User,
   ChevronDown,
   ChevronUp,
-  FileText
+  FileText,
+  ArrowRight
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,12 @@ const stepTypeConfig = {
     label: 'Deliver to Client',
     color: 'text-green-600 bg-green-100 dark:bg-green-950',
     shortLabel: 'To Client'
+  },
+  supplier_to_supplier: {
+    icon: ArrowRight,
+    label: 'Supplier to Supplier',
+    color: 'text-purple-600 bg-purple-100 dark:bg-purple-950',
+    shortLabel: 'S→S Transfer'
   }
 };
 

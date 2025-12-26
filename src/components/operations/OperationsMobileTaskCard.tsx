@@ -14,7 +14,8 @@ import {
   CheckCircle,
   Circle,
   PlayCircle,
-  Truck
+  Truck,
+  ArrowRight
 } from "lucide-react";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,8 @@ const priorityConfig = {
 const stepTypeLabels = {
   collect: { label: 'Collect', icon: Package, color: 'text-blue-600' },
   deliver_to_supplier: { label: 'To Supplier', icon: Truck, color: 'text-amber-600' },
-  deliver_to_client: { label: 'Deliver', icon: MapPin, color: 'text-green-600' }
+  deliver_to_client: { label: 'Deliver', icon: MapPin, color: 'text-green-600' },
+  supplier_to_supplier: { label: 'S→S Transfer', icon: ArrowRight, color: 'text-purple-600' }
 };
 
 export const OperationsMobileTaskCard = ({ 
