@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, User, CheckCircle, Clock, AlertTriangle, Package } from "lucide-react";
+import { Plus, Trash2, Loader2, User, CheckCircle, Clock, AlertTriangle, Package, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClipboardList } from "lucide-react";
+import { AdminOperationsTaskDetails } from "./AdminOperationsTaskDetails";
 
 interface WhiteboardTask {
   id: string;
@@ -35,6 +36,8 @@ interface OperationsTask {
   priority: string;
   client_name: string | null;
   delivery_address: string | null;
+  delivery_instructions: string | null;
+  suppliers: string[] | null;
   due_date: string | null;
   created_at: string;
   assigned_to: string | null;
@@ -63,6 +66,8 @@ export const AdminWhiteboardEmbed = () => {
   const [operationsUsers, setOperationsUsers] = useState<OperationsUser[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [adding, setAdding] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<OperationsTask | null>(null);
+  const [taskDetailsOpen, setTaskDetailsOpen] = useState(false);
 
   useEffect(() => {
     initData();
@@ -160,7 +165,7 @@ export const AdminWhiteboardEmbed = () => {
         .from('tasks')
         .select(`
           id, title, description, status, priority, client_name, 
-          delivery_address, due_date, created_at, assigned_to,
+          delivery_address, delivery_instructions, suppliers, due_date, created_at, assigned_to,
           profiles:assigned_to (full_name, email)
         `)
         .eq('status', 'production')
@@ -333,7 +338,14 @@ export const AdminWhiteboardEmbed = () => {
               {operationsTasks.map((task) => {
                 const progress = getStepProgress(task);
                 return (
-                  <Card key={task.id}>
+                  <Card 
+                    key={task.id} 
+                    className="cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => {
+                      setSelectedTask(task as any);
+                      setTaskDetailsOpen(true);
+                    }}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -389,12 +401,27 @@ export const AdminWhiteboardEmbed = () => {
 
                       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{format(new Date(task.created_at), 'MMM d')}</span>
-                        {task.due_date && (
-                          <span className="flex items-center gap-1 text-orange-500">
-                            <AlertTriangle className="h-3 w-3" />
-                            {format(new Date(task.due_date), 'MMM d')}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {task.due_date && (
+                            <span className="flex items-center gap-1 text-orange-500">
+                              <AlertTriangle className="h-3 w-3" />
+                              {format(new Date(task.due_date), 'MMM d')}
+                            </span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTask(task as any);
+                              setTaskDetailsOpen(true);
+                            }}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -539,6 +566,20 @@ export const AdminWhiteboardEmbed = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Admin Task Details Dialog */}
+      <AdminOperationsTaskDetails
+        open={taskDetailsOpen}
+        onOpenChange={setTaskDetailsOpen}
+        task={selectedTask}
+        onTaskUpdated={() => {
+          fetchOperationsTasks();
+        }}
+        onTaskDeleted={() => {
+          fetchOperationsTasks();
+          setSelectedTask(null);
+        }}
+      />
     </div>
   );
 };
