@@ -339,19 +339,42 @@ const OperationsWhiteboard = () => {
 
   const deleteProductionTask = async (taskId: string) => {
     if (!confirm('Are you sure you want to delete this production task?')) return;
-    
+
     try {
+      const nowIso = new Date().toISOString();
+
+      const { data: baseTask, error: baseErr } = await supabase
+        .from('tasks')
+        .select('id, linked_task_id')
+        .eq('id', taskId)
+        .maybeSingle();
+      if (baseErr) throw baseErr;
+
+      const { data: reverseLinked, error: reverseErr } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('linked_task_id', taskId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (reverseErr) throw reverseErr;
+
+      const ids = Array.from(
+        new Set(
+          [taskId, baseTask?.linked_task_id || null, reverseLinked?.id || null].filter(Boolean) as string[]
+        )
+      );
+
       const { error } = await supabase
         .from('tasks')
-        .delete()
-        .eq('id', taskId);
+        .update({ deleted_at: nowIso })
+        .in('id', ids);
 
       if (error) throw error;
-      toast.success("Production task deleted");
+      toast.success('Production task deleted');
       fetchOperationsTasks();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting production task:', error);
-      toast.error("Failed to delete task");
+      toast.error(error.message || 'Failed to delete task');
     }
   };
 
