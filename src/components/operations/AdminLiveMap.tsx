@@ -199,14 +199,12 @@ export const AdminLiveMap = ({
       }
     });
 
-    // Add or update markers
+    // Add or update markers - always show last known location
     teamLocations.forEach(member => {
       const existingMarker = markersRef.current.get(member.userId);
 
-      if (existingMarker) {
-        existingMarker.setLngLat([member.lng, member.lat]);
-      } else {
-        // Create custom marker element
+      // Create custom marker element
+      const createMarkerElement = () => {
         const el = document.createElement('div');
         el.className = 'admin-team-marker';
         el.innerHTML = `
@@ -228,18 +226,34 @@ export const AdminLiveMap = ({
           });
         });
 
+        return el;
+      };
+
+      const popupContent = `
+        <div class="p-2">
+          <div class="font-bold text-base">${member.name}</div>
+          <div class="text-xs ${member.isOnline ? 'text-green-600' : 'text-gray-500'}">
+            ${member.isOnline ? '🟢 Live Now' : `⚫ Last seen: ${formatDistanceToNow(new Date(member.updatedAt), { addSuffix: true })}`}
+          </div>
+        </div>
+      `;
+
+      if (existingMarker) {
+        // Update position for existing marker (smooth tracking when user moves)
+        existingMarker.setLngLat([member.lng, member.lat]);
+        // Update popup content
+        existingMarker.setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent));
+        // Update marker element to reflect online status change
+        const markerEl = existingMarker.getElement();
+        if (markerEl) {
+          markerEl.innerHTML = '';
+          markerEl.appendChild(createMarkerElement().firstElementChild!);
+        }
+      } else {
+        const el = createMarkerElement();
         const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
           .setLngLat([member.lng, member.lat])
-          .setPopup(
-            new mapboxgl.Popup({ offset: 25 }).setHTML(`
-              <div class="p-2">
-                <div class="font-bold text-base">${member.name}</div>
-                <div class="text-xs ${member.isOnline ? 'text-green-600' : 'text-gray-500'}">
-                  ${member.isOnline ? '🟢 Live Now' : `⚫ Last seen: ${formatDistanceToNow(new Date(member.updatedAt), { addSuffix: true })}`}
-                </div>
-              </div>
-            `)
-          )
+          .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent))
           .addTo(map.current!);
 
         markersRef.current.set(member.userId, marker);
