@@ -35,19 +35,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if user is operations role (Melvin or Jigeesh)
+    // Check if user is operations or admin role
     const { data: userRole } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .single();
 
-    if (!userRole || userRole.role !== 'operations') {
+    const allowedRoles = ['operations', 'admin'];
+    if (!userRole || !allowedRoles.includes(userRole.role)) {
+      console.log(`Access denied for user ${user.id} with role ${userRole?.role}`);
       return new Response(
-        JSON.stringify({ error: 'Access denied - operations role required' }),
+        JSON.stringify({ error: 'Access denied - operations or admin role required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log(`Mapbox token access granted for user ${user.id} with role ${userRole.role}`);
 
     // Return the Mapbox token
     const mapboxToken = Deno.env.get('MAPBOX_PUBLIC_TOKEN');
