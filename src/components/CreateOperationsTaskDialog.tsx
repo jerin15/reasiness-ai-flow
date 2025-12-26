@@ -41,7 +41,7 @@ interface ProductDraft {
 
 interface WorkflowStepDraft {
   id: string;
-  step_type: 'collect' | 'deliver_to_supplier' | 'deliver_to_client';
+  step_type: 'collect' | 'deliver_to_supplier' | 'deliver_to_client' | 'supplier_to_supplier';
   supplier_name: string;
   location_address: string;
   location_notes: string;
@@ -530,6 +530,12 @@ export const CreateOperationsTaskDialog = ({
                               Deliver to Supplier
                             </div>
                           </SelectItem>
+                          <SelectItem value="supplier_to_supplier">
+                            <div className="flex items-center gap-2">
+                              <ArrowRight className="h-4 w-4 text-purple-600" />
+                              Supplier to Supplier
+                            </div>
+                          </SelectItem>
                           <SelectItem value="deliver_to_client">
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4 text-green-600" />
@@ -542,10 +548,20 @@ export const CreateOperationsTaskDialog = ({
 
                     <div className="grid gap-2">
                       <Label>
-                        {newStepType === 'deliver_to_client' ? 'Location Name' : 'Supplier Name'}
+                        {newStepType === 'deliver_to_client'
+                          ? 'Location Name'
+                          : newStepType === 'supplier_to_supplier'
+                            ? 'From → To Supplier'
+                            : 'Supplier Name'}
                       </Label>
                       <Input
-                        placeholder={newStepType === 'deliver_to_client' ? 'e.g., Client Office' : 'e.g., ABC Suppliers'}
+                        placeholder={
+                          newStepType === 'deliver_to_client'
+                            ? 'e.g., Client Office'
+                            : newStepType === 'supplier_to_supplier'
+                              ? 'e.g., Supplier A → Supplier B'
+                              : 'e.g., ABC Suppliers'
+                        }
                         value={newSupplierName}
                         onChange={(e) => setNewSupplierName(e.target.value)}
                       />

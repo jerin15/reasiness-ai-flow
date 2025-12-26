@@ -538,6 +538,12 @@ export const TaskWorkflowSteps = ({
                         Deliver to Supplier (for processing)
                       </span>
                     </SelectItem>
+                    <SelectItem value="supplier_to_supplier">
+                      <span className="flex items-center gap-2">
+                        <ArrowRight className="h-4 w-4 text-purple-600" />
+                        Supplier to Supplier
+                      </span>
+                    </SelectItem>
                     <SelectItem value="deliver_to_client">
                       <span className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-green-600" />
@@ -551,12 +557,22 @@ export const TaskWorkflowSteps = ({
               {/* Supplier/Location Name */}
               <div>
                 <Label className="text-xs">
-                  {newStepType === 'deliver_to_client' ? 'Client Name (optional)' : 'Supplier Name'}
+                  {newStepType === 'deliver_to_client'
+                    ? 'Client Name (optional)'
+                    : newStepType === 'supplier_to_supplier'
+                      ? 'From → To Supplier'
+                      : 'Supplier Name'}
                 </Label>
                 <Input
                   value={newSupplierName}
                   onChange={(e) => setNewSupplierName(e.target.value)}
-                  placeholder={newStepType === 'deliver_to_client' ? 'Client name' : 'Enter supplier name'}
+                  placeholder={
+                    newStepType === 'deliver_to_client'
+                      ? 'Client name'
+                      : newStepType === 'supplier_to_supplier'
+                        ? 'e.g., Supplier A → Supplier B'
+                        : 'Enter supplier name'
+                  }
                   className="h-11 mt-1"
                 />
               </div>
