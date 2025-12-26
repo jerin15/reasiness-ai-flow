@@ -395,8 +395,8 @@ export const AdminLiveMap = ({
       </Card>
 
       {/* Map Container */}
-      <div className="flex-1 relative rounded-lg overflow-hidden border">
-        <div ref={mapContainer} className="absolute inset-0" />
+      <div className="flex-1 relative rounded-lg overflow-hidden border min-h-[400px]">
+        <div ref={mapContainer} className="absolute inset-0 w-full h-full" style={{ minHeight: '400px' }} />
         
         {/* Map Overlay - Status */}
         <div className="absolute top-3 left-3 z-10">
