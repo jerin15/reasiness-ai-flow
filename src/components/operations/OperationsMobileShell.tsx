@@ -111,9 +111,27 @@ export const OperationsMobileShell = ({
           .select('id, task_id, workflow_step_id, product_name, quantity, unit, supplier_name')
           .in('task_id', taskIds);
 
-        // Map products to steps
+        // Fetch completed_by profiles for completed steps
+        const completedByIds = (stepsData || [])
+          .filter(s => s.completed_by)
+          .map(s => s.completed_by);
+        
+        let completedByProfiles: Record<string, { full_name: string | null; email: string }> = {};
+        if (completedByIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', completedByIds);
+          
+          (profilesData || []).forEach(p => {
+            completedByProfiles[p.id] = { full_name: p.full_name, email: p.email };
+          });
+        }
+
+        // Map products and completed_by profiles to steps
         const stepsWithProducts = (stepsData || []).map(step => ({
           ...step,
+          completed_by_profile: step.completed_by ? completedByProfiles[step.completed_by] : undefined,
           products: (productsData || [])
             .filter(p => p.workflow_step_id === step.id || (p.task_id === step.task_id && !p.workflow_step_id))
             .map(p => ({
