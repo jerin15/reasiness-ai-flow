@@ -72,6 +72,7 @@ export function DashboardSidebar({
   const navigate = useNavigate();
   const isAdminOrHead = userRole === "admin" || userRole === "technical_head";
   const isAdminOrEstimation = userRole === "admin" || userRole === "estimation";
+  const canViewOperationsWhiteboard = userRole === "admin" || userRole === "operations";
 
   return (
     <Sidebar collapsible="icon">
@@ -214,6 +215,16 @@ export function DashboardSidebar({
           <SidebarGroupLabel className="text-white font-bold uppercase tracking-wide text-xs">Reports & Analytics</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Operations Whiteboard (view only) */}
+              {canViewOperationsWhiteboard && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={() => navigate('/operations-whiteboard')} className="text-white font-semibold hover:bg-white/15">
+                    <ClipboardList className="h-4 w-4" />
+                    <span className="font-semibold">Operations Whiteboard</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
               {/* Analytics */}
               {isAdminOrHead && (
                 <SidebarMenuItem>
