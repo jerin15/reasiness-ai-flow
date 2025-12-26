@@ -80,6 +80,8 @@ export const AdminLiveMap = ({
 
       const locations: TeamMemberLocation[] = [];
       const now = new Date();
+      const currentHour = now.getHours();
+      const isTrackingHours = currentHour >= 6 && currentHour < 20; // 6 AM to 8 PM
       
       operationsUsers.forEach(user => {
         const presence = data?.find(p => p.user_id === user.id);
@@ -89,7 +91,15 @@ export const AdminLiveMap = ({
             const locationData = JSON.parse(presence.custom_message);
             if (locationData.lat && locationData.lng) {
               const lastActive = new Date(presence.last_active || locationData.updated_at);
-              const minutesSinceUpdate = (now.getTime() - lastActive.getTime()) / 60000;
+              const secondsSinceUpdate = (now.getTime() - lastActive.getTime()) / 1000;
+              
+              // User is online if:
+              // 1. Status is 'online'
+              // 2. Last update was within 60 seconds
+              // 3. We're within tracking hours
+              const isOnline = presence.status === 'online' && 
+                              secondsSinceUpdate < 60 && 
+                              isTrackingHours;
               
               locations.push({
                 userId: user.id,
@@ -98,7 +108,7 @@ export const AdminLiveMap = ({
                 lat: locationData.lat,
                 lng: locationData.lng,
                 updatedAt: locationData.updated_at || presence.last_active,
-                isOnline: presence.status === 'online' && minutesSinceUpdate < 10,
+                isOnline,
               });
             }
           } catch {
@@ -224,9 +234,8 @@ export const AdminLiveMap = ({
             new mapboxgl.Popup({ offset: 25 }).setHTML(`
               <div class="p-2">
                 <div class="font-bold text-base">${member.name}</div>
-                <div class="text-xs text-gray-500">${member.isOnline ? '🟢 Online' : '⚫ Offline'}</div>
-                <div class="text-xs text-gray-400 mt-1">
-                  Last seen: ${formatDistanceToNow(new Date(member.updatedAt), { addSuffix: true })}
+                <div class="text-xs ${member.isOnline ? 'text-green-600' : 'text-gray-500'}">
+                  ${member.isOnline ? '🟢 Live Now' : `⚫ Last seen: ${formatDistanceToNow(new Date(member.updatedAt), { addSuffix: true })}`}
                 </div>
               </div>
             `)
@@ -449,10 +458,17 @@ export const AdminLiveMap = ({
                       {user.full_name || user.email.split('@')[0]}
                     </p>
                     {hasLocation ? (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {formatDistanceToNow(new Date(location.updatedAt), { addSuffix: true })}
-                      </p>
+                      isOnline ? (
+                        <p className="text-xs text-green-600 flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                          Live now
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatDistanceToNow(new Date(location.updatedAt), { addSuffix: true })}
+                        </p>
+                      )
                     ) : (
                       <p className="text-xs text-muted-foreground">
                         No location shared
