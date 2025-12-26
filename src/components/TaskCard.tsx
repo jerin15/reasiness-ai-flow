@@ -58,9 +58,10 @@ type TaskCardProps = {
   isAdminOwnPanel?: boolean;
   showFullCrud?: boolean;
   onSendBack?: (task: Task) => void;
+  onSendToProduction?: (task: Task) => void;
 };
 
-export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel, showFullCrud, onSendBack }: TaskCardProps) => {
+export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTaskUpdated, userRole, isAdminOwnPanel, showFullCrud, onSendBack, onSendToProduction }: TaskCardProps) => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [productsStats, setProductsStats] = useState<{ total: number; approved: number } | null>(null);
@@ -474,98 +475,14 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
               </div>
               <div className="flex gap-1">
                 {/* Show Send to Production button for admin in FOR PRODUCTION pipeline */}
-                {userRole === 'admin' && task.status === 'done' && (
+                {userRole === 'admin' && task.status === 'done' && onSendToProduction && (
                   <Button
                     variant="default"
                     size="sm"
                     className="h-5 px-1.5 text-[10px] bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium shrink-0"
-                    onClick={async (e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
-                      
-                      const loadingToast = toast.loading("Sending task to production...");
-                      
-                      try {
-                        console.log('🚀 Sending task to production:', task.id, task.title);
-                        
-                        const { data: { user } } = await supabase.auth.getUser();
-                        if (!user) {
-                          toast.error("Not authenticated", { id: loadingToast });
-                          return;
-                        }
-
-                        // Fetch estimation user
-                        const { data: estimationUsers } = await supabase
-                          .from('user_roles')
-                          .select('user_id')
-                          .eq('role', 'estimation')
-                          .limit(1);
-
-                        if (!estimationUsers || estimationUsers.length === 0) {
-                          toast.error("No estimation user found", { id: loadingToast });
-                          return;
-                        }
-
-                        console.log('👤 Estimation user:', estimationUsers[0].user_id);
-
-                        const now = new Date().toISOString();
-                        
-                        // Update main task for estimation's production pipeline
-                        const { error: updateError } = await supabase.from("tasks").update({
-                          status: "production" as any,
-                          came_from_designer_done: true,
-                          assigned_to: estimationUsers[0].user_id,
-                          status_changed_at: now,
-                          updated_at: now,
-                        }).eq("id", task.id);
-
-                        if (updateError) {
-                          console.error('❌ Estimation task update error:', updateError);
-                          toast.error("Failed to send task to production", { id: loadingToast });
-                          return;
-                        }
-
-                        console.log('✅ Estimation task updated successfully');
-
-                         // Create operations task with current user as creator
-                        const { error: insertError } = await supabase.from("tasks").insert([{
-                          title: task.title,
-                          description: task.description,
-                          status: 'production' as any,
-                          priority: task.priority as any,
-                          due_date: task.due_date,
-                          type: task.type as any,
-                          client_name: task.client_name,
-                          supplier_name: task.supplier_name,
-                          created_by: user.id,
-                          assigned_to: null,
-                          linked_task_id: task.id,
-                          position: task.position,
-                          status_changed_at: now,
-                          came_from_designer_done: true,
-                          previous_status: 'done' as any,
-                        }]);
-
-                        if (insertError) {
-                          console.error('❌ Operations task insert error:', insertError);
-                          toast.error("Failed to create operations task", { id: loadingToast });
-                          return;
-                        }
-
-                        console.log('✅ Operations task created successfully');
-                        
-                        toast.success("Task sent to Estimation & Operations production!", { id: loadingToast });
-                        
-                        // Call onTaskUpdated and suppress any errors since task moved successfully
-                        try {
-                          onTaskUpdated?.();
-                        } catch (err) {
-                          console.log('Task updated successfully, ignoring callback error:', err);
-                        }
-                      } catch (error) {
-                        console.error("Error sending to production:", error);
-                        toast.error("Failed to send task to production", { id: loadingToast });
-                        return;
-                      }
+                      onSendToProduction(task);
                     }}
                     disabled={isMoving}
                   >

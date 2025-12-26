@@ -13,6 +13,7 @@ import { logTaskAction } from "@/lib/auditLogger";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { SendBackToDesignerDialog } from "./SendBackToDesignerDialog";
+import { SendToProductionDialog } from "./SendToProductionDialog";
 import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
 import { useDebouncedCallback } from "@/hooks/useVisibilityAwareSubscription";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -66,6 +67,8 @@ export const AdminKanbanBoard = () => {
   const [userRoles, setUserRoles] = useState<Record<string, string>>({});
   const [sendBackDialogOpen, setSendBackDialogOpen] = useState(false);
   const [sendBackTask, setSendBackTask] = useState<Task | null>(null);
+  const [sendToProductionDialogOpen, setSendToProductionDialogOpen] = useState(false);
+  const [sendToProductionTask, setSendToProductionTask] = useState<Task | null>(null);
 
   const fetchTasks = async () => {
     console.log('🔍 AdminKanbanBoard: Starting fetchTasks...');
@@ -878,6 +881,10 @@ export const AdminKanbanBoard = () => {
                     setSendBackTask(task);
                     setSendBackDialogOpen(true);
                   }}
+                  onSendToProduction={(task) => {
+                    setSendToProductionTask(task);
+                    setSendToProductionDialogOpen(true);
+                  }}
                 />
               ))
             }
@@ -959,6 +966,13 @@ export const AdminKanbanBoard = () => {
           onSuccess={fetchTasks}
         />
       )}
+
+      <SendToProductionDialog
+        open={sendToProductionDialogOpen}
+        onOpenChange={setSendToProductionDialogOpen}
+        task={sendToProductionTask}
+        onSuccess={fetchTasks}
+      />
     </div>
   );
 };
