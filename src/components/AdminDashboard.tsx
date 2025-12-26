@@ -321,11 +321,6 @@ export const AdminDashboard = () => {
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-3">
-        <Button onClick={() => setShowAddTask(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Task
-        </Button>
-
         <Button variant="outline" onClick={() => navigate('/operations-whiteboard')}>
           <ClipboardList className="h-4 w-4 mr-2" />
           Operations Whiteboard
