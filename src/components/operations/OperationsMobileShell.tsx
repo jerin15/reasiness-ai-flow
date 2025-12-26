@@ -30,7 +30,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { OperationsLocationMap } from './OperationsLocationMap';
-import { OperationsMobileTaskCard, type OperationsTaskWithSteps, type WorkflowStep } from './OperationsMobileTaskCard';
+import { OperationsMobileTaskCard, type OperationsTaskWithSteps, type WorkflowStep, type WorkflowStepProduct } from './OperationsMobileTaskCard';
 import { OperationsMobileTaskSheet } from './OperationsMobileTaskSheet';
 import { OperationsRouteCalendar } from './OperationsRouteCalendar';
 import { toast } from 'sonner';
@@ -40,6 +40,7 @@ interface OperationsMobileShellProps {
   userId: string;
   userName: string;
   operationsUsers: Array<{ id: string; full_name: string | null; email: string }>;
+  isAdmin?: boolean;
 }
 
 type ViewMode = 'tasks' | 'calendar' | 'map';
@@ -47,7 +48,8 @@ type ViewMode = 'tasks' | 'calendar' | 'map';
 export const OperationsMobileShell = ({ 
   userId, 
   userName,
-  operationsUsers 
+  operationsUsers,
+  isAdmin = false
 }: OperationsMobileShellProps) => {
   const [viewMode, setViewMode] = useState<ViewMode>('tasks');
   const [mapboxToken, setMapboxToken] = useState<string>('');
@@ -94,6 +96,7 @@ export const OperationsMobileShell = ({
       if (taskData && taskData.length > 0) {
         const taskIds = taskData.map(t => t.id);
         
+        // Fetch workflow steps
         const { data: stepsData, error: stepsError } = await supabase
           .from('task_workflow_steps')
           .select('*')
@@ -102,12 +105,32 @@ export const OperationsMobileShell = ({
 
         if (stepsError) throw stepsError;
 
+        // Fetch products for these tasks (with workflow_step_id)
+        const { data: productsData } = await supabase
+          .from('task_products')
+          .select('id, task_id, workflow_step_id, product_name, quantity, unit, supplier_name')
+          .in('task_id', taskIds);
+
+        // Map products to steps
+        const stepsWithProducts = (stepsData || []).map(step => ({
+          ...step,
+          products: (productsData || [])
+            .filter(p => p.workflow_step_id === step.id || (p.task_id === step.task_id && !p.workflow_step_id))
+            .map(p => ({
+              id: p.id,
+              product_name: p.product_name,
+              quantity: p.quantity,
+              unit: p.unit,
+              supplier_name: p.supplier_name
+            })) as WorkflowStepProduct[]
+        }));
+
         // Map steps to tasks
         const tasksWithSteps = taskData.map(task => ({
           ...task,
           assigned_profile: task.profiles as any,
           last_updated_profile: task.last_updated_profile as any,
-          workflow_steps: (stepsData || []).filter(s => s.task_id === task.id) as WorkflowStep[]
+          workflow_steps: stepsWithProducts.filter(s => s.task_id === task.id) as WorkflowStep[]
         }));
 
         setTasks(tasksWithSteps);
@@ -211,6 +234,25 @@ export const OperationsMobileShell = ({
   const handleTaskClick = (task: OperationsTaskWithSteps) => {
     setSelectedTask(task);
     setTaskSheetOpen(true);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId);
+      
+      if (error) throw error;
+      toast.success('Task deleted');
+      setTaskSheetOpen(false);
+      setSelectedTask(null);
+      fetchTasks();
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      toast.error('Failed to delete task');
+    }
   };
 
   // Filter tasks based on search
@@ -500,6 +542,8 @@ export const OperationsMobileShell = ({
         onOpenChange={setTaskSheetOpen}
         task={selectedTask}
         operationsUsers={operationsUsers}
+        isAdmin={isAdmin}
+        onDeleteTask={handleDeleteTask}
         onTaskUpdated={() => {
           fetchTasks();
           // Update selected task with fresh data

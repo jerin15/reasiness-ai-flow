@@ -29,6 +29,14 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
+interface StepProduct {
+  id: string;
+  product_name: string;
+  quantity: number | null;
+  unit: string | null;
+  supplier_name: string | null;
+}
+
 interface WorkflowStep {
   id: string;
   task_id: string;
@@ -45,6 +53,7 @@ interface WorkflowStep {
   due_date: string | null;
   created_at: string;
   updated_at: string;
+  products?: StepProduct[];
 }
 
 interface TaskWorkflowStepsProps {
@@ -133,14 +142,35 @@ export const TaskWorkflowSteps = ({
 
   const fetchSteps = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      const { data: stepsData, error } = await supabase
         .from('task_workflow_steps')
         .select('*')
         .eq('task_id', taskId)
         .order('step_order', { ascending: true });
 
       if (error) throw error;
-      setSteps(data as WorkflowStep[] || []);
+
+      // Fetch products for this task
+      const { data: productsData } = await supabase
+        .from('task_products')
+        .select('id, workflow_step_id, product_name, quantity, unit, supplier_name')
+        .eq('task_id', taskId);
+
+      // Map products to steps
+      const stepsWithProducts = (stepsData || []).map(step => ({
+        ...step,
+        products: (productsData || [])
+          .filter(p => p.workflow_step_id === step.id || (!p.workflow_step_id))
+          .map(p => ({
+            id: p.id,
+            product_name: p.product_name,
+            quantity: p.quantity,
+            unit: p.unit,
+            supplier_name: p.supplier_name
+          })) as StepProduct[]
+      }));
+
+      setSteps(stepsWithProducts as WorkflowStep[] || []);
     } catch (error: any) {
       console.error('Error fetching workflow steps:', error);
     } finally {
@@ -431,6 +461,31 @@ export const TaskWorkflowSteps = ({
                                         <Clock className="h-3 w-3" />
                                         Due: {format(new Date(step.due_date), 'MMM d, h:mm a')}
                                       </p>
+                                    )}
+
+                                    {/* Products List */}
+                                    {step.products && step.products.length > 0 && (
+                                      <div className="bg-muted/50 rounded px-2 py-1.5 mt-1.5 space-y-1">
+                                        <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                          <Package className="h-3 w-3" />
+                                          Products ({step.products.length}):
+                                        </div>
+                                        {step.products.slice(0, 3).map((product) => (
+                                          <div key={product.id} className="text-xs flex items-center gap-1.5 pl-4">
+                                            <span className="font-medium">{product.quantity || 1}</span>
+                                            <span className="text-muted-foreground">{product.unit || 'pcs'}</span>
+                                            <span className="text-foreground">- {product.product_name}</span>
+                                            {product.supplier_name && (
+                                              <span className="text-muted-foreground">({product.supplier_name})</span>
+                                            )}
+                                          </div>
+                                        ))}
+                                        {step.products.length > 3 && (
+                                          <div className="text-xs text-primary pl-4">
+                                            +{step.products.length - 3} more items
+                                          </div>
+                                        )}
+                                      </div>
                                     )}
 
                                     {step.location_address && (
