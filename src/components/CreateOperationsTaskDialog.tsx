@@ -30,12 +30,22 @@ interface CreateOperationsTaskDialogProps {
   onTaskCreated?: () => void;
 }
 
+interface ProductDraft {
+  id: string;
+  product_name: string;
+  quantity: number;
+  unit: string;
+  supplier_name: string;
+  estimated_price: number | null;
+}
+
 interface WorkflowStepDraft {
   id: string;
   step_type: 'collect' | 'deliver_to_supplier' | 'deliver_to_client';
   supplier_name: string;
   location_address: string;
   location_notes: string;
+  due_date: string;
 }
 
 interface OperationsUser {
@@ -85,12 +95,22 @@ export const CreateOperationsTaskDialog = ({
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryInstructions, setDeliveryInstructions] = useState('');
 
+  // Products draft
+  const [products, setProducts] = useState<ProductDraft[]>([]);
+  const [newProductName, setNewProductName] = useState('');
+  const [newProductQty, setNewProductQty] = useState<number>(1);
+  const [newProductUnit, setNewProductUnit] = useState('pcs');
+  const [newProductSupplier, setNewProductSupplier] = useState('');
+  const [newProductPrice, setNewProductPrice] = useState<string>('');
+  const [productsExpanded, setProductsExpanded] = useState(true);
+
   // Workflow steps draft
   const [workflowSteps, setWorkflowSteps] = useState<WorkflowStepDraft[]>([]);
   const [newStepType, setNewStepType] = useState<WorkflowStepDraft['step_type']>('collect');
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newStepDueDate, setNewStepDueDate] = useState('');
 
   // Fetch operations team members
   useEffect(() => {
@@ -124,10 +144,44 @@ export const CreateOperationsTaskDialog = ({
     setDeliveryAddress('');
     setDeliveryInstructions('');
     setWorkflowSteps([]);
+    setProducts([]);
     setNewStepType('collect');
     setNewSupplierName('');
     setNewAddress('');
     setNewNotes('');
+    setNewStepDueDate('');
+    setNewProductName('');
+    setNewProductQty(1);
+    setNewProductUnit('pcs');
+    setNewProductSupplier('');
+    setNewProductPrice('');
+  };
+
+  const handleAddProduct = () => {
+    if (!newProductName.trim()) {
+      toast.error('Please enter a product name');
+      return;
+    }
+
+    const newProduct: ProductDraft = {
+      id: crypto.randomUUID(),
+      product_name: newProductName.trim(),
+      quantity: newProductQty,
+      unit: newProductUnit,
+      supplier_name: newProductSupplier.trim(),
+      estimated_price: newProductPrice ? parseFloat(newProductPrice) : null
+    };
+
+    setProducts([...products, newProduct]);
+    setNewProductName('');
+    setNewProductQty(1);
+    setNewProductUnit('pcs');
+    setNewProductSupplier('');
+    setNewProductPrice('');
+  };
+
+  const handleRemoveProduct = (productId: string) => {
+    setProducts(products.filter(p => p.id !== productId));
   };
 
   const handleAddStep = () => {
@@ -141,13 +195,15 @@ export const CreateOperationsTaskDialog = ({
       step_type: newStepType,
       supplier_name: newSupplierName.trim(),
       location_address: newAddress.trim(),
-      location_notes: newNotes.trim()
+      location_notes: newNotes.trim(),
+      due_date: newStepDueDate
     };
 
     setWorkflowSteps([...workflowSteps, newStep]);
     setNewSupplierName('');
     setNewAddress('');
     setNewNotes('');
+    setNewStepDueDate('');
     setNewStepType('collect');
   };
 
@@ -198,6 +254,7 @@ export const CreateOperationsTaskDialog = ({
           supplier_name: step.supplier_name || null,
           location_address: step.location_address || null,
           location_notes: step.location_notes || null,
+          due_date: step.due_date || null,
           status: 'pending'
         }));
 
@@ -206,6 +263,25 @@ export const CreateOperationsTaskDialog = ({
           .insert(stepsToInsert);
 
         if (stepsError) throw stepsError;
+      }
+
+      // Create products if any
+      if (products.length > 0 && newTask) {
+        const productsToInsert = products.map((product, index) => ({
+          task_id: newTask.id,
+          product_name: product.product_name,
+          quantity: product.quantity,
+          unit: product.unit,
+          supplier_name: product.supplier_name || null,
+          estimated_price: product.estimated_price,
+          position: index
+        }));
+
+        const { error: productsError } = await supabase
+          .from('task_products')
+          .insert(productsToInsert);
+
+        if (productsError) throw productsError;
       }
 
       toast.success('Operations task created successfully');
@@ -399,6 +475,12 @@ export const CreateOperationsTaskDialog = ({
                               {step.location_address}
                             </p>
                           )}
+                          {step.due_date && (
+                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              Due: {new Date(step.due_date).toLocaleDateString()}
+                            </p>
+                          )}
                         </div>
                         <Button
                           variant="ghost"
@@ -478,6 +560,15 @@ export const CreateOperationsTaskDialog = ({
                         onChange={(e) => setNewNotes(e.target.value)}
                       />
                     </div>
+
+                    <div className="grid gap-2">
+                      <Label>Step Due Date</Label>
+                      <Input
+                        type="date"
+                        value={newStepDueDate}
+                        onChange={(e) => setNewStepDueDate(e.target.value)}
+                      />
+                    </div>
                   </div>
 
                   <Button
@@ -487,6 +578,124 @@ export const CreateOperationsTaskDialog = ({
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Step
+                  </Button>
+                </CardContent>
+              </Card>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Products Section */}
+          <Collapsible open={productsExpanded} onOpenChange={setProductsExpanded}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between px-2">
+                <span className="font-semibold flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Products
+                  {products.length > 0 && (
+                    <Badge variant="secondary">{products.length}</Badge>
+                  )}
+                </span>
+                {productsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent className="space-y-4 mt-4">
+              {/* Existing Products */}
+              {products.map((product, index) => (
+                <Card key={product.id} className="relative">
+                  <CardContent className="p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{product.product_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {product.quantity} {product.unit}
+                          {product.supplier_name && ` • ${product.supplier_name}`}
+                          {product.estimated_price && ` • AED ${product.estimated_price}`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => handleRemoveProduct(product.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {/* Add New Product Form */}
+              <Card className="border-dashed">
+                <CardContent className="p-4 space-y-3">
+                  <div className="grid gap-3">
+                    <div className="grid gap-2">
+                      <Label>Product Name</Label>
+                      <Input
+                        placeholder="e.g., Vinyl Banner"
+                        value={newProductName}
+                        onChange={(e) => setNewProductName(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="grid gap-2">
+                        <Label>Quantity</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={newProductQty}
+                          onChange={(e) => setNewProductQty(parseInt(e.target.value) || 1)}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Unit</Label>
+                        <Select value={newProductUnit} onValueChange={setNewProductUnit}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pcs">pcs</SelectItem>
+                            <SelectItem value="sqft">sqft</SelectItem>
+                            <SelectItem value="sqm">sqm</SelectItem>
+                            <SelectItem value="meters">meters</SelectItem>
+                            <SelectItem value="kg">kg</SelectItem>
+                            <SelectItem value="sets">sets</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Est. Price</Label>
+                        <Input
+                          type="number"
+                          placeholder="AED"
+                          value={newProductPrice}
+                          onChange={(e) => setNewProductPrice(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label>Supplier Name</Label>
+                      <Input
+                        placeholder="e.g., ABC Suppliers"
+                        value={newProductSupplier}
+                        onChange={(e) => setNewProductSupplier(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleAddProduct}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Product
                   </Button>
                 </CardContent>
               </Card>
