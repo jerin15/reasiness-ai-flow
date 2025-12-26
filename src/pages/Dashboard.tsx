@@ -277,6 +277,15 @@ const Dashboard = () => {
       {showAdminTaskReport && (userRole === "admin" || userRole === "technical_head") && (
         <AdminTaskReportDialog open={showAdminTaskReport} onOpenChange={setShowAdminTaskReport} teamMembers={teamMembers} />
       )}
+
+      {showCreateOpsTask && userRole === "admin" && (
+        <CreateOperationsWhiteboardTaskDialog
+          open={showCreateOpsTask}
+          onOpenChange={setShowCreateOpsTask}
+          onCreated={() => {}}
+        />
+      )}
+
       {showAddTask && (
         <AddTaskDialog 
           open={showAddTask} 
@@ -349,7 +358,7 @@ const Dashboard = () => {
           onAdminTaskReportClick={() => setShowAdminTaskReport(true)}
           onChatClick={() => setShowChat(true)}
           onPersonalAnalyticsClick={() => setShowPersonalAnalytics(!showPersonalAnalytics)}
-          onCreateTaskClick={() => setShowAddTask(true)}
+          onCreateTaskClick={() => (userRole === "admin" ? setShowCreateOpsTask(true) : setShowAddTask(true))}
           onCreateUserClick={userRole === "admin" ? () => setShowCreateUser(true) : undefined}
           onManageTeamClick={userRole === "admin" ? () => setShowManageTeam(true) : undefined}
           onSignOut={handleSignOut}
