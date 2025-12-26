@@ -133,6 +133,8 @@ const Dashboard = () => {
       if (profileError) {
         console.error("Error fetching profile:", profileError);
         toast.error("Failed to load profile");
+        setLoading(false);
+        navigate("/auth");
         return;
       }
 
