@@ -6,11 +6,10 @@ import {
   Map, 
   Bell, 
   Settings,
-  Menu,
-  X,
   MapPin,
   User,
-  Radio
+  Radio,
+  Loader2
 } from 'lucide-react';
 import {
   Sheet,
@@ -22,6 +21,7 @@ import {
 import { OperationsLocationMap } from './OperationsLocationMap';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface OperationsMobileShellProps {
   userId: string;
@@ -38,15 +38,56 @@ export const OperationsMobileShell = ({
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [tempToken, setTempToken] = useState('');
   const [notificationCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load token from localStorage
+  // Fetch token from edge function on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('mapbox_token');
-    if (savedToken) {
-      setMapboxToken(savedToken);
-    } else {
-      setShowTokenInput(true);
-    }
+    const fetchMapboxToken = async () => {
+      try {
+        setIsLoading(true);
+        
+        // First try to get token from edge function
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.access_token) {
+          const response = await supabase.functions.invoke('get-mapbox-token', {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`
+            }
+          });
+          
+          if (response.data?.token) {
+            setMapboxToken(response.data.token);
+            setShowTokenInput(false);
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // Fallback to localStorage
+        const savedToken = localStorage.getItem('mapbox_token');
+        if (savedToken) {
+          setMapboxToken(savedToken);
+          setShowTokenInput(false);
+        } else {
+          setShowTokenInput(true);
+        }
+      } catch (error) {
+        console.error('Error fetching mapbox token:', error);
+        // Fallback to localStorage
+        const savedToken = localStorage.getItem('mapbox_token');
+        if (savedToken) {
+          setMapboxToken(savedToken);
+          setShowTokenInput(false);
+        } else {
+          setShowTokenInput(true);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMapboxToken();
   }, []);
 
   const handleSaveToken = () => {
@@ -126,7 +167,12 @@ export const OperationsMobileShell = ({
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
-        {showTokenInput && !mapboxToken ? (
+        {isLoading ? (
+          <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading map...</p>
+          </div>
+        ) : showTokenInput && !mapboxToken ? (
           <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
               <MapPin className="h-8 w-8 text-primary" />
