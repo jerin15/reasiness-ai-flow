@@ -14,8 +14,7 @@ import {
   Trash2, 
   Package, 
   Truck, 
-  MapPin, 
-  Calendar,
+  MapPin,
   User,
   ChevronDown,
   ChevronUp,
@@ -86,7 +85,7 @@ export const SendToProductionDialog = ({
   const [stepsExpanded, setStepsExpanded] = useState(true);
 
   // Form state - pre-populated from task
-  const [assignedTo, setAssignedTo] = useState('');
+  const [assignedTo, setAssignedTo] = useState<string>("__unassigned__");
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryInstructions, setDeliveryInstructions] = useState('');
 
@@ -123,6 +122,7 @@ export const SendToProductionDialog = ({
 
     if (open) {
       fetchOperationsUsers();
+      setAssignedTo("__unassigned__");
       // Pre-populate from task
       if (task) {
         setDeliveryAddress(task.delivery_address || '');
@@ -187,105 +187,145 @@ export const SendToProductionDialog = ({
       if (!user) throw new Error('Not authenticated');
 
       const targetTaskId = task.is_product && task.parent_task_id ? task.parent_task_id : task.id;
+      const now = new Date().toISOString();
 
-      // Check if linked task already exists
-      const { data: existingLinkedTask } = await supabase
+      const normalizedAssignedTo =
+        assignedTo && assignedTo !== "__unassigned__" ? assignedTo : null;
+
+      // 1) Send original task to Estimation (same as before)
+      const { data: estimationUsers, error: estimationUsersError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'estimation')
+        .limit(1);
+
+      if (estimationUsersError) throw estimationUsersError;
+      if (!estimationUsers || estimationUsers.length === 0) {
+        throw new Error('No estimation user found');
+      }
+
+      const estimationUserId = estimationUsers[0].user_id as string;
+
+      const { error: estimationUpdateError } = await supabase
+        .from('tasks')
+        .update({
+          status: 'production',
+          came_from_designer_done: true,
+          assigned_to: estimationUserId,
+          status_changed_at: now,
+          updated_at: now,
+          previous_status: 'done',
+          admin_removed_from_production: true,
+          delivery_address: deliveryAddress || null,
+          delivery_instructions: deliveryInstructions || null,
+        })
+        .eq('id', targetTaskId);
+
+      if (estimationUpdateError) throw estimationUpdateError;
+
+      // 2) Ensure Operations task exists, then apply Operations-specific details
+      // Try to find the latest linked operations task (in case duplicates exist, we only update the newest)
+      const { data: opsCandidates, error: opsCandidatesError } = await supabase
         .from('tasks')
         .select('id')
         .eq('linked_task_id', targetTaskId)
         .is('deleted_at', null)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      if (existingLinkedTask) {
-        // Just update the original task
-        await supabase
+      if (opsCandidatesError) throw opsCandidatesError;
+
+      let operationsTaskId: string | null = opsCandidates?.[0]?.id ?? null;
+
+      // If not created automatically yet, create it ourselves (single-attempt) 
+      if (!operationsTaskId) {
+        const { data: originalTask, error: originalTaskError } = await supabase
           .from('tasks')
-          .update({ 
-            status: 'production',
-            previous_status: 'done',
-            assigned_to: null,
-            updated_at: new Date().toISOString(),
-            status_changed_at: new Date().toISOString(),
-            came_from_designer_done: false,
-            admin_removed_from_production: true,
-            delivery_address: deliveryAddress || null,
-            delivery_instructions: deliveryInstructions || null
-          })
-          .eq('id', targetTaskId);
+          .select('*')
+          .eq('id', targetTaskId)
+          .maybeSingle();
 
-        toast.success("Task sent to Production pipeline for operations team");
-        onOpenChange(false);
-        onSuccess?.();
-        return;
+        if (originalTaskError) throw originalTaskError;
+        if (!originalTask) throw new Error('Original task not found');
+
+        const { data: createdOpsTask, error: createOpsError } = await supabase
+          .from('tasks')
+          .insert({
+            title: originalTask.title,
+            description: originalTask.description,
+            client_name: originalTask.client_name,
+            supplier_name: originalTask.supplier_name,
+            suppliers: originalTask.suppliers,
+            priority: originalTask.priority,
+            due_date: originalTask.due_date,
+            status: 'production',
+            type: 'production',
+            created_by: user.id,
+            assigned_by: user.id,
+            assigned_to: normalizedAssignedTo,
+            linked_task_id: targetTaskId,
+            status_changed_at: now,
+            updated_at: now,
+            came_from_designer_done: true,
+            previous_status: 'done',
+            delivery_address: deliveryAddress || null,
+            delivery_instructions: deliveryInstructions || null,
+          })
+          .select('id')
+          .single();
+
+        if (createOpsError) throw createOpsError;
+        operationsTaskId = createdOpsTask.id;
+      } else {
+        const { error: opsUpdateError } = await supabase
+          .from('tasks')
+          .update({
+            assigned_to: normalizedAssignedTo,
+            delivery_address: deliveryAddress || null,
+            delivery_instructions: deliveryInstructions || null,
+            updated_at: now,
+          })
+          .eq('id', operationsTaskId);
+
+        if (opsUpdateError) throw opsUpdateError;
       }
 
-      // Create the operations task directly instead of relying on trigger
-      const { data: originalTask } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('id', targetTaskId)
-        .single();
+      // 3) Replace workflow steps/products for operations task (if provided)
+      if (workflowSteps.length > 0 && operationsTaskId) {
+        // Clear any existing workflow artifacts to prevent duplication on resend
+        await supabase.from('task_products').delete().eq('task_id', operationsTaskId);
+        await supabase.from('task_workflow_steps').delete().eq('task_id', operationsTaskId);
 
-      if (!originalTask) throw new Error('Original task not found');
-
-      // Create operations task
-      const { data: newOperationsTask, error: createError } = await supabase
-        .from('tasks')
-        .insert({
-          title: originalTask.title,
-          description: originalTask.description,
-          client_name: originalTask.client_name,
-          supplier_name: originalTask.supplier_name,
-          suppliers: originalTask.suppliers,
-          priority: originalTask.priority,
-          due_date: originalTask.due_date,
-          status: 'production',
-          type: 'production',
-          created_by: user.id,
-          assigned_by: user.id,
-          assigned_to: assignedTo || null,
-          linked_task_id: targetTaskId,
-          delivery_address: deliveryAddress || null,
-          delivery_instructions: deliveryInstructions || null
-        })
-        .select()
-        .single();
-
-      if (createError) throw createError;
-
-      // Create workflow steps if any
-      if (workflowSteps.length > 0 && newOperationsTask) {
         for (let i = 0; i < workflowSteps.length; i++) {
           const step = workflowSteps[i];
-          
+
           const { data: insertedStep, error: stepError } = await supabase
             .from('task_workflow_steps')
             .insert({
-              task_id: newOperationsTask.id,
+              task_id: operationsTaskId,
               step_order: i,
               step_type: step.step_type,
               supplier_name: step.supplier_name || null,
               location_address: step.location_address || null,
               location_notes: step.location_notes || null,
               due_date: step.due_date || null,
-              status: 'pending'
+              status: 'pending',
             })
             .select()
             .single();
 
           if (stepError) throw stepError;
 
-          // Insert products for this step
           if (step.products.length > 0 && insertedStep) {
             const productsToInsert = step.products.map((product, idx) => ({
-              task_id: newOperationsTask.id,
+              task_id: operationsTaskId,
               workflow_step_id: insertedStep.id,
               product_name: product.product_name,
               quantity: product.quantity,
               unit: product.unit,
               supplier_name: step.supplier_name || null,
               estimated_price: product.estimated_price,
-              position: idx
+              position: idx,
             }));
 
             const { error: productsError } = await supabase
@@ -297,23 +337,7 @@ export const SendToProductionDialog = ({
         }
       }
 
-      // Update original task to mark as sent
-      await supabase
-        .from('tasks')
-        .update({ 
-          status: 'production',
-          previous_status: 'done',
-          assigned_to: null,
-          updated_at: new Date().toISOString(),
-          status_changed_at: new Date().toISOString(),
-          came_from_designer_done: false,
-          admin_removed_from_production: true,
-          delivery_address: deliveryAddress || null,
-          delivery_instructions: deliveryInstructions || null
-        })
-        .eq('id', targetTaskId);
-
-      toast.success("Task sent to Production pipeline for operations team");
+      toast.success('Task sent to Estimation & Operations production!');
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
@@ -343,12 +367,15 @@ export const SendToProductionDialog = ({
           {/* Assignment */}
           <div className="grid gap-2">
             <Label>Assign To (Optional)</Label>
-            <Select value={assignedTo} onValueChange={setAssignedTo}>
+            <Select
+              value={assignedTo !== "__unassigned__" ? assignedTo : undefined}
+              onValueChange={setAssignedTo}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select operations team member" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unassigned</SelectItem>
+                <SelectItem value="__unassigned__">Unassigned</SelectItem>
                 {operationsUsers.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     <div className="flex items-center gap-2">
@@ -356,8 +383,7 @@ export const SendToProductionDialog = ({
                       {user.full_name || user.email}
                     </div>
                   </SelectItem>
-                ))
-                }
+                ))}
               </SelectContent>
             </Select>
           </div>
