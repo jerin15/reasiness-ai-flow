@@ -6,11 +6,13 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Package, Truck, MapPin, ClipboardList, Plus, X, Calendar, User } from "lucide-react";
+import { Package, Truck, MapPin, ClipboardList, Calendar, User, Route, Settings } from "lucide-react";
 import { TaskProductsManager } from "./TaskProductsManager";
 import { OperationsActivityLog } from "./OperationsActivityLog";
+import { TaskWorkflowSteps } from "./operations/TaskWorkflowSteps";
 
 type OperationsTask = {
   id: string;
@@ -44,14 +46,13 @@ export const OperationsTaskDetails = ({
   task, 
   onTaskUpdated 
 }: OperationsTaskDetailsProps) => {
-  const [suppliers, setSuppliers] = useState<string[]>([]);
-  const [newSupplier, setNewSupplier] = useState("");
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
   const [assignedTo, setAssignedTo] = useState<string>("unassigned");
   const [operationsUsers, setOperationsUsers] = useState<OperationsUser[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("workflow");
 
   useEffect(() => {
     fetchOperationsUsers();
@@ -59,7 +60,6 @@ export const OperationsTaskDetails = ({
 
   useEffect(() => {
     if (task) {
-      setSuppliers(task.suppliers || []);
       setDeliveryInstructions(task.delivery_instructions || "");
       setDeliveryAddress(task.delivery_address || "");
       setDeliveryDate(task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : "");
@@ -69,60 +69,31 @@ export const OperationsTaskDetails = ({
 
   const fetchOperationsUsers = async () => {
     try {
-      console.log('🔍 Fetching operations users...');
-      
-      // Get all user IDs with operations role
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'operations');
 
-      console.log('📋 Role data:', roleData, 'Error:', roleError);
-
-      if (roleError) {
-        console.error('❌ Role fetch error:', roleError);
-        throw roleError;
-      }
+      if (roleError) throw roleError;
       
       if (roleData && roleData.length > 0) {
         const userIds = roleData.map(r => r.user_id);
-        console.log('👥 User IDs:', userIds);
         
-        // Fetch profiles for those user IDs
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('id, full_name, email')
           .in('id', userIds);
-          
-        console.log('👤 Profile data:', profileData, 'Error:', profileError);
 
-        if (profileError) {
-          console.error('❌ Profile fetch error:', profileError);
-          throw profileError;
-        }
+        if (profileError) throw profileError;
         
         if (profileData) {
-          console.log('✅ Setting operations users:', profileData);
           setOperationsUsers(profileData as OperationsUser[]);
         }
-      } else {
-        console.warn('⚠️ No operations users found');
       }
     } catch (error) {
-      console.error('❌ Error fetching operations users:', error);
+      console.error('Error fetching operations users:', error);
       toast.error("Failed to load operations team members");
     }
-  };
-
-  const handleAddSupplier = () => {
-    if (newSupplier.trim()) {
-      setSuppliers([...suppliers, newSupplier.trim()]);
-      setNewSupplier("");
-    }
-  };
-
-  const handleRemoveSupplier = (index: number) => {
-    setSuppliers(suppliers.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,7 +105,6 @@ export const OperationsTaskDetails = ({
       const { error } = await supabase
         .from("tasks")
         .update({
-          suppliers: suppliers.length > 0 ? suppliers : null,
           delivery_instructions: deliveryInstructions || null,
           delivery_address: deliveryAddress || null,
           due_date: deliveryDate || null,
@@ -144,12 +114,11 @@ export const OperationsTaskDetails = ({
 
       if (error) throw error;
 
-      toast.success("Operations details updated successfully");
+      toast.success("Task details updated");
       onTaskUpdated();
-      onOpenChange(false);
     } catch (error: any) {
-      console.error("Error updating operations details:", error);
-      toast.error(error.message || "Failed to update operations details");
+      console.error("Error updating task:", error);
+      toast.error(error.message || "Failed to update task");
     } finally {
       setLoading(false);
     }
@@ -159,204 +128,181 @@ export const OperationsTaskDetails = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" />
-            Operations Details: {task.title}
+      <DialogContent className="sm:max-w-[700px] max-w-[95vw] max-h-[90vh] overflow-hidden p-0">
+        {/* Header */}
+        <DialogHeader className="p-4 pb-2 border-b">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Package className="h-5 w-5 text-primary flex-shrink-0" />
+            <span className="truncate">{task.title}</span>
           </DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-          {/* Task Overview */}
-          <div className="space-y-2 p-3 sm:p-4 bg-muted/50 rounded-lg">
-            <div className="flex items-center gap-2">
-              <ClipboardList className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <Label className="text-sm font-medium">Task Details</Label>
-            </div>
-            <p className="text-sm leading-relaxed text-muted-foreground">{task.description || "No description"}</p>
+          <div className="flex flex-wrap gap-2 mt-2">
             {task.client_name && (
-              <p className="text-sm">
-                <span className="font-medium">Client:</span> {task.client_name}
-              </p>
+              <Badge variant="outline" className="text-xs">
+                <User className="h-3 w-3 mr-1" />
+                {task.client_name}
+              </Badge>
             )}
-            <Badge variant={task.status === 'production' ? 'default' : 'secondary'}>
-              {task.status === 'production' ? 'In Production' : 'Done'}
+            <Badge variant={task.status === 'production' ? 'default' : 'secondary'} className="text-xs">
+              {task.status === 'production' ? 'In Production' : task.status.replace('_', ' ')}
             </Badge>
           </div>
+        </DialogHeader>
 
-          {/* Assignment Section */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-primary flex-shrink-0" />
-              <Label htmlFor="assigned-to" className="text-sm">Assigned To</Label>
-              {operationsUsers.length > 0 && (
-                <Badge variant="outline" className="ml-auto text-xs">
-                  {operationsUsers.length} team members
-                </Badge>
-              )}
-            </div>
-            <Select value={assignedTo} onValueChange={(value) => {
-              console.log('🎯 Assignment changed to:', value);
-              setAssignedTo(value);
-            }}>
-              <SelectTrigger id="assigned-to" className="w-full h-11 sm:h-10">
-                <SelectValue placeholder="Select team member" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-[100]" position="popper" sideOffset={5}>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                {operationsUsers.map((user) => {
-                  console.log('🔹 Rendering option:', user.full_name, user.id);
-                  return (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.full_name || user.email}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Assign this task to a specific operations team member
-              {operationsUsers.length === 0 && " (Loading...)"}
-            </p>
-          </div>
+        {/* Tabbed Content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+          <TabsList className="w-full grid grid-cols-4 h-12 rounded-none border-b px-2 bg-muted/30">
+            <TabsTrigger value="workflow" className="text-xs sm:text-sm data-[state=active]:bg-background">
+              <Route className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Workflow</span>
+            </TabsTrigger>
+            <TabsTrigger value="details" className="text-xs sm:text-sm data-[state=active]:bg-background">
+              <Settings className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Details</span>
+            </TabsTrigger>
+            <TabsTrigger value="products" className="text-xs sm:text-sm data-[state=active]:bg-background">
+              <Package className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Products</span>
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="text-xs sm:text-sm data-[state=active]:bg-background">
+              <ClipboardList className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Activity</span>
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Supplier Workflow Chain */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4 text-primary flex-shrink-0" />
-              <Label className="text-sm">Supplier Workflow Chain</Label>
-            </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Add suppliers in order of workflow (e.g., collect from Supplier A → process at Supplier B → deliver)
-            </p>
-            
-            <div className="space-y-2">
-              {suppliers.map((supplier, index) => (
-                <div key={index} className="flex items-center gap-2 p-2.5 sm:p-2 bg-muted rounded-lg touch-manipulation">
-                  <span className="text-sm font-medium text-primary flex-shrink-0">Step {index + 1}:</span>
-                  <span className="flex-1 text-sm break-words">{supplier}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveSupplier(index)}
-                    className="h-8 w-8 p-0 flex-shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-2">
-              <Input
-                value={newSupplier}
-                onChange={(e) => setNewSupplier(e.target.value)}
-                placeholder="Enter supplier name"
-                className="h-11 sm:h-10 text-base sm:text-sm"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddSupplier();
-                  }
-                }}
+          <div className="flex-1 overflow-y-auto p-4">
+            {/* Workflow Tab - Main workflow steps */}
+            <TabsContent value="workflow" className="mt-0 space-y-4">
+              <TaskWorkflowSteps 
+                taskId={task.id} 
+                taskTitle={task.title}
+                onStepChange={onTaskUpdated}
               />
-              <Button
-                type="button"
-                onClick={handleAddSupplier}
-                size="sm"
-                variant="outline"
-                className="h-11 w-11 sm:h-10 sm:w-10 p-0 flex-shrink-0"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+            </TabsContent>
 
-          {/* Delivery Date */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
-              <Label htmlFor="deliveryDate" className="text-sm">Delivery Date</Label>
-            </div>
-            <Input
-              id="deliveryDate"
-              type="date"
-              value={deliveryDate}
-              onChange={(e) => setDeliveryDate(e.target.value)}
-              className="h-11 sm:h-10 text-base sm:text-sm"
-            />
-          </div>
+            {/* Details Tab - Assignment, delivery info */}
+            <TabsContent value="details" className="mt-0">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Task Description */}
+                {task.description && (
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <Label className="text-xs text-muted-foreground">Description</Label>
+                    <p className="text-sm mt-1">{task.description}</p>
+                  </div>
+                )}
 
-          {/* Delivery Address */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
-              <Label htmlFor="deliveryAddress" className="text-sm">Delivery Address</Label>
-            </div>
-            <Input
-              id="deliveryAddress"
-              value={deliveryAddress}
-              onChange={(e) => setDeliveryAddress(e.target.value)}
-              placeholder="Enter final delivery address"
-              className="h-11 sm:h-10 text-base sm:text-sm"
-            />
-          </div>
+                {/* Assignment Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-primary" />
+                    <Label htmlFor="assigned-to" className="text-sm font-medium">Assign To</Label>
+                  </div>
+                  <Select value={assignedTo} onValueChange={setAssignedTo}>
+                    <SelectTrigger id="assigned-to" className="h-11">
+                      <SelectValue placeholder="Select team member" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-[100]">
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {operationsUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.full_name || user.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Special Instructions */}
-          <div className="space-y-2">
-            <Label htmlFor="deliveryInstructions" className="text-sm">Special Instructions</Label>
-            <Textarea
-              id="deliveryInstructions"
-              value={deliveryInstructions}
-              onChange={(e) => setDeliveryInstructions(e.target.value)}
-              placeholder="Enter any special handling or delivery instructions..."
-              rows={4}
-              className="resize-none text-base sm:text-sm leading-relaxed"
-            />
-          </div>
+                {/* Delivery Date */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    <Label htmlFor="deliveryDate" className="text-sm font-medium">Delivery Date</Label>
+                  </div>
+                  <Input
+                    id="deliveryDate"
+                    type="date"
+                    value={deliveryDate}
+                    onChange={(e) => setDeliveryDate(e.target.value)}
+                    className="h-11"
+                  />
+                </div>
 
-          {/* Products with Quantities */}
-          <div className="border-t pt-4">
-            <TaskProductsManager 
-              taskId={task.id} 
-              isAdmin={false}
-              userRole="operations"
-              readOnly={false}
-            />
-          </div>
+                {/* Final Delivery Address */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <Label htmlFor="deliveryAddress" className="text-sm font-medium">Final Delivery Address</Label>
+                  </div>
+                  <Input
+                    id="deliveryAddress"
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    placeholder="Enter client's delivery address"
+                    className="h-11"
+                  />
+                </div>
 
-          {/* Operations Activity Log - Mobile Optimized */}
-          <div className="border-t pt-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Task Progress Updates</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Log each step of the workflow. Your team and admins will be notified instantly.
-            </p>
-            <OperationsActivityLog taskId={task.id} />
-          </div>
+                {/* Special Instructions */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-primary" />
+                    <Label htmlFor="deliveryInstructions" className="text-sm font-medium">Special Instructions</Label>
+                  </div>
+                  <Textarea
+                    id="deliveryInstructions"
+                    value={deliveryInstructions}
+                    onChange={(e) => setDeliveryInstructions(e.target.value)}
+                    placeholder="Any special handling or delivery notes..."
+                    rows={4}
+                    className="resize-none"
+                  />
+                </div>
 
-          <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => onOpenChange(false)}
-              className="h-11 sm:h-10 w-full sm:w-auto order-2 sm:order-1"
-            >
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              disabled={loading}
-              className="h-11 sm:h-10 w-full sm:w-auto order-1 sm:order-2"
-            >
-              {loading ? "Saving..." : "Save Details"}
-            </Button>
-          </DialogFooter>
-        </form>
+                <Button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full h-11"
+                >
+                  {loading ? "Saving..." : "Save Details"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            {/* Products Tab */}
+            <TabsContent value="products" className="mt-0">
+              <TaskProductsManager 
+                taskId={task.id} 
+                isAdmin={false}
+                userRole="operations"
+                readOnly={false}
+              />
+            </TabsContent>
+
+            {/* Activity Tab */}
+            <TabsContent value="activity" className="mt-0 space-y-4">
+              <div className="space-y-2">
+                <h3 className="font-medium flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4 text-primary" />
+                  Progress Updates
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Log updates about this task. Your team and admins will be notified.
+                </p>
+              </div>
+              <OperationsActivityLog taskId={task.id} />
+            </TabsContent>
+          </div>
+        </Tabs>
+
+        {/* Footer */}
+        <DialogFooter className="p-4 border-t">
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            className="w-full h-11"
+          >
+            Close
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

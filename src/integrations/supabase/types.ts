@@ -982,6 +982,65 @@ export type Database = {
           },
         ]
       }
+      task_workflow_steps: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          id: string
+          location_address: string | null
+          location_notes: string | null
+          notes: string | null
+          started_at: string | null
+          status: string
+          step_order: number
+          step_type: string
+          supplier_name: string | null
+          task_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          id?: string
+          location_address?: string | null
+          location_notes?: string | null
+          notes?: string | null
+          started_at?: string | null
+          status?: string
+          step_order?: number
+          step_type?: string
+          supplier_name?: string | null
+          task_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          id?: string
+          location_address?: string | null
+          location_notes?: string | null
+          notes?: string | null
+          started_at?: string | null
+          status?: string
+          step_order?: number
+          step_type?: string
+          supplier_name?: string | null
+          task_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_workflow_steps_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           admin_remarks: string | null

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,13 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle,
+  Circle
 } from "lucide-react";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 export type OperationsTask = {
   id: string;
@@ -74,8 +77,27 @@ export const OperationsTaskCard = ({
   showAssignment = true 
 }: OperationsTaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [workflowProgress, setWorkflowProgress] = useState({ completed: 0, total: 0 });
   
-  const hasDeliveryInfo = task.delivery_address || task.suppliers?.length;
+  // Fetch workflow step progress
+  useEffect(() => {
+    const fetchProgress = async () => {
+      const { data, error } = await supabase
+        .from('task_workflow_steps')
+        .select('status')
+        .eq('task_id', task.id);
+      
+      if (!error && data) {
+        setWorkflowProgress({
+          total: data.length,
+          completed: data.filter(s => s.status === 'completed').length
+        });
+      }
+    };
+    fetchProgress();
+  }, [task.id]);
+  
+  const hasDeliveryInfo = task.delivery_address || task.suppliers?.length || workflowProgress.total > 0;
   const isAssignedToMe = task.assigned_to === currentUserId;
   const assignedUserName = task.assigned_profile?.full_name || task.assigned_profile?.email || 'Unassigned';
   const priority = priorityConfig[task.priority as keyof typeof priorityConfig] || priorityConfig.medium;
@@ -154,7 +176,21 @@ export const OperationsTaskCard = ({
               </Badge>
             )}
 
-            {task.suppliers && task.suppliers.length > 0 && (
+            {workflowProgress.total > 0 && (
+              <Badge variant="outline" className={cn(
+                "text-xs",
+                workflowProgress.completed === workflowProgress.total && "bg-green-100 border-green-500 text-green-700"
+              )}>
+                {workflowProgress.completed === workflowProgress.total ? (
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                ) : (
+                  <Circle className="h-3 w-3 mr-1" />
+                )}
+                {workflowProgress.completed}/{workflowProgress.total} steps
+              </Badge>
+            )}
+
+            {task.suppliers && task.suppliers.length > 0 && workflowProgress.total === 0 && (
               <Badge variant="outline" className="text-xs">
                 <Truck className="h-3 w-3 mr-1" />
                 {task.suppliers.length} stop{task.suppliers.length > 1 ? 's' : ''}
