@@ -77,7 +77,7 @@ export const OperationsTaskCard = ({
   showAssignment = true 
 }: OperationsTaskCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [workflowProgress, setWorkflowProgress] = useState({ completed: 0, total: 0 });
+  const [workflowProgress, setWorkflowProgress] = useState({ completed: 0, total: 0, inProgress: 0 });
   
   // Fetch workflow step progress
   useEffect(() => {
@@ -90,7 +90,8 @@ export const OperationsTaskCard = ({
       if (!error && data) {
         setWorkflowProgress({
           total: data.length,
-          completed: data.filter(s => s.status === 'completed').length
+          completed: data.filter(s => s.status === 'completed').length,
+          inProgress: data.filter(s => s.status === 'in_progress').length
         });
       }
     };
@@ -179,14 +180,26 @@ export const OperationsTaskCard = ({
             {workflowProgress.total > 0 && (
               <Badge variant="outline" className={cn(
                 "text-xs",
-                workflowProgress.completed === workflowProgress.total && "bg-green-100 border-green-500 text-green-700"
+                workflowProgress.completed === workflowProgress.total && "bg-green-100 border-green-500 text-green-700",
+                workflowProgress.inProgress > 0 && workflowProgress.completed < workflowProgress.total && "bg-blue-100 border-blue-500 text-blue-700"
               )}>
                 {workflowProgress.completed === workflowProgress.total ? (
-                  <CheckCircle className="h-3 w-3 mr-1" />
+                  <>
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Completed
+                  </>
+                ) : workflowProgress.inProgress > 0 ? (
+                  <>
+                    <Clock className="h-3 w-3 mr-1 animate-pulse" />
+                    In Progress
+                  </>
                 ) : (
-                  <Circle className="h-3 w-3 mr-1" />
+                  <>
+                    <Circle className="h-3 w-3 mr-1" />
+                    Pending
+                  </>
                 )}
-                {workflowProgress.completed}/{workflowProgress.total} steps
+                <span className="ml-1">({workflowProgress.completed}/{workflowProgress.total})</span>
               </Badge>
             )}
 

@@ -42,6 +42,7 @@ interface WorkflowStep {
   completed_at: string | null;
   completed_by: string | null;
   notes: string | null;
+  due_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +119,7 @@ export const TaskWorkflowSteps = ({
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newDueDate, setNewDueDate] = useState('');
 
   const fetchSteps = useCallback(async () => {
     try {
@@ -189,6 +191,7 @@ export const TaskWorkflowSteps = ({
           supplier_name: newSupplierName.trim() || null,
           location_address: newAddress.trim() || null,
           location_notes: newNotes.trim() || null,
+          due_date: newDueDate || null,
           status: 'pending'
         });
 
@@ -198,6 +201,7 @@ export const TaskWorkflowSteps = ({
       setNewSupplierName('');
       setNewAddress('');
       setNewNotes('');
+      setNewDueDate('');
       setNewStepType('collect');
       fetchSteps();
       onStepChange?.();
@@ -380,6 +384,12 @@ export const TaskWorkflowSteps = ({
                               <h4 className="font-medium text-sm">
                                 {typeConfig.shortLabel}: {step.supplier_name || 'Client'}
                               </h4>
+                              {step.due_date && (
+                                <p className="text-xs text-orange-600 flex items-center gap-1 mt-0.5">
+                                  <Clock className="h-3 w-3" />
+                                  Due: {format(new Date(step.due_date), 'MMM d, h:mm a')}
+                                </p>
+                              )}
                               {step.location_address && (
                                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                   <MapPin className="h-3 w-3" />
@@ -552,6 +562,17 @@ export const TaskWorkflowSteps = ({
                   value={newAddress}
                   onChange={(e) => setNewAddress(e.target.value)}
                   placeholder="Enter location address"
+                  className="h-11 mt-1"
+                />
+              </div>
+
+              {/* Due Date */}
+              <div>
+                <Label className="text-xs">Due Date (optional)</Label>
+                <Input
+                  type="datetime-local"
+                  value={newDueDate}
+                  onChange={(e) => setNewDueDate(e.target.value)}
                   className="h-11 mt-1"
                 />
               </div>

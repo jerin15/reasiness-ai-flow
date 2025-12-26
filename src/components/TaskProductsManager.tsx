@@ -22,6 +22,7 @@ interface Product {
   approval_notes?: string;
   approved_by?: string;
   approved_at?: string;
+  supplier_name?: string;
 }
 
 interface TaskProductsManagerProps {
@@ -47,7 +48,8 @@ export function TaskProductsManager({
     quantity: 1,
     unit: 'pcs',
     estimated_price: 0,
-    approval_status: 'pending'
+    approval_status: 'pending',
+    supplier_name: ''
   });
   const [showAddForm, setShowAddForm] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<string>('');
@@ -153,7 +155,8 @@ export function TaskProductsManager({
       quantity: 1,
       unit: 'pcs',
       estimated_price: 0,
-      approval_status: 'pending'
+      approval_status: 'pending',
+      supplier_name: ''
     });
     setShowAddForm(false);
   };
@@ -461,6 +464,14 @@ export function TaskProductsManager({
               />
             </div>
             <div className="col-span-2">
+              <Label>Supplier Name</Label>
+              <Input
+                value={newProduct.supplier_name || ''}
+                onChange={(e) => setNewProduct({ ...newProduct, supplier_name: e.target.value })}
+                placeholder="Enter supplier name for this product"
+              />
+            </div>
+            <div className="col-span-2">
               <Label>Description</Label>
               <Textarea
                 value={newProduct.description}
@@ -651,16 +662,21 @@ export function TaskProductsManager({
               // View mode
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <h4 className="font-semibold">{product.product_name}</h4>
                     {getStatusBadge(product.approval_status)}
+                    {(product as any).supplier_name && (
+                      <Badge variant="outline" className="text-xs">
+                        🏭 {(product as any).supplier_name}
+                      </Badge>
+                    )}
                   </div>
                   
                   {product.description && (
                     <p className="text-sm text-muted-foreground">{product.description}</p>
                   )}
                   
-                  <div className="flex gap-4 text-sm">
+                  <div className="flex gap-4 text-sm flex-wrap">
                     <span>Qty: {product.quantity} {product.unit}</span>
                     <span>Est. Price: AED {product.estimated_price}</span>
                     {product.final_price && (
