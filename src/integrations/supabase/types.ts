@@ -909,6 +909,7 @@ export type Database = {
           task_id: string
           unit: string | null
           updated_at: string | null
+          workflow_step_id: string | null
         }
         Insert: {
           approval_notes?: string | null
@@ -928,6 +929,7 @@ export type Database = {
           task_id: string
           unit?: string | null
           updated_at?: string | null
+          workflow_step_id?: string | null
         }
         Update: {
           approval_notes?: string | null
@@ -947,6 +949,7 @@ export type Database = {
           task_id?: string
           unit?: string | null
           updated_at?: string | null
+          workflow_step_id?: string | null
         }
         Relationships: [
           {
@@ -954,6 +957,13 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_products_workflow_step_id_fkey"
+            columns: ["workflow_step_id"]
+            isOneToOne: false
+            referencedRelation: "task_workflow_steps"
             referencedColumns: ["id"]
           },
         ]
