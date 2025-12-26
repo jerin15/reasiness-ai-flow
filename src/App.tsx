@@ -24,6 +24,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Auth = lazy(() => import("./pages/Auth"));
 const BrainGames = lazy(() => import("./pages/BrainGames"));
 const Analytics = lazy(() => import("./pages/Analytics"));
+const OperationsWhiteboard = lazy(() => import("./pages/OperationsWhiteboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -59,6 +60,7 @@ const AppContent = () => {
           <Route path="/auth" element={<Auth />} />
           <Route path="/brain-games" element={<BrainGames />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/operations-whiteboard" element={<OperationsWhiteboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

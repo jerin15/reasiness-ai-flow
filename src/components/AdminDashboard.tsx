@@ -6,15 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ListTodo, Plus, MapPin, Loader2, Truck, ExternalLink } from "lucide-react";
+import { ListTodo, Plus, MapPin, Loader2, ClipboardList } from "lucide-react";
 import { AddTaskDialog } from "./AddTaskDialog";
-import { CreateOperationsTaskDialog } from "./CreateOperationsTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
 import { EstimationPipelineAnalytics } from "./EstimationPipelineAnalytics";
 import { OperationsLocationMap } from "./operations/OperationsLocationMap";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
 import { useDebouncedCallback } from "@/hooks/useVisibilityAwareSubscription";
@@ -60,7 +58,7 @@ export const AdminDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
-  const [showOperationsTask, setShowOperationsTask] = useState(false);
+  
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const [mapLoading, setMapLoading] = useState(false);
@@ -321,30 +319,16 @@ export const AdminDashboard = () => {
 
         <TabsContent value="overview" className="space-y-6">
 
-      {/* Quick Actions for Task Creation */}
+      {/* Quick Actions */}
       <div className="flex flex-wrap gap-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Task
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuItem onClick={() => setShowAddTask(true)}>
-              <ListTodo className="h-4 w-4 mr-2" />
-              General Task
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowOperationsTask(true)}>
-              <Truck className="h-4 w-4 mr-2" />
-              Operations Task (Melvin/Jigeesh)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button onClick={() => setShowAddTask(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Task
+        </Button>
 
-        <Button variant="outline" onClick={() => navigate('/?view=operations')}>
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Go to Operations Panel
+        <Button variant="outline" onClick={() => navigate('/operations-whiteboard')}>
+          <ClipboardList className="h-4 w-4 mr-2" />
+          Operations Whiteboard
         </Button>
       </div>
 
@@ -477,11 +461,6 @@ export const AdminDashboard = () => {
         onTaskAdded={fetchTasksAndStats}
       />
 
-      <CreateOperationsTaskDialog
-        open={showOperationsTask}
-        onOpenChange={setShowOperationsTask}
-        onTaskCreated={fetchTasksAndStats}
-      />
         </TabsContent>
 
         <TabsContent value="analytics">
