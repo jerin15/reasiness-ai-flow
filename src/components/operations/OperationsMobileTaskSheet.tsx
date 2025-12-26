@@ -26,7 +26,8 @@ import {
   Route,
   AlertTriangle,
   ExternalLink,
-  ShoppingCart
+  ShoppingCart,
+  Trash2
 } from "lucide-react";
 import { TaskWorkflowSteps } from "./TaskWorkflowSteps";
 import { OperationsActivityLog } from "../OperationsActivityLog";
@@ -47,6 +48,8 @@ interface OperationsMobileTaskSheetProps {
   task: OperationsTaskWithSteps | null;
   operationsUsers: OperationsUser[];
   onTaskUpdated: () => void;
+  isAdmin?: boolean;
+  onDeleteTask?: (taskId: string) => void;
 }
 
 export const OperationsMobileTaskSheet = ({
@@ -54,7 +57,9 @@ export const OperationsMobileTaskSheet = ({
   onOpenChange,
   task,
   operationsUsers,
-  onTaskUpdated
+  onTaskUpdated,
+  isAdmin = false,
+  onDeleteTask
 }: OperationsMobileTaskSheetProps) => {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryDate, setDeliveryDate] = useState("");
@@ -286,11 +291,22 @@ export const OperationsMobileTaskSheet = ({
         </Tabs>
 
         <DrawerFooter className="border-t pt-4 shrink-0">
-          <DrawerClose asChild>
-            <Button variant="outline" className="w-full h-12">
-              Close
-            </Button>
-          </DrawerClose>
+          <div className="flex gap-2 w-full">
+            {isAdmin && onDeleteTask && (
+              <Button 
+                variant="destructive" 
+                className="h-12"
+                onClick={() => onDeleteTask(task.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+            <DrawerClose asChild>
+              <Button variant="outline" className="flex-1 h-12">
+                Close
+              </Button>
+            </DrawerClose>
+          </div>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
