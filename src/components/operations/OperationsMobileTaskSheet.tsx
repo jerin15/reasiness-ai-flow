@@ -87,17 +87,43 @@ export const OperationsMobileTaskSheet = ({
   const handleSaveDetails = async () => {
     setSaving(true);
     try {
+      const previousAssignedTo = task.assigned_to;
+      const newAssignedTo = assignedTo === "unassigned" ? null : assignedTo;
+      
       const { error } = await supabase
         .from("tasks")
         .update({
           delivery_address: deliveryAddress || null,
           due_date: deliveryDate || null,
           delivery_instructions: deliveryInstructions || null,
-          assigned_to: assignedTo === "unassigned" ? null : assignedTo,
+          assigned_to: newAssignedTo,
         })
         .eq("id", task.id);
 
       if (error) throw error;
+
+      // Send notification if assignment changed
+      if (newAssignedTo && newAssignedTo !== previousAssignedTo) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: assignerProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user?.id)
+          .single();
+        
+        const assignerName = assignerProfile?.full_name || 'Team';
+        
+        await supabase
+          .from('urgent_notifications')
+          .insert({
+            sender_id: user?.id,
+            recipient_id: newAssignedTo,
+            title: '📋 Task Assigned to You',
+            message: `${assignerName} assigned you: "${task.title}"\n\n${task.client_name ? `Client: ${task.client_name}\n` : ''}${deliveryAddress ? `Delivery: ${deliveryAddress}\n` : ''}${deliveryDate ? `Due: ${new Date(deliveryDate).toLocaleDateString()}` : ''}`,
+            is_broadcast: false,
+            priority: task.priority === 'urgent' || task.priority === 'high' ? 'high' : 'medium'
+          });
+      }
 
       toast.success("Task updated");
       onTaskUpdated();
