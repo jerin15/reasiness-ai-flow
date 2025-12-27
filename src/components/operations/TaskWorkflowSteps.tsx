@@ -484,6 +484,7 @@ export const TaskWorkflowSteps = ({
                                 {statusCfg.label}
                               </Badge>
                               {(() => {
+                                // Parse FROM supplier info from location_notes for S→S transfers
                                 const fromLine = step.step_type === 'supplier_to_supplier' && step.location_notes?.startsWith('FROM:')
                                   ? step.location_notes.split('\n')[0].replace(/^FROM:\s*/i, '').trim()
                                   : null;
@@ -491,63 +492,121 @@ export const TaskWorkflowSteps = ({
                                   ? step.location_notes.split('\n').slice(1).join('\n').trim() || null
                                   : step.location_notes;
 
-                                const title = step.step_type === 'supplier_to_supplier' && fromLine
-                                  ? `${typeConfig.shortLabel}: ${fromLine} → ${step.supplier_name || 'Supplier'}`
-                                  : `${typeConfig.shortLabel}: ${step.supplier_name || 'Client'}`;
+                                // Parse FROM supplier name and address separately
+                                let fromSupplierName = '';
+                                let fromSupplierAddress = '';
+                                if (fromLine) {
+                                  const addressMatch = fromLine.match(/^([^(]+)(?:\s*\(([^)]+)\))?$/);
+                                  if (addressMatch) {
+                                    fromSupplierName = addressMatch[1]?.trim() || '';
+                                    fromSupplierAddress = addressMatch[2]?.trim() || '';
+                                  } else {
+                                    fromSupplierName = fromLine;
+                                  }
+                                }
 
                                 return (
                                   <>
-                                    <h4 className="font-medium text-sm">
-                                      {title}
-                                    </h4>
+                                    {/* Step Type Header */}
+                                    <div className="flex items-center gap-2">
+                                      <StepIcon className="h-4 w-4" />
+                                      <h4 className="font-semibold text-sm">{typeConfig.shortLabel}</h4>
+                                    </div>
 
+                                    {/* Due Date - Prominent */}
                                     {step.due_date && (
-                                      <p className="text-xs text-primary flex items-center gap-1 mt-0.5">
+                                      <p className="text-xs text-destructive font-medium flex items-center gap-1 mt-1">
                                         <Clock className="h-3 w-3" />
                                         Due: {format(new Date(step.due_date), 'MMM d, h:mm a')}
                                       </p>
                                     )}
 
-                                    {/* Products List */}
-                                    {step.products && step.products.length > 0 && (
-                                      <div className="bg-muted/50 rounded px-2 py-1.5 mt-1.5 space-y-1">
-                                        <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                    {/* COLLECT FROM Section */}
+                                    {(step.step_type === 'collect' || step.step_type === 'supplier_to_supplier') && (
+                                      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md px-2.5 py-2 mt-2">
+                                        <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 mb-1">
                                           <Package className="h-3 w-3" />
-                                          Products ({step.products.length}):
+                                          📦 COLLECT FROM:
                                         </div>
-                                        {step.products.slice(0, 3).map((product) => (
-                                          <div key={product.id} className="text-xs flex items-center gap-1.5 pl-4">
-                                            <span className="font-medium">{product.quantity || 1}</span>
-                                            <span className="text-muted-foreground">{product.unit || 'pcs'}</span>
-                                            <span className="text-foreground">- {product.product_name}</span>
-                                            {product.supplier_name && (
-                                              <span className="text-muted-foreground">({product.supplier_name})</span>
-                                            )}
+                                        <div className="text-sm font-medium">
+                                          {step.step_type === 'supplier_to_supplier' ? fromSupplierName : step.supplier_name || 'Supplier'}
+                                        </div>
+                                        {step.step_type === 'supplier_to_supplier' && fromSupplierAddress && (
+                                          <div className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
+                                            <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                                            <span>{fromSupplierAddress}</span>
                                           </div>
-                                        ))}
-                                        {step.products.length > 3 && (
-                                          <div className="text-xs text-primary pl-4">
-                                            +{step.products.length - 3} more items
+                                        )}
+                                        {step.step_type === 'collect' && step.location_address && (
+                                          <div className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
+                                            <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                                            <span>{step.location_address}</span>
                                           </div>
                                         )}
                                       </div>
                                     )}
 
-                                    {step.location_address && (
-                                      <p className="text-xs text-muted-foreground flex items-start gap-1 mt-1">
-                                        <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-                                        <span className="line-clamp-2">{step.location_address}</span>
-                                      </p>
+                                    {/* DELIVER TO Section */}
+                                    {(step.step_type === 'deliver_to_supplier' || step.step_type === 'deliver_to_client' || step.step_type === 'supplier_to_supplier') && (
+                                      <div className={cn(
+                                        "border rounded-md px-2.5 py-2 mt-2",
+                                        step.step_type === 'deliver_to_client' 
+                                          ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
+                                          : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"
+                                      )}>
+                                        <div className={cn(
+                                          "text-xs font-semibold flex items-center gap-1.5 mb-1",
+                                          step.step_type === 'deliver_to_client'
+                                            ? "text-green-700 dark:text-green-300"
+                                            : "text-amber-700 dark:text-amber-300"
+                                        )}>
+                                          <Truck className="h-3 w-3" />
+                                          🚚 DELIVER TO:
+                                        </div>
+                                        <div className="text-sm font-medium">
+                                          {step.supplier_name || (step.step_type === 'deliver_to_client' ? 'Client' : 'Supplier')}
+                                        </div>
+                                        {step.location_address && (
+                                          <div className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
+                                            <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                                            <span>{step.location_address}</span>
+                                          </div>
+                                        )}
+                                      </div>
                                     )}
 
+                                    {/* Products List - ALWAYS SHOW with full details */}
+                                    {step.products && step.products.length > 0 && (
+                                      <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-md px-2.5 py-2 mt-2">
+                                        <div className="text-xs font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5 mb-1.5">
+                                          <Package className="h-3 w-3" />
+                                          📋 PRODUCTS ({step.products.length}):
+                                        </div>
+                                        <div className="space-y-1">
+                                          {step.products.map((product) => (
+                                            <div key={product.id} className="text-sm flex items-start gap-2 bg-background/50 rounded px-2 py-1">
+                                              <span className="font-bold text-primary min-w-[40px]">
+                                                {product.quantity || 1} {product.unit || 'pcs'}
+                                              </span>
+                                              <span className="flex-1 font-medium">{product.product_name}</span>
+                                              {product.supplier_name && (
+                                                <span className="text-xs text-muted-foreground">from {product.supplier_name}</span>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Show remaining notes/instructions */}
                                     {remainingLocationNotes && (
-                                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                        ℹ️ {remainingLocationNotes}
+                                      <p className="text-xs text-muted-foreground mt-2 bg-muted/50 rounded px-2 py-1.5">
+                                        📍 {remainingLocationNotes}
                                       </p>
                                     )}
 
                                     {step.notes && (
-                                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">
+                                      <p className="text-xs text-muted-foreground mt-1 italic bg-muted/30 rounded px-2 py-1">
                                         📝 {step.notes}
                                       </p>
                                     )}
