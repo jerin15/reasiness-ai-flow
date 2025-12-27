@@ -148,16 +148,30 @@ export const AdminOperationsTaskDetails = ({
 
     setDeleting(true);
     try {
-      // Delete related records first
-      await supabase.from('task_workflow_steps').delete().eq('task_id', task.id);
-      await supabase.from('task_products').delete().eq('task_id', task.id);
-      await supabase.from('task_activity_log').delete().eq('task_id', task.id);
+      const nowIso = new Date().toISOString();
       
-      // Soft delete the task
+      // Soft delete the task (and linked tasks) – no hard-delete of child records needed
+      const { data: baseTask } = await supabase
+        .from('tasks')
+        .select('id, linked_task_id')
+        .eq('id', task.id)
+        .maybeSingle();
+
+      const { data: reverseLinked } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('linked_task_id', task.id)
+        .is('deleted_at', null)
+        .maybeSingle();
+
+      const ids = Array.from(
+        new Set([task.id, baseTask?.linked_task_id, reverseLinked?.id].filter(Boolean) as string[])
+      );
+
       const { error } = await supabase
         .from("tasks")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", task.id);
+        .update({ deleted_at: nowIso })
+        .in("id", ids);
 
       if (error) throw error;
 
