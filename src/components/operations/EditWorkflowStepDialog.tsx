@@ -36,6 +36,24 @@ interface EditWorkflowStepDialogProps {
   onStepUpdated: () => void;
 }
 
+const parseFromLocationNotes = (locationNotes: string | null) => {
+  if (!locationNotes) return { fromName: "", fromAddress: "", extraNotes: "" };
+  const [firstLine, ...rest] = locationNotes.split("\n");
+  const extraNotes = rest.join("\n").trim();
+
+  if (!/^FROM:/i.test(firstLine || "")) {
+    return { fromName: "", fromAddress: "", extraNotes: locationNotes.trim() };
+  }
+
+  const fromLine = (firstLine || "").replace(/^FROM:\s*/i, "").trim();
+  const match = fromLine.match(/^(.*?)\s*(?:\(([^)]+)\))?$/);
+  return {
+    fromName: (match?.[1] || "").trim(),
+    fromAddress: (match?.[2] || "").trim(),
+    extraNotes,
+  };
+};
+
 export const EditWorkflowStepDialog = ({
   open,
   onOpenChange,
@@ -49,7 +67,11 @@ export const EditWorkflowStepDialog = ({
   const [dueDate, setDueDate] = useState("");
   const [stepType, setStepType] = useState<string>("collect");
   const [saving, setSaving] = useState(false);
-  
+
+  // S→S Transfer specific fields
+  const [fromSupplierName, setFromSupplierName] = useState("");
+  const [fromSupplierAddress, setFromSupplierAddress] = useState("");
+
   // Products state
   const [products, setProducts] = useState<WorkflowStepProduct[]>([]);
   const [newProductName, setNewProductName] = useState("");
@@ -58,29 +80,63 @@ export const EditWorkflowStepDialog = ({
   const [newProductSupplier, setNewProductSupplier] = useState("");
 
   useEffect(() => {
-    if (step) {
+    if (!step) return;
+
+    setStepType(step.step_type);
+
+    if (step.step_type === 'supplier_to_supplier') {
+      const parsed = parseFromLocationNotes(step.location_notes);
+      setFromSupplierName(parsed.fromName);
+      setFromSupplierAddress(parsed.fromAddress);
+      setSupplierName(step.supplier_name || ""); // TO supplier
+      setLocationAddress(step.location_address || ""); // TO address
+      setNotes(parsed.extraNotes || step.notes || "");
+    } else {
       setSupplierName(step.supplier_name || "");
       setLocationAddress(step.location_address || "");
-      setNotes(step.notes || "");
-      setDueDate(step.due_date ? step.due_date.split('T')[0] : "");
-      setStepType(step.step_type);
-      setProducts(step.products || []);
+      setNotes(step.notes || step.location_notes || "");
+      setFromSupplierName("");
+      setFromSupplierAddress("");
     }
+
+    setDueDate(step.due_date ? step.due_date.split('T')[0] : "");
+    setProducts(step.products || []);
   }, [step]);
 
   const handleSave = async () => {
     if (!step) return;
-    
+
+    if (stepType === 'supplier_to_supplier') {
+      if (!fromSupplierName.trim()) {
+        toast.error('Please enter the FROM supplier');
+        return;
+      }
+      if (!supplierName.trim()) {
+        toast.error('Please enter the TO supplier');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
+      const isTransfer = stepType === 'supplier_to_supplier';
+
+      const locationNotes = isTransfer
+        ? `FROM: ${fromSupplierName.trim()}${fromSupplierAddress.trim() ? ` (${fromSupplierAddress.trim()})` : ''}${notes.trim() ? `\n${notes.trim()}` : ''}`
+        : (notes.trim() || null);
+
       const { error } = await supabase
         .from('task_workflow_steps')
         .update({
-          supplier_name: supplierName || null,
-          location_address: locationAddress || null,
-          notes: notes || null,
+          step_type: stepType,
+          // For transfer, supplier_name is TO supplier
+          supplier_name: supplierName.trim() || null,
+          // For transfer, location_address is TO address
+          location_address: locationAddress.trim() || null,
+          // Keep both fields in sync with existing creation flow
+          notes: notes.trim() || null,
+          location_notes: locationNotes,
           due_date: dueDate ? new Date(dueDate).toISOString() : null,
-          step_type: stepType
         })
         .eq('id', step.id);
 
@@ -177,25 +233,63 @@ export const EditWorkflowStepDialog = ({
             </Select>
           </div>
 
-          {/* Supplier/Location Name */}
-          <div className="space-y-2">
-            <Label>Supplier / Location Name</Label>
-            <Input
-              value={supplierName}
-              onChange={(e) => setSupplierName(e.target.value)}
-              placeholder="e.g., Alfa, Print Lab, Client Office"
-            />
-          </div>
+          {/* Supplier Fields */}
+          {stepType === 'supplier_to_supplier' ? (
+            <>
+              <div className="space-y-2">
+                <Label>From Supplier</Label>
+                <Input
+                  value={fromSupplierName}
+                  onChange={(e) => setFromSupplierName(e.target.value)}
+                  placeholder="FROM supplier name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>From Address (optional)</Label>
+                <Input
+                  value={fromSupplierAddress}
+                  onChange={(e) => setFromSupplierAddress(e.target.value)}
+                  placeholder="FROM address"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>To Supplier</Label>
+                <Input
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder="TO supplier name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>To Address (optional)</Label>
+                <Input
+                  value={locationAddress}
+                  onChange={(e) => setLocationAddress(e.target.value)}
+                  placeholder="TO address"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label>Supplier / Location Name</Label>
+                <Input
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder="e.g., Alfa, Print Lab, Client Office"
+                />
+              </div>
 
-          {/* Address */}
-          <div className="space-y-2">
-            <Label>Address (optional)</Label>
-            <Input
-              value={locationAddress}
-              onChange={(e) => setLocationAddress(e.target.value)}
-              placeholder="Full address"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label>Address (optional)</Label>
+                <Input
+                  value={locationAddress}
+                  onChange={(e) => setLocationAddress(e.target.value)}
+                  placeholder="Full address"
+                />
+              </div>
+            </>
+          )}
 
           {/* Due Date */}
           <div className="space-y-2">
