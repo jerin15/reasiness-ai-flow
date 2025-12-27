@@ -459,6 +459,7 @@ export const OperationsMobileShell = ({
                           key={task.id}
                           task={task}
                           currentUserId={userId}
+                          isAdmin={isAdmin}
                           onTaskClick={handleTaskClick}
                           onStepUpdated={fetchTasks}
                         />
@@ -481,6 +482,7 @@ export const OperationsMobileShell = ({
                           key={task.id}
                           task={task}
                           currentUserId={userId}
+                          isAdmin={isAdmin}
                           onTaskClick={handleTaskClick}
                           onStepUpdated={fetchTasks}
                         />

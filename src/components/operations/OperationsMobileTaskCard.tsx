@@ -16,12 +16,14 @@ import {
   PlayCircle,
   Truck,
   ArrowRight,
-  Edit3
+  Edit3,
+  Pencil
 } from "lucide-react";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { EditWorkflowStepDialog } from "./EditWorkflowStepDialog";
 
 export type WorkflowStepProduct = {
   id: string;
@@ -81,6 +83,7 @@ export type OperationsTaskWithSteps = {
 interface OperationsMobileTaskCardProps {
   task: OperationsTaskWithSteps;
   currentUserId: string;
+  isAdmin?: boolean;
   onTaskClick: (task: OperationsTaskWithSteps) => void;
   onStepUpdated: () => void;
 }
@@ -102,10 +105,13 @@ const stepTypeLabels = {
 export const OperationsMobileTaskCard = ({ 
   task, 
   currentUserId, 
+  isAdmin = false,
   onTaskClick,
   onStepUpdated
 }: OperationsMobileTaskCardProps) => {
   const [updatingStep, setUpdatingStep] = useState<string | null>(null);
+  const [editingStep, setEditingStep] = useState<WorkflowStep | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   
   const isAssignedToMe = task.assigned_to === currentUserId;
   const lastUpdatedByName = task.last_updated_profile?.full_name || task.last_updated_profile?.email;
@@ -351,10 +357,25 @@ export const OperationsMobileTaskCard = ({
                         </span>
                         <Badge 
                           variant={step.status === 'completed' ? 'default' : step.status === 'in_progress' ? 'secondary' : 'outline'}
-                          className="text-xs capitalize shrink-0 ml-auto"
+                          className="text-xs capitalize shrink-0"
                         >
                           {step.status.replace('_', ' ')}
                         </Badge>
+                        {/* Admin Edit Button */}
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 ml-auto shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingStep(step);
+                              setEditDialogOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
 
                       {/* Due Date - Date only, no time */}
@@ -497,6 +518,15 @@ export const OperationsMobileTaskCard = ({
           </div>
         )}
       </CardContent>
+
+      {/* Edit Step Dialog for Admins */}
+      <EditWorkflowStepDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        step={editingStep}
+        taskId={task.id}
+        onStepUpdated={onStepUpdated}
+      />
     </Card>
   );
 };
