@@ -357,23 +357,23 @@ export const OperationsMobileTaskCard = ({
                         </Badge>
                       </div>
 
-                      {/* Due Date - Prominent Red */}
+                      {/* Due Date - Date only, no time */}
                       {step.due_date && (
                         <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 font-semibold">
                           <Calendar className="h-3 w-3" />
-                          <span>Due: {format(new Date(step.due_date), 'MMM d, h:mm a')}</span>
+                          <span>Due: {format(new Date(step.due_date), 'MMM d')}</span>
                         </div>
                       )}
 
-                      {/* COLLECT FROM Section - Only for collect steps, NOT supplier_to_supplier */}
-                      {step.step_type === 'collect' && (
+                      {/* COLLECT FROM Section - Only for collect steps */}
+                      {step.step_type === 'collect' && step.supplier_name && (
                         <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md px-2.5 py-2">
                           <div className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 mb-1">
                             <Package className="h-3 w-3" />
                             📦 COLLECT FROM:
                           </div>
                           <div className="text-sm font-semibold">
-                            {step.supplier_name || 'Supplier'}
+                            {step.supplier_name}
                           </div>
                           {step.location_address && (
                             <div className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
@@ -384,44 +384,23 @@ export const OperationsMobileTaskCard = ({
                         </div>
                       )}
 
-                      {/* Supplier to Supplier Transfer - Show FROM and TO clearly */}
-                      {step.step_type === 'supplier_to_supplier' && (
-                        <>
-                          {/* FROM Section */}
-                          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md px-2.5 py-2">
-                            <div className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 mb-1">
-                              <Package className="h-3 w-3" />
-                              📦 COLLECT FROM:
-                            </div>
-                            <div className="text-sm font-semibold">
-                              {step.location_notes?.startsWith('FROM:')
-                                ? step.location_notes.split('\n')[0].replace(/^FROM:\s*/i, '').split('(')[0].trim()
-                                : 'Source Supplier (not specified)'}
-                            </div>
-                            {step.location_notes?.startsWith('FROM:') && step.location_notes.includes('(') && (
-                              <div className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
-                                <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-                                <span>{step.location_notes.split('\n')[0].match(/\(([^)]+)\)/)?.[1] || ''}</span>
-                              </div>
-                            )}
+                      {/* Supplier to Supplier Transfer - Just show the destination */}
+                      {step.step_type === 'supplier_to_supplier' && step.supplier_name && (
+                        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-2.5 py-2">
+                          <div className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 mb-1">
+                            <Truck className="h-3 w-3" />
+                            🚚 TRANSFER TO:
                           </div>
-                          {/* TO Section */}
-                          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-2.5 py-2">
-                            <div className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 mb-1">
-                              <Truck className="h-3 w-3" />
-                              🚚 DELIVER TO:
-                            </div>
-                            <div className="text-sm font-semibold">
-                              {step.supplier_name || 'Destination Supplier (not specified)'}
-                            </div>
-                            {step.location_address && (
-                              <div className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
-                                <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-                                <span>{step.location_address}</span>
-                              </div>
-                            )}
+                          <div className="text-sm font-semibold">
+                            {step.supplier_name}
                           </div>
-                        </>
+                          {step.location_address && (
+                            <div className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
+                              <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                              <span>{step.location_address}</span>
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {/* DELIVER TO Section - For deliver steps only */}
