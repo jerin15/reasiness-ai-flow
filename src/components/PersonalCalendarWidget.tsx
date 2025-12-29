@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +16,7 @@ import {
   ChevronRight,
   Loader2
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, getDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -158,6 +157,30 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
 
   const pendingCount = reminders.filter(r => !r.is_completed).length;
 
+  // Generate calendar days - REA style (Mon-Sun)
+  const generateCalendarDays = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    // Start from Monday of the week containing the 1st
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    // End on Sunday of the week containing the last day
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    
+    const days: Date[] = [];
+    let day = calendarStart;
+    while (day <= calendarEnd) {
+      days.push(day);
+      day = addDays(day, 1);
+    }
+    return days;
+  };
+
+  const calendarDays = generateCalendarDays();
+  const weeks = [];
+  for (let i = 0; i < calendarDays.length; i += 7) {
+    weeks.push(calendarDays.slice(i, i + 7));
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -175,48 +198,58 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="p-4 pb-2 border-b">
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <CalendarDays className="h-5 w-5 text-primary" />
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col p-0 bg-white dark:bg-slate-900">
+        <DialogHeader className="p-4 pb-3 border-b bg-gradient-to-r from-teal-600 to-cyan-500">
+          <DialogTitle className="flex items-center gap-2 text-lg text-white">
+            <CalendarDays className="h-5 w-5" />
             My Calendar
           </DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 overflow-hidden p-4">
-          {/* Month Navigation - Styled like PDF */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-1">
-              <span className="text-2xl font-bold text-primary tracking-tight">
+        <div className="flex-1 overflow-hidden p-5">
+          {/* Month Navigation - REA Style */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl font-bold text-teal-600 tracking-tight">
                 {format(currentMonth, 'MMM').toUpperCase()}
               </span>
-              <span className="text-2xl font-bold text-foreground tracking-tight">
+              <span className="text-3xl font-bold text-pink-500 tracking-tight">
                 {format(currentMonth, 'yyyy')}
               </span>
             </div>
-            <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-              <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-7 w-7 rounded-md hover:bg-background">
-                <ChevronLeft className="h-4 w-4" />
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handlePrevMonth} 
+                className="h-8 w-8 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20"
+              >
+                <ChevronLeft className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-7 w-7 rounded-md hover:bg-background">
-                <ChevronRight className="h-4 w-4" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleNextMonth} 
+                className="h-8 w-8 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20"
+              >
+                <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-[1fr,1fr]">
-            {/* Calendar - PDF Style */}
-            <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+          <div className="grid gap-5 md:grid-cols-[1.2fr,1fr]">
+            {/* Calendar - REA PDF Style */}
+            <div className="rounded-xl overflow-hidden">
               {/* Week Header */}
-              <div className="grid grid-cols-7 border-b">
-                {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day, i) => (
+              <div className="grid grid-cols-7 mb-1">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
                   <div 
                     key={day} 
                     className={cn(
-                      "py-2.5 text-center text-xs font-medium",
+                      "py-2 text-center text-sm font-semibold",
                       i === 6 
-                        ? "text-primary font-bold bg-primary/10" 
-                        : "text-muted-foreground"
+                        ? "text-white bg-pink-400/90 rounded-t-lg" 
+                        : "text-gray-600 dark:text-gray-300"
                     )}
                   >
                     {day}
@@ -224,65 +257,57 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
                 ))}
               </div>
               
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                month={currentMonth}
-                onMonthChange={setCurrentMonth}
-                className="p-0 pointer-events-auto"
-                classNames={{
-                  months: "w-full",
-                  month: "w-full",
-                  caption: "hidden",
-                  nav: "hidden",
-                  table: "w-full border-collapse",
-                  head_row: "hidden",
-                  head_cell: "hidden",
-                  row: "grid grid-cols-7",
-                  cell: cn(
-                    "text-center p-0 relative h-10",
-                    "last:bg-primary/5"
-                  ),
-                  day: cn(
-                    "h-10 w-full text-sm font-normal transition-colors flex items-center justify-center",
-                    "hover:bg-accent cursor-pointer rounded-lg",
-                    "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-                  ),
-                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground font-medium rounded-lg",
-                  day_today: "bg-accent font-bold rounded-lg",
-                  day_outside: "text-muted-foreground/30",
-                  day_disabled: "text-muted-foreground/30",
-                }}
-                components={{
-                  DayContent: ({ date }) => {
-                    const dateKey = format(date, 'yyyy-MM-dd');
-                    const hasReminders = datesWithReminders[dateKey] > 0;
-                    return (
-                      <div className="flex flex-col items-center justify-center">
-                        <span>{date.getDate()}</span>
-                        {hasReminders && (
-                          <div className="absolute bottom-1 w-1 h-1 rounded-full bg-orange-500" />
-                        )}
-                      </div>
-                    );
-                  }
-                }}
-              />
+              {/* Calendar Grid */}
+              <div className="border-t border-gray-200 dark:border-gray-700">
+                {weeks.map((week, weekIdx) => (
+                  <div key={weekIdx} className="grid grid-cols-7">
+                    {week.map((day, dayIdx) => {
+                      const dateKey = format(day, 'yyyy-MM-dd');
+                      const hasReminders = datesWithReminders[dateKey] > 0;
+                      const isCurrentMonth = isSameMonth(day, currentMonth);
+                      const isSelected = isSameDay(day, selectedDate);
+                      const isToday = isSameDay(day, new Date());
+                      const isSunday = dayIdx === 6;
+                      
+                      return (
+                        <button
+                          key={dayIdx}
+                          onClick={() => setSelectedDate(day)}
+                          className={cn(
+                            "h-11 flex flex-col items-center justify-center text-sm font-medium transition-colors relative",
+                            isSunday && "bg-pink-100/70 dark:bg-pink-900/20",
+                            !isCurrentMonth && "text-gray-300 dark:text-gray-600",
+                            isCurrentMonth && !isSunday && "text-gray-700 dark:text-gray-200",
+                            isCurrentMonth && isSunday && "text-pink-600 dark:text-pink-400",
+                            isSelected && "bg-teal-500 text-white rounded-lg",
+                            isToday && !isSelected && "font-bold text-teal-600",
+                            "hover:bg-teal-100 dark:hover:bg-teal-900/30 cursor-pointer"
+                          )}
+                        >
+                          <span>{day.getDate()}</span>
+                          {hasReminders && !isSelected && (
+                            <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-orange-500" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Reminders Panel */}
-            <Card className="border-orange-200 dark:border-orange-900/50 bg-orange-50/50 dark:bg-orange-950/20">
+            <Card className="border-orange-200 dark:border-orange-900/50 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/20">
               <CardHeader className="py-3 px-4">
                 <CardTitle className="text-sm flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <StickyNote className="h-4 w-4 text-orange-600" />
-                    <span>{format(selectedDate, 'MMM d, yyyy')}</span>
+                    <span className="text-gray-700 dark:text-gray-200">{format(selectedDate, 'MMM d, yyyy')}</span>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/50"
+                    className="h-7 gap-1 text-teal-600 hover:text-teal-700 hover:bg-teal-100 dark:hover:bg-teal-900/50"
                     onClick={() => setShowAddReminder(true)}
                   >
                     <Plus className="h-3 w-3" />
@@ -294,15 +319,15 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
                 <ScrollArea className="h-[200px]">
                   {isLoading ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {/* Add Reminder Form */}
                       {showAddReminder && (
-                        <div className="p-2 bg-background rounded-lg border space-y-2 mb-3">
+                        <div className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-teal-200 dark:border-teal-800 space-y-2 mb-3">
                           <div className="flex items-center justify-between">
-                            <p className="text-xs font-medium">Add reminder</p>
+                            <p className="text-xs font-semibold text-teal-700 dark:text-teal-300">Add reminder</p>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -325,7 +350,7 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
                             className="h-8 text-sm"
                           />
                           <Button 
-                            className="w-full h-8" 
+                            className="w-full h-8 bg-teal-600 hover:bg-teal-700" 
                             size="sm"
                             onClick={handleAddReminder}
                           >
@@ -341,24 +366,24 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
                           <div
                             key={reminder.id}
                             className={cn(
-                              "p-2 rounded-lg border bg-background flex items-start gap-2",
+                              "p-2 rounded-lg border bg-white dark:bg-slate-800 flex items-start gap-2",
                               reminder.is_completed && "opacity-60"
                             )}
                           >
                             <Checkbox
                               checked={reminder.is_completed}
                               onCheckedChange={() => handleToggleReminder(reminder)}
-                              className="mt-0.5"
+                              className="mt-0.5 border-teal-500 data-[state=checked]:bg-teal-500"
                             />
                             <div className="flex-1 min-w-0">
                               <p className={cn(
                                 "text-sm font-medium",
-                                reminder.is_completed && "line-through text-muted-foreground"
+                                reminder.is_completed && "line-through text-gray-400"
                               )}>
                                 {reminder.title}
                               </p>
                               {reminder.notes && (
-                                <p className="text-xs text-muted-foreground truncate">
+                                <p className="text-xs text-gray-500 truncate">
                                   {reminder.notes}
                                 </p>
                               )}
@@ -366,7 +391,7 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 text-destructive hover:text-destructive"
+                              className="h-6 w-6 text-red-500 hover:text-red-600 hover:bg-red-50"
                               onClick={() => handleDeleteReminder(reminder.id)}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -375,12 +400,12 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
                         ))
                       ) : !showAddReminder && (
                         <div className="text-center py-6">
-                          <StickyNote className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                          <p className="text-sm text-muted-foreground">No reminders</p>
+                          <StickyNote className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+                          <p className="text-sm text-gray-500">No reminders</p>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="mt-2 text-orange-600"
+                            className="mt-2 text-teal-600 hover:text-teal-700"
                             onClick={() => setShowAddReminder(true)}
                           >
                             <Plus className="h-3 w-3 mr-1" />
@@ -395,15 +420,15 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
             </Card>
           </div>
 
-          {/* Legend */}
-          <div className="flex flex-wrap gap-3 justify-center text-xs mt-3">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-orange-500" />
-              <span className="text-muted-foreground">Has reminders</span>
+          {/* Legend - REA Style */}
+          <div className="flex flex-wrap gap-4 justify-center text-xs mt-4 pt-3 border-t">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+              <span className="text-gray-600 dark:text-gray-400">Has reminders</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-primary/10 border border-primary/30" />
-              <span className="text-muted-foreground">Sunday</span>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded bg-pink-100 border border-pink-300" />
+              <span className="text-gray-600 dark:text-gray-400">Sunday</span>
             </div>
           </div>
         </div>
