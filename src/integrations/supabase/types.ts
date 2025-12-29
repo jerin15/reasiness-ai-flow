@@ -794,6 +794,56 @@ export type Database = {
         }
         Relationships: []
       }
+      supplier_pending_items: {
+        Row: {
+          created_at: string
+          created_by: string
+          expected_date: string | null
+          id: string
+          items_description: string
+          notes: string | null
+          quantity: number | null
+          status: string
+          supplier_name: string
+          task_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expected_date?: string | null
+          id?: string
+          items_description: string
+          notes?: string | null
+          quantity?: number | null
+          status?: string
+          supplier_name: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expected_date?: string | null
+          id?: string
+          items_description?: string
+          notes?: string | null
+          quantity?: number | null
+          status?: string
+          supplier_name?: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_pending_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_quotes: {
         Row: {
           created_at: string | null
