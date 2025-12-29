@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, User, CheckCircle, Clock, AlertTriangle, Package, Eye, Search, X } from "lucide-react";
+import { Plus, Trash2, Loader2, User, CheckCircle, Clock, AlertTriangle, Package, Eye, Search, X, Truck, Calendar, Edit2, Check } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClipboardList } from "lucide-react";
@@ -56,6 +56,20 @@ interface OperationsUser {
   email: string;
 }
 
+interface SupplierPendingItem {
+  id: string;
+  supplier_name: string;
+  items_description: string;
+  quantity: number | null;
+  expected_date: string | null;
+  notes: string | null;
+  status: string;
+  task_id: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export const AdminWhiteboardEmbed = () => {
   const [tasks, setTasks] = useState<WhiteboardTask[]>([]);
   const [operationsTasks, setOperationsTasks] = useState<OperationsTask[]>([]);
@@ -69,6 +83,17 @@ export const AdminWhiteboardEmbed = () => {
   const [selectedTask, setSelectedTask] = useState<OperationsTask | null>(null);
   const [taskDetailsOpen, setTaskDetailsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Supplier tracking state
+  const [supplierItems, setSupplierItems] = useState<SupplierPendingItem[]>([]);
+  const [newSupplierName, setNewSupplierName] = useState("");
+  const [newItemsDesc, setNewItemsDesc] = useState("");
+  const [newQuantity, setNewQuantity] = useState("");
+  const [newExpectedDate, setNewExpectedDate] = useState("");
+  const [newSupplierNotes, setNewSupplierNotes] = useState("");
+  const [addingSupplierItem, setAddingSupplierItem] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<SupplierPendingItem>>({});
 
   useEffect(() => {
     initData();
@@ -90,6 +115,11 @@ export const AdminWhiteboardEmbed = () => {
         { event: '*', schema: 'public', table: 'task_workflow_steps' },
         () => fetchOperationsTasks()
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'supplier_pending_items' },
+        () => fetchSupplierItems()
+      )
       .subscribe();
 
     return () => {
@@ -101,7 +131,7 @@ export const AdminWhiteboardEmbed = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       setCurrentUserId(user.id);
-      await Promise.all([fetchTasks(), fetchOperationsUsers(), fetchOperationsTasks()]);
+      await Promise.all([fetchTasks(), fetchOperationsUsers(), fetchOperationsTasks(), fetchSupplierItems()]);
     }
     setLoading(false);
   };
@@ -214,6 +244,111 @@ export const AdminWhiteboardEmbed = () => {
     } catch (error) {
       console.error('Error fetching operations users:', error);
     }
+  };
+
+  const fetchSupplierItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('supplier_pending_items')
+        .select('*')
+        .order('expected_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSupplierItems((data || []) as SupplierPendingItem[]);
+    } catch (error) {
+      console.error('Error fetching supplier items:', error);
+    }
+  };
+
+  const addSupplierItem = async () => {
+    if (!newSupplierName.trim() || !newItemsDesc.trim()) {
+      toast.error("Please enter supplier name and items description");
+      return;
+    }
+
+    setAddingSupplierItem(true);
+    try {
+      const { error } = await supabase
+        .from('supplier_pending_items')
+        .insert({
+          supplier_name: newSupplierName.trim(),
+          items_description: newItemsDesc.trim(),
+          quantity: newQuantity ? parseInt(newQuantity) : null,
+          expected_date: newExpectedDate || null,
+          notes: newSupplierNotes.trim() || null,
+          created_by: currentUserId
+        });
+
+      if (error) throw error;
+
+      toast.success("Supplier item added");
+      setNewSupplierName("");
+      setNewItemsDesc("");
+      setNewQuantity("");
+      setNewExpectedDate("");
+      setNewSupplierNotes("");
+      fetchSupplierItems();
+    } catch (error) {
+      console.error('Error adding supplier item:', error);
+      toast.error("Failed to add supplier item");
+    } finally {
+      setAddingSupplierItem(false);
+    }
+  };
+
+  const updateSupplierItem = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('supplier_pending_items')
+        .update({
+          supplier_name: editForm.supplier_name,
+          items_description: editForm.items_description,
+          quantity: editForm.quantity,
+          expected_date: editForm.expected_date,
+          notes: editForm.notes,
+          status: editForm.status
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success("Updated successfully");
+      setEditingItemId(null);
+      setEditForm({});
+      fetchSupplierItems();
+    } catch (error) {
+      console.error('Error updating supplier item:', error);
+      toast.error("Failed to update");
+    }
+  };
+
+  const deleteSupplierItem = async (id: string) => {
+    if (!confirm('Delete this supplier tracking entry?')) return;
+    try {
+      const { error } = await supabase
+        .from('supplier_pending_items')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success("Deleted");
+      fetchSupplierItems();
+    } catch (error) {
+      console.error('Error deleting supplier item:', error);
+      toast.error("Failed to delete");
+    }
+  };
+
+  const startEditing = (item: SupplierPendingItem) => {
+    setEditingItemId(item.id);
+    setEditForm({
+      supplier_name: item.supplier_name,
+      items_description: item.items_description,
+      quantity: item.quantity,
+      expected_date: item.expected_date,
+      notes: item.notes,
+      status: item.status
+    });
   };
 
   const addTask = async () => {
@@ -352,14 +487,18 @@ export const AdminWhiteboardEmbed = () => {
       </div>
 
       <Tabs defaultValue="production" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="production" className="gap-2">
             <Package className="h-4 w-4" />
             Production ({filteredOperationsTasks.length})
           </TabsTrigger>
+          <TabsTrigger value="suppliers" className="gap-2">
+            <Truck className="h-4 w-4" />
+            Suppliers ({supplierItems.filter(s => s.status === 'pending').length})
+          </TabsTrigger>
           <TabsTrigger value="quick" className="gap-2">
             <ClipboardList className="h-4 w-4" />
-            Quick Tasks ({pendingTasks.length})
+            Tasks ({pendingTasks.length})
           </TabsTrigger>
         </TabsList>
 
@@ -469,6 +608,191 @@ export const AdminWhiteboardEmbed = () => {
                 );
               })}
             </div>
+          )}
+        </TabsContent>
+
+        {/* Supplier Tracking Tab */}
+        <TabsContent value="suppliers" className="space-y-4">
+          {/* Add Supplier Item */}
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Truck className="h-4 w-4" />
+                Track Supplier Items
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Input
+                  placeholder="Supplier name..."
+                  value={newSupplierName}
+                  onChange={(e) => setNewSupplierName(e.target.value)}
+                />
+                <Input
+                  placeholder="Items description..."
+                  value={newItemsDesc}
+                  onChange={(e) => setNewItemsDesc(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Input
+                  type="number"
+                  placeholder="Quantity"
+                  value={newQuantity}
+                  onChange={(e) => setNewQuantity(e.target.value)}
+                />
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <Input
+                    type="date"
+                    value={newExpectedDate}
+                    onChange={(e) => setNewExpectedDate(e.target.value)}
+                  />
+                </div>
+                <Input
+                  placeholder="Notes"
+                  value={newSupplierNotes}
+                  onChange={(e) => setNewSupplierNotes(e.target.value)}
+                />
+              </div>
+              <Button 
+                size="sm"
+                onClick={addSupplierItem} 
+                disabled={addingSupplierItem || !newSupplierName.trim() || !newItemsDesc.trim()}
+              >
+                {addingSupplierItem ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                Add
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Pending Items */}
+          {supplierItems.filter(s => s.status === 'pending').length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Truck className="h-12 w-12 text-muted-foreground/50 mb-3" />
+                <p className="text-muted-foreground">No pending supplier items</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {supplierItems.filter(s => s.status === 'pending').map((item) => (
+                <Card key={item.id}>
+                  <CardContent className="p-4">
+                    {editingItemId === item.id ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <Input
+                            value={editForm.supplier_name || ''}
+                            onChange={(e) => setEditForm({ ...editForm, supplier_name: e.target.value })}
+                            placeholder="Supplier"
+                          />
+                          <Input
+                            value={editForm.items_description || ''}
+                            onChange={(e) => setEditForm({ ...editForm, items_description: e.target.value })}
+                            placeholder="Items"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <Input
+                            type="number"
+                            value={editForm.quantity || ''}
+                            onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || null })}
+                            placeholder="Qty"
+                          />
+                          <Input
+                            type="date"
+                            value={editForm.expected_date || ''}
+                            onChange={(e) => setEditForm({ ...editForm, expected_date: e.target.value })}
+                          />
+                          <select
+                            className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
+                            value={editForm.status || 'pending'}
+                            onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="received">Received</option>
+                            <option value="delayed">Delayed</option>
+                          </select>
+                        </div>
+                        <Input
+                          value={editForm.notes || ''}
+                          onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                          placeholder="Notes"
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => updateSupplierItem(item.id)}>
+                            <Check className="h-3 w-3 mr-1" /> Save
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingItemId(null); setEditForm({}); }}>
+                            <X className="h-3 w-3 mr-1" /> Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge className="bg-blue-500 text-white">{item.supplier_name}</Badge>
+                            {item.quantity && <Badge variant="outline">Qty: {item.quantity}</Badge>}
+                          </div>
+                          <h3 className="font-semibold mt-2">{item.items_description}</h3>
+                          {item.notes && <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>}
+                          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                            {item.expected_date && (
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                Expected: {format(new Date(item.expected_date), 'MMM d, yyyy')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditing(item)}>
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteSupplierItem(item.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Received Items */}
+          {supplierItems.filter(s => s.status === 'received').length > 0 && (
+            <Card className="opacity-75">
+              <CardHeader className="py-3">
+                <CardTitle className="text-base text-muted-foreground flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Received ({supplierItems.filter(s => s.status === 'received').length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {supplierItems.filter(s => s.status === 'received').map((item) => (
+                    <div key={item.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-sm">
+                      <div>
+                        <span className="font-medium">{item.supplier_name}:</span>
+                        <span className="ml-2 text-muted-foreground">{item.items_description}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => startEditing(item)}>
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteSupplierItem(item.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
