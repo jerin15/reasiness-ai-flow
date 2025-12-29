@@ -27,6 +27,7 @@ interface UserPresence {
 }
 
 const STATUS_OPTIONS = [
+  { value: 'online', label: 'Online', color: 'bg-green-500' },
   { value: 'available', label: 'Available', color: 'bg-green-500' },
   { value: 'busy', label: 'Busy', color: 'bg-red-500' },
   { value: 'away', label: 'Away', color: 'bg-yellow-500' },
