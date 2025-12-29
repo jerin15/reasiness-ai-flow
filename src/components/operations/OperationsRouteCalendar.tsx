@@ -343,221 +343,226 @@ export const OperationsRouteCalendar = ({ userId, onStepClick }: OperationsRoute
       ) : (
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-4">
-            {/* Calendar with improved styling */}
-            <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => {
-                  if (date) {
-                    setSelectedDate(date);
-                    setNewReminderDate(date);
-                  }
-                }}
-                month={currentMonth}
-                onMonthChange={setCurrentMonth}
-                className="p-0 pointer-events-auto"
-                classNames={{
-                  months: "w-full",
-                  month: "w-full space-y-2",
-                  caption: "hidden",
-                  caption_label: "hidden",
-                  nav: "hidden",
-                  table: "w-full border-collapse",
-                  head_row: "flex w-full",
-                  head_cell: "flex-1 text-center text-xs font-medium text-muted-foreground py-2",
-                  row: "flex w-full",
-                  cell: "flex-1 text-center p-0.5 relative",
-                  day: cn(
-                    "w-full h-12 sm:h-14 rounded-lg text-sm font-normal flex flex-col items-center justify-start pt-1.5",
-                    "hover:bg-accent/50 transition-colors cursor-pointer",
-                    "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-                  ),
-                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-                  day_today: "bg-accent font-bold ring-1 ring-primary/30",
-                  day_outside: "text-muted-foreground/40",
-                  day_disabled: "text-muted-foreground/40",
-                }}
-                components={{
-                  DayContent: ({ date }) => (
-                    <div className="flex flex-col items-center">
-                      <span className="text-sm">{date.getDate()}</span>
-                      {renderDayContent(date)}
-                    </div>
-                  )
-                }}
-              />
-            </div>
-
-            {/* Legend */}
-            <div className="flex flex-wrap gap-3 justify-center text-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-muted-foreground">Collections</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-muted-foreground">Deliveries</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-orange-500" />
-                <span className="text-muted-foreground">Reminders</span>
-              </div>
-            </div>
-
-            {/* Personal Reminders Section */}
-            <Card className="border-orange-200 dark:border-orange-900/50 bg-orange-50/50 dark:bg-orange-950/20">
-              <CardHeader className="py-3 px-4">
-                <CardTitle className="text-base flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <StickyNote className="h-5 w-5 text-orange-600" />
-                    <span>My Reminders</span>
-                    {reminders.filter(r => !r.is_completed).length > 0 && (
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">
-                        {reminders.filter(r => !r.is_completed).length}
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/50"
-                    onClick={() => {
-                      setNewReminderDate(selectedDate);
-                      setShowAddReminder(true);
+            <div className="grid gap-4 lg:grid-cols-2 items-start">
+              {/* Left: Calendar */}
+              <div className="space-y-3">
+                {/* Calendar with improved styling */}
+                <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setSelectedDate(date);
+                        setNewReminderDate(date);
+                      }
                     }}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-3">
-                {/* Add Reminder Form */}
-                {showAddReminder && (
-                  <div className="p-3 bg-background rounded-lg border space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">
-                        Add reminder for {format(newReminderDate, 'MMM d')}
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => setShowAddReminder(false)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <Input
-                      placeholder="Reminder title..."
-                      value={newReminderTitle}
-                      onChange={(e) => setNewReminderTitle(e.target.value)}
-                      className="h-10"
-                    />
-                    <Input
-                      placeholder="Notes (optional)"
-                      value={newReminderNotes}
-                      onChange={(e) => setNewReminderNotes(e.target.value)}
-                      className="h-10"
-                    />
-                    <Button 
-                      className="w-full" 
-                      size="sm"
-                      onClick={handleAddReminder}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add Reminder
-                    </Button>
-                  </div>
-                )}
-
-                {/* Selected Day Reminders */}
-                {selectedDayReminders.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      {format(selectedDate, 'EEEE, MMM d')}
-                    </p>
-                    {selectedDayReminders.map(reminder => (
-                      <div 
-                        key={reminder.id}
-                        className={cn(
-                          "flex items-start gap-3 p-3 rounded-lg bg-background border transition-all",
-                          reminder.is_completed && "opacity-60"
-                        )}
-                      >
-                        <Checkbox
-                          checked={reminder.is_completed}
-                          onCheckedChange={() => handleToggleReminder(reminder)}
-                          className="mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className={cn(
-                            "font-medium text-sm",
-                            reminder.is_completed && "line-through"
-                          )}>
-                            {reminder.title}
-                          </p>
-                          {reminder.notes && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                              {reminder.notes}
-                            </p>
-                          )}
+                    month={currentMonth}
+                    onMonthChange={setCurrentMonth}
+                    className="p-0 pointer-events-auto"
+                    classNames={{
+                      months: "w-full",
+                      month: "w-full space-y-2",
+                      caption: "hidden",
+                      caption_label: "hidden",
+                      nav: "hidden",
+                      table: "w-full border-collapse",
+                      head_row: "flex w-full",
+                      head_cell: "flex-1 text-center text-xs font-medium text-muted-foreground py-2",
+                      row: "flex w-full",
+                      cell: "flex-1 text-center p-0.5 relative",
+                      day: cn(
+                        "w-full h-12 sm:h-14 rounded-lg text-sm font-normal flex flex-col items-center justify-start pt-1.5",
+                        "hover:bg-accent/50 transition-colors cursor-pointer",
+                        "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                      ),
+                      day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                      day_today: "bg-accent font-bold ring-1 ring-primary/30",
+                      day_outside: "text-muted-foreground/40",
+                      day_disabled: "text-muted-foreground/40",
+                    }}
+                    components={{
+                      DayContent: ({ date }) => (
+                        <div className="flex flex-col items-center">
+                          <span className="text-sm">{date.getDate()}</span>
+                          {renderDayContent(date)}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteReminder(reminder.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ))}
+                      )
+                    }}
+                  />
+                </div>
+
+                {/* Legend */}
+                <div className="flex flex-wrap gap-3 justify-center text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span className="text-muted-foreground">Collections</span>
                   </div>
-                ) : !showAddReminder ? (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-muted-foreground">
-                      No reminders for {format(selectedDate, 'MMM d')}
-                    </p>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-muted-foreground">Deliveries</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-orange-500" />
+                    <span className="text-muted-foreground">Reminders</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Personal Reminders */}
+              <Card className="border-orange-200 dark:border-orange-900/50 bg-orange-50/50 dark:bg-orange-950/20">
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <StickyNote className="h-5 w-5 text-orange-600" />
+                      <span>My Reminders</span>
+                      {reminders.filter(r => !r.is_completed).length > 0 && (
+                        <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">
+                          {reminders.filter(r => !r.is_completed).length}
+                        </Badge>
+                      )}
+                    </div>
                     <Button
-                      variant="link"
+                      variant="ghost"
                       size="sm"
-                      className="text-orange-600"
+                      className="h-8 gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/50"
                       onClick={() => {
                         setNewReminderDate(selectedDate);
                         setShowAddReminder(true);
                       }}
                     >
-                      Add one
+                      <Plus className="h-4 w-4" />
+                      Add
                     </Button>
-                  </div>
-                ) : null}
-
-                {/* Upcoming Reminders (if not on selected date) */}
-                {reminders.filter(r => !r.is_completed && r.reminder_date !== selectedDateKey).length > 0 && (
-                  <div className="pt-2 border-t space-y-2">
-                    <p className="text-xs text-muted-foreground font-medium">Upcoming this month</p>
-                    {reminders
-                      .filter(r => !r.is_completed && r.reminder_date !== selectedDateKey)
-                      .slice(0, 3)
-                      .map(reminder => (
-                        <button
-                          key={reminder.id}
-                          onClick={() => setSelectedDate(new Date(reminder.reminder_date))}
-                          className="w-full text-left flex items-center gap-2 p-2 rounded-lg hover:bg-background/80 transition-colors"
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-3">
+                  {/* Add Reminder Form */}
+                  {showAddReminder && (
+                    <div className="p-3 bg-background rounded-lg border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">
+                          Add reminder for {format(newReminderDate, 'MMM d')}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => setShowAddReminder(false)}
                         >
-                          <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                          <span className="text-xs flex-1 truncate">{reminder.title}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(reminder.reminder_date), 'MMM d')}
-                          </span>
-                        </button>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <Input
+                        placeholder="Reminder title..."
+                        value={newReminderTitle}
+                        onChange={(e) => setNewReminderTitle(e.target.value)}
+                        className="h-10"
+                      />
+                      <Input
+                        placeholder="Notes (optional)"
+                        value={newReminderNotes}
+                        onChange={(e) => setNewReminderNotes(e.target.value)}
+                        className="h-10"
+                      />
+                      <Button 
+                        className="w-full" 
+                        size="sm"
+                        onClick={handleAddReminder}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add Reminder
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Selected Day Reminders */}
+                  {selectedDayReminders.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        {format(selectedDate, 'EEEE, MMM d')}
+                      </p>
+                      {selectedDayReminders.map(reminder => (
+                        <div 
+                          key={reminder.id}
+                          className={cn(
+                            "flex items-start gap-3 p-3 rounded-lg bg-background border transition-all",
+                            reminder.is_completed && "opacity-60"
+                          )}
+                        >
+                          <Checkbox
+                            checked={reminder.is_completed}
+                            onCheckedChange={() => handleToggleReminder(reminder)}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className={cn(
+                              "font-medium text-sm",
+                              reminder.is_completed && "line-through"
+                            )}>
+                              {reminder.title}
+                            </p>
+                            {reminder.notes && (
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                {reminder.notes}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteReminder(reminder.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    </div>
+                  ) : !showAddReminder ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground">
+                        No reminders for {format(selectedDate, 'MMM d')}
+                      </p>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="text-orange-600"
+                        onClick={() => {
+                          setNewReminderDate(selectedDate);
+                          setShowAddReminder(true);
+                        }}
+                      >
+                        Add one
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {/* Upcoming Reminders (if not on selected date) */}
+                  {reminders.filter(r => !r.is_completed && r.reminder_date !== selectedDateKey).length > 0 && (
+                    <div className="pt-2 border-t space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">Upcoming this month</p>
+                      {reminders
+                        .filter(r => !r.is_completed && r.reminder_date !== selectedDateKey)
+                        .slice(0, 3)
+                        .map(reminder => (
+                          <button
+                            key={reminder.id}
+                            onClick={() => setSelectedDate(new Date(reminder.reminder_date))}
+                            className="w-full text-left flex items-center gap-2 p-2 rounded-lg hover:bg-background/80 transition-colors"
+                          >
+                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                            <span className="text-xs flex-1 truncate">{reminder.title}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(reminder.reminder_date), 'MMM d')}
+                            </span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
 
             {/* Selected Day Routes */}
             <Card className="border-primary/20">
