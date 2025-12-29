@@ -175,38 +175,55 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
           )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="pb-2">
+      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-4 pb-2 border-b">
           <DialogTitle className="flex items-center gap-2 text-lg">
             <CalendarDays className="h-5 w-5 text-primary" />
             My Calendar
           </DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 overflow-hidden">
-          {/* Month Navigation */}
-          <div className="flex items-center justify-between mb-3 px-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-primary">
+        <div className="flex-1 overflow-hidden p-4">
+          {/* Month Navigation - Styled like PDF */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-1">
+              <span className="text-2xl font-bold text-primary tracking-tight">
                 {format(currentMonth, 'MMM').toUpperCase()}
               </span>
-              <span className="text-xl font-bold text-muted-foreground">
+              <span className="text-2xl font-bold text-foreground tracking-tight">
                 {format(currentMonth, 'yyyy')}
               </span>
             </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-8 w-8">
+            <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
+              <Button variant="ghost" size="icon" onClick={handlePrevMonth} className="h-7 w-7 rounded-md hover:bg-background">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-8 w-8">
+              <Button variant="ghost" size="icon" onClick={handleNextMonth} className="h-7 w-7 rounded-md hover:bg-background">
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Calendar */}
+          <div className="grid gap-4 md:grid-cols-[1fr,1fr]">
+            {/* Calendar - PDF Style */}
             <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+              {/* Week Header */}
+              <div className="grid grid-cols-7 border-b">
+                {['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day, i) => (
+                  <div 
+                    key={day} 
+                    className={cn(
+                      "py-2.5 text-center text-xs font-medium",
+                      i === 6 
+                        ? "text-primary font-bold bg-primary/10" 
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
+              
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -216,39 +233,36 @@ export const PersonalCalendarWidget = ({ userId }: PersonalCalendarWidgetProps) 
                 className="p-0 pointer-events-auto"
                 classNames={{
                   months: "w-full",
-                  month: "w-full space-y-2",
+                  month: "w-full",
                   caption: "hidden",
                   nav: "hidden",
                   table: "w-full border-collapse",
-                  head_row: "flex w-full",
-                  head_cell: cn(
-                    "flex-1 text-center text-xs font-medium text-muted-foreground py-2",
-                    "last:text-primary last:font-semibold last:bg-primary/10"
-                  ),
-                  row: "flex w-full",
+                  head_row: "hidden",
+                  head_cell: "hidden",
+                  row: "grid grid-cols-7",
                   cell: cn(
-                    "flex-1 text-center p-0.5 relative",
+                    "text-center p-0 relative h-10",
                     "last:bg-primary/5"
                   ),
                   day: cn(
-                    "w-full h-10 rounded-lg text-sm font-normal flex flex-col items-center justify-center",
-                    "hover:bg-accent/50 transition-colors cursor-pointer",
+                    "h-10 w-full text-sm font-normal transition-colors flex items-center justify-center",
+                    "hover:bg-accent cursor-pointer rounded-lg",
                     "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                   ),
-                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-                  day_today: "bg-accent font-bold ring-1 ring-primary/30",
-                  day_outside: "text-muted-foreground/40",
-                  day_disabled: "text-muted-foreground/40",
+                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground font-medium rounded-lg",
+                  day_today: "bg-accent font-bold rounded-lg",
+                  day_outside: "text-muted-foreground/30",
+                  day_disabled: "text-muted-foreground/30",
                 }}
                 components={{
                   DayContent: ({ date }) => {
                     const dateKey = format(date, 'yyyy-MM-dd');
                     const hasReminders = datesWithReminders[dateKey] > 0;
                     return (
-                      <div className="flex flex-col items-center">
-                        <span className="text-sm">{date.getDate()}</span>
+                      <div className="flex flex-col items-center justify-center">
+                        <span>{date.getDate()}</span>
                         {hasReminders && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-0.5" />
+                          <div className="absolute bottom-1 w-1 h-1 rounded-full bg-orange-500" />
                         )}
                       </div>
                     );
