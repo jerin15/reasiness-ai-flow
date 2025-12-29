@@ -7,6 +7,7 @@ import { StatusChangeNotification } from "./StatusChangeNotification";
 import { WalkieTalkieNotification } from "./WalkieTalkieNotification";
 import { AdminCommunicationPanel } from "./AdminCommunicationPanel";
 import { UserPresenceIndicator } from "./UserPresenceIndicator";
+import { PersonalCalendarWidget } from "./PersonalCalendarWidget";
 import {
   Sidebar,
   SidebarContent,
@@ -197,6 +198,12 @@ export function DashboardSidebar({
               <div className="text-xs font-bold text-white uppercase tracking-wide mb-1">Notifications</div>
               <StatusChangeNotification />
               <WalkieTalkieNotification />
+            </div>
+
+            {/* Personal Calendar Widget for all users */}
+            <div className="mt-3 px-2">
+              <div className="text-xs font-bold text-white uppercase tracking-wide mb-2">Personal</div>
+              <PersonalCalendarWidget userId={currentUserId} />
             </div>
           </SidebarGroupContent>
         </SidebarGroup>
