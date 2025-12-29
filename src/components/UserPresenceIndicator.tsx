@@ -75,9 +75,9 @@ export const UserPresenceIndicator = () => {
   useEffect(() => {
     fetchPresences();
 
-    // Subscribe to presence changes
+    // Subscribe to presence changes with real-time
     const channel = supabase
-      .channel('user-presence-changes')
+      .channel('user-presence-realtime')
       .on(
         'postgres_changes',
         {
@@ -85,14 +85,22 @@ export const UserPresenceIndicator = () => {
           schema: 'public',
           table: 'user_presence'
         },
-        () => {
+        (payload) => {
+          console.log('Presence change:', payload);
+          // Update presences immediately on any change
           fetchPresences();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Presence subscription status:', status);
+      });
+
+    // Refresh presences every 15 seconds for live updates
+    const refreshInterval = setInterval(fetchPresences, 15000);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(refreshInterval);
     };
   }, []);
 
@@ -101,24 +109,40 @@ export const UserPresenceIndicator = () => {
     if (!currentUserId) return;
 
     // Immediately update presence when user ID is set
-    const updatePresence = () => {
-      supabase
+    const updatePresence = async () => {
+      const { error } = await supabase
         .from('user_presence')
-        .update({ last_active: new Date().toISOString() })
-        .eq('user_id', currentUserId)
-        .then();
+        .upsert({
+          user_id: currentUserId,
+          status: myStatus,
+          last_active: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+      
+      if (error) {
+        console.error('Error updating presence:', error);
+      }
     };
 
     // Update immediately on mount
     updatePresence();
 
-    // Then update every 60 seconds (reduced from 30 seconds)
-    const interval = setInterval(updatePresence, 60000);
+    // Then update every 30 seconds for more real-time feel
+    const interval = setInterval(updatePresence, 30000);
+
+    // Also update on visibility change (when user comes back to tab)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        updatePresence();
+        fetchPresences();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [currentUserId]);
+  }, [currentUserId, myStatus]);
 
   const fetchPresences = async () => {
     try {
@@ -302,7 +326,10 @@ export const UserPresenceIndicator = () => {
                     {presence.profiles?.full_name?.charAt(0) || '?'}
                   </AvatarFallback>
                 </Avatar>
-                <div className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white/30 ${getStatusColor(presence.status)}`} />
+                <div 
+                  className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white ${getStatusColor(presence.status)}`}
+                  style={{ boxShadow: presence.status === 'available' ? '0 0 6px rgba(34, 197, 94, 0.8)' : undefined }}
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold truncate text-white">
