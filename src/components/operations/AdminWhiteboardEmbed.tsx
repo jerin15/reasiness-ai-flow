@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, User, CheckCircle, Clock, AlertTriangle, Package, Eye } from "lucide-react";
+import { Plus, Trash2, Loader2, User, CheckCircle, Clock, AlertTriangle, Package, Eye, Search, X } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClipboardList } from "lucide-react";
@@ -68,6 +68,7 @@ export const AdminWhiteboardEmbed = () => {
   const [adding, setAdding] = useState(false);
   const [selectedTask, setSelectedTask] = useState<OperationsTask | null>(null);
   const [taskDetailsOpen, setTaskDetailsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     initData();
@@ -307,16 +308,54 @@ export const AdminWhiteboardEmbed = () => {
     );
   }
 
-  const pendingTasks = tasks.filter(t => !t.is_completed);
-  const completedTasks = tasks.filter(t => t.is_completed);
+  const searchLower = searchQuery.toLowerCase();
+  
+  const filteredOperationsTasks = operationsTasks.filter(t => 
+    t.title.toLowerCase().includes(searchLower) ||
+    t.client_name?.toLowerCase().includes(searchLower) ||
+    t.assignee?.full_name?.toLowerCase().includes(searchLower) ||
+    t.suppliers?.some(s => s.toLowerCase().includes(searchLower))
+  );
+
+  const pendingTasks = tasks.filter(t => !t.is_completed && (
+    t.title.toLowerCase().includes(searchLower) ||
+    t.description?.toLowerCase().includes(searchLower) ||
+    t.assignee?.full_name?.toLowerCase().includes(searchLower)
+  ));
+  const completedTasks = tasks.filter(t => t.is_completed && (
+    t.title.toLowerCase().includes(searchLower) ||
+    t.description?.toLowerCase().includes(searchLower) ||
+    t.assignee?.full_name?.toLowerCase().includes(searchLower)
+  ));
 
   return (
     <div className="space-y-4">
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search tasks by title, client, assignee, or supplier..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10 pr-10"
+        />
+        {searchQuery && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+            onClick={() => setSearchQuery("")}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
       <Tabs defaultValue="production" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="production" className="gap-2">
             <Package className="h-4 w-4" />
-            Production ({operationsTasks.length})
+            Production ({filteredOperationsTasks.length})
           </TabsTrigger>
           <TabsTrigger value="quick" className="gap-2">
             <ClipboardList className="h-4 w-4" />
@@ -326,16 +365,18 @@ export const AdminWhiteboardEmbed = () => {
 
         {/* Production Tasks */}
         <TabsContent value="production" className="space-y-4">
-          {operationsTasks.length === 0 ? (
+          {filteredOperationsTasks.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Package className="h-12 w-12 text-muted-foreground/50 mb-3" />
-                <p className="text-muted-foreground">No production tasks</p>
+                <p className="text-muted-foreground">
+                  {searchQuery ? "No matching production tasks" : "No production tasks"}
+                </p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {operationsTasks.map((task) => {
+              {filteredOperationsTasks.map((task) => {
                 const progress = getStepProgress(task);
                 return (
                   <Card 
