@@ -11,7 +11,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Package, Truck, MapPin, ClipboardList, Calendar, User, Route, Settings, Trash2, Edit } from "lucide-react";
-import { TaskProductsManager } from "../TaskProductsManager";
 import { OperationsActivityLog } from "../OperationsActivityLog";
 import { TaskWorkflowSteps } from "./TaskWorkflowSteps";
 
@@ -261,22 +260,18 @@ export const AdminOperationsTaskDetails = ({
 
         {/* Tabbed Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <TabsList className="w-full grid grid-cols-4 h-12 rounded-none border-b px-2 bg-muted/30 flex-shrink-0">
+          <TabsList className="w-full grid grid-cols-3 h-12 rounded-none border-b px-2 bg-muted/30 flex-shrink-0">
             <TabsTrigger value="workflow" className="text-xs sm:text-sm data-[state=active]:bg-background">
               <Route className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Workflow</span>
+              <span className="hidden sm:inline">Steps</span>
             </TabsTrigger>
             <TabsTrigger value="details" className="text-xs sm:text-sm data-[state=active]:bg-background">
               <Settings className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Details</span>
-            </TabsTrigger>
-            <TabsTrigger value="products" className="text-xs sm:text-sm data-[state=active]:bg-background">
-              <Package className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Products</span>
+              <span className="hidden sm:inline">Info</span>
             </TabsTrigger>
             <TabsTrigger value="activity" className="text-xs sm:text-sm data-[state=active]:bg-background">
               <ClipboardList className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Activity</span>
+              <span className="hidden sm:inline">Log</span>
             </TabsTrigger>
           </TabsList>
 
@@ -477,15 +472,6 @@ export const AdminOperationsTaskDetails = ({
               </form>
             </TabsContent>
 
-            {/* Products Tab */}
-            <TabsContent value="products" className="mt-0">
-              <TaskProductsManager 
-                taskId={task.id} 
-                isAdmin={true}
-                userRole="admin"
-                readOnly={false}
-              />
-            </TabsContent>
 
             {/* Activity Tab */}
             <TabsContent value="activity" className="mt-0 space-y-4">
