@@ -3,7 +3,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   CalendarDays, 
@@ -15,10 +17,15 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Plus,
+  Trash2,
+  StickyNote,
+  X
 } from 'lucide-react';
 import { format, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface WorkflowStepWithTask {
   id: string;
@@ -32,6 +39,14 @@ interface WorkflowStepWithTask {
   task_title: string;
   task_client: string | null;
   task_priority: string;
+}
+
+interface PersonalReminder {
+  id: string;
+  title: string;
+  notes: string | null;
+  reminder_date: string;
+  is_completed: boolean;
 }
 
 interface DayRouteData {
@@ -76,6 +91,14 @@ export const OperationsRouteCalendar = ({ userId, onStepClick }: OperationsRoute
   const [stepsData, setStepsData] = useState<WorkflowStepWithTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dayRoutes, setDayRoutes] = useState<Map<string, DayRouteData>>(new Map());
+  
+  // Personal reminders state
+  const [reminders, setReminders] = useState<PersonalReminder[]>([]);
+  const [isLoadingReminders, setIsLoadingReminders] = useState(true);
+  const [showAddReminder, setShowAddReminder] = useState(false);
+  const [newReminderTitle, setNewReminderTitle] = useState('');
+  const [newReminderNotes, setNewReminderNotes] = useState('');
+  const [newReminderDate, setNewReminderDate] = useState<Date>(new Date());
 
   // Fetch all workflow steps for the current month
   const fetchMonthData = useCallback(async () => {
@@ -151,9 +174,33 @@ export const OperationsRouteCalendar = ({ userId, onStepClick }: OperationsRoute
     }
   }, [currentMonth]);
 
+  // Fetch personal reminders
+  const fetchReminders = useCallback(async () => {
+    try {
+      const monthStart = startOfMonth(currentMonth);
+      const monthEnd = endOfMonth(currentMonth);
+      
+      const { data, error } = await supabase
+        .from('operations_personal_reminders')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('reminder_date', format(monthStart, 'yyyy-MM-dd'))
+        .lte('reminder_date', format(monthEnd, 'yyyy-MM-dd'))
+        .order('reminder_date', { ascending: true });
+
+      if (error) throw error;
+      setReminders(data || []);
+    } catch (error) {
+      console.error('Error fetching reminders:', error);
+    } finally {
+      setIsLoadingReminders(false);
+    }
+  }, [userId, currentMonth]);
+
   useEffect(() => {
     fetchMonthData();
-  }, [fetchMonthData]);
+    fetchReminders();
+  }, [fetchMonthData, fetchReminders]);
 
   // Get route data for selected date
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
@@ -164,36 +211,109 @@ export const OperationsRouteCalendar = ({ userId, onStepClick }: OperationsRoute
     .filter(s => s.due_date && isSameDay(new Date(s.due_date), selectedDate))
     .sort((a, b) => a.step_order - b.step_order);
 
+  // Get reminders for selected date
+  const selectedDayReminders = reminders.filter(r => 
+    r.reminder_date === format(selectedDate, 'yyyy-MM-dd')
+  );
+
+  // Add reminder
+  const handleAddReminder = async () => {
+    if (!newReminderTitle.trim()) {
+      toast.error('Please enter a title');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('operations_personal_reminders')
+        .insert({
+          user_id: userId,
+          title: newReminderTitle.trim(),
+          notes: newReminderNotes.trim() || null,
+          reminder_date: format(newReminderDate, 'yyyy-MM-dd')
+        });
+
+      if (error) throw error;
+      
+      toast.success('Reminder added');
+      setNewReminderTitle('');
+      setNewReminderNotes('');
+      setShowAddReminder(false);
+      fetchReminders();
+    } catch (error: any) {
+      console.error('Error adding reminder:', error);
+      toast.error(error.message || 'Failed to add reminder');
+    }
+  };
+
+  // Toggle reminder completion
+  const handleToggleReminder = async (reminder: PersonalReminder) => {
+    try {
+      const { error } = await supabase
+        .from('operations_personal_reminders')
+        .update({
+          is_completed: !reminder.is_completed,
+          completed_at: !reminder.is_completed ? new Date().toISOString() : null
+        })
+        .eq('id', reminder.id);
+
+      if (error) throw error;
+      fetchReminders();
+    } catch (error) {
+      console.error('Error updating reminder:', error);
+      toast.error('Failed to update reminder');
+    }
+  };
+
+  // Delete reminder
+  const handleDeleteReminder = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('operations_personal_reminders')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Reminder deleted');
+      fetchReminders();
+    } catch (error) {
+      console.error('Error deleting reminder:', error);
+      toast.error('Failed to delete reminder');
+    }
+  };
+
   // Day content renderer for calendar
   const renderDayContent = (day: Date) => {
     const dateKey = format(day, 'yyyy-MM-dd');
     const dayData = dayRoutes.get(dateKey);
+    const dayReminders = reminders.filter(r => r.reminder_date === dateKey);
     
-    if (!dayData || dayData.totalSteps === 0) return null;
+    const hasCollections = dayData && dayData.collections.length > 0;
+    const hasDeliveries = dayData && dayData.deliveries.length > 0;
+    const hasReminders = dayReminders.length > 0;
 
-    const hasCollections = dayData.collections.length > 0;
-    const hasDeliveries = dayData.deliveries.length > 0;
-    const hasPending = [...dayData.collections, ...dayData.deliveries].some(s => s.status !== 'completed');
+    if (!hasCollections && !hasDeliveries && !hasReminders) return null;
 
     return (
-      <div className="flex flex-col items-center gap-0.5 mt-0.5">
-        <div className="flex gap-0.5">
-          {hasCollections && (
-            <div className={cn(
-              "w-1.5 h-1.5 rounded-full",
-              dayData.collections.some(c => c.status !== 'completed') ? "bg-blue-500" : "bg-blue-300"
-            )} />
-          )}
-          {hasDeliveries && (
-            <div className={cn(
-              "w-1.5 h-1.5 rounded-full",
-              dayData.deliveries.some(d => d.status !== 'completed') ? "bg-green-500" : "bg-green-300"
-            )} />
-          )}
-        </div>
-        <span className="text-[10px] font-medium text-muted-foreground">
-          {dayData.totalSteps}
-        </span>
+      <div className="flex gap-0.5 mt-0.5 justify-center flex-wrap">
+        {hasCollections && (
+          <div className={cn(
+            "w-1.5 h-1.5 rounded-full",
+            dayData.collections.some(c => c.status !== 'completed') ? "bg-blue-500" : "bg-blue-300"
+          )} />
+        )}
+        {hasDeliveries && (
+          <div className={cn(
+            "w-1.5 h-1.5 rounded-full",
+            dayData.deliveries.some(d => d.status !== 'completed') ? "bg-green-500" : "bg-green-300"
+          )} />
+        )}
+        {hasReminders && (
+          <div className={cn(
+            "w-1.5 h-1.5 rounded-full",
+            dayReminders.some(r => !r.is_completed) ? "bg-orange-500" : "bg-orange-300"
+          )} />
+        )}
       </div>
     );
   };
@@ -223,34 +343,228 @@ export const OperationsRouteCalendar = ({ userId, onStepClick }: OperationsRoute
       ) : (
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-4">
-            {/* Calendar */}
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
-              month={currentMonth}
-              onMonthChange={setCurrentMonth}
-              className="rounded-lg border bg-card shadow-sm mx-auto"
-              classNames={{
-                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
-                day_today: "bg-accent text-accent-foreground font-bold"
-              }}
-              components={{
-                DayContent: ({ date }) => (
-                  <div className="flex flex-col items-center">
-                    <span>{date.getDate()}</span>
-                    {renderDayContent(date)}
-                  </div>
-                )
-              }}
-            />
+            {/* Calendar with improved styling */}
+            <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setSelectedDate(date);
+                    setNewReminderDate(date);
+                  }
+                }}
+                month={currentMonth}
+                onMonthChange={setCurrentMonth}
+                className="p-0 pointer-events-auto"
+                classNames={{
+                  months: "w-full",
+                  month: "w-full space-y-2",
+                  caption: "hidden",
+                  caption_label: "hidden",
+                  nav: "hidden",
+                  table: "w-full border-collapse",
+                  head_row: "flex w-full",
+                  head_cell: "flex-1 text-center text-xs font-medium text-muted-foreground py-2",
+                  row: "flex w-full",
+                  cell: "flex-1 text-center p-0.5 relative",
+                  day: cn(
+                    "w-full h-12 sm:h-14 rounded-lg text-sm font-normal flex flex-col items-center justify-start pt-1.5",
+                    "hover:bg-accent/50 transition-colors cursor-pointer",
+                    "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                  ),
+                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+                  day_today: "bg-accent font-bold ring-1 ring-primary/30",
+                  day_outside: "text-muted-foreground/40",
+                  day_disabled: "text-muted-foreground/40",
+                }}
+                components={{
+                  DayContent: ({ date }) => (
+                    <div className="flex flex-col items-center">
+                      <span className="text-sm">{date.getDate()}</span>
+                      {renderDayContent(date)}
+                    </div>
+                  )
+                }}
+              />
+            </div>
 
-            {/* Selected Day Summary */}
+            {/* Legend */}
+            <div className="flex flex-wrap gap-3 justify-center text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-muted-foreground">Collections</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-muted-foreground">Deliveries</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-orange-500" />
+                <span className="text-muted-foreground">Reminders</span>
+              </div>
+            </div>
+
+            {/* Personal Reminders Section */}
+            <Card className="border-orange-200 dark:border-orange-900/50 bg-orange-50/50 dark:bg-orange-950/20">
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-base flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <StickyNote className="h-5 w-5 text-orange-600" />
+                    <span>My Reminders</span>
+                    {reminders.filter(r => !r.is_completed).length > 0 && (
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">
+                        {reminders.filter(r => !r.is_completed).length}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/50"
+                    onClick={() => {
+                      setNewReminderDate(selectedDate);
+                      setShowAddReminder(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
+                {/* Add Reminder Form */}
+                {showAddReminder && (
+                  <div className="p-3 bg-background rounded-lg border space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">
+                        Add reminder for {format(newReminderDate, 'MMM d')}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => setShowAddReminder(false)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="Reminder title..."
+                      value={newReminderTitle}
+                      onChange={(e) => setNewReminderTitle(e.target.value)}
+                      className="h-10"
+                    />
+                    <Input
+                      placeholder="Notes (optional)"
+                      value={newReminderNotes}
+                      onChange={(e) => setNewReminderNotes(e.target.value)}
+                      className="h-10"
+                    />
+                    <Button 
+                      className="w-full" 
+                      size="sm"
+                      onClick={handleAddReminder}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Reminder
+                    </Button>
+                  </div>
+                )}
+
+                {/* Selected Day Reminders */}
+                {selectedDayReminders.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      {format(selectedDate, 'EEEE, MMM d')}
+                    </p>
+                    {selectedDayReminders.map(reminder => (
+                      <div 
+                        key={reminder.id}
+                        className={cn(
+                          "flex items-start gap-3 p-3 rounded-lg bg-background border transition-all",
+                          reminder.is_completed && "opacity-60"
+                        )}
+                      >
+                        <Checkbox
+                          checked={reminder.is_completed}
+                          onCheckedChange={() => handleToggleReminder(reminder)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className={cn(
+                            "font-medium text-sm",
+                            reminder.is_completed && "line-through"
+                          )}>
+                            {reminder.title}
+                          </p>
+                          {reminder.notes && (
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                              {reminder.notes}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteReminder(reminder.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : !showAddReminder ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground">
+                      No reminders for {format(selectedDate, 'MMM d')}
+                    </p>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="text-orange-600"
+                      onClick={() => {
+                        setNewReminderDate(selectedDate);
+                        setShowAddReminder(true);
+                      }}
+                    >
+                      Add one
+                    </Button>
+                  </div>
+                ) : null}
+
+                {/* Upcoming Reminders (if not on selected date) */}
+                {reminders.filter(r => !r.is_completed && r.reminder_date !== selectedDateKey).length > 0 && (
+                  <div className="pt-2 border-t space-y-2">
+                    <p className="text-xs text-muted-foreground font-medium">Upcoming this month</p>
+                    {reminders
+                      .filter(r => !r.is_completed && r.reminder_date !== selectedDateKey)
+                      .slice(0, 3)
+                      .map(reminder => (
+                        <button
+                          key={reminder.id}
+                          onClick={() => setSelectedDate(new Date(reminder.reminder_date))}
+                          className="w-full text-left flex items-center gap-2 p-2 rounded-lg hover:bg-background/80 transition-colors"
+                        >
+                          <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                          <span className="text-xs flex-1 truncate">{reminder.title}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(reminder.reminder_date), 'MMM d')}
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Selected Day Routes */}
             <Card className="border-primary/20">
               <CardHeader className="py-3 px-4">
                 <CardTitle className="text-base flex items-center gap-2">
                   <CalendarDays className="h-5 w-5 text-primary" />
-                  {format(selectedDate, 'EEEE, MMMM d')}
+                  Routes for {format(selectedDate, 'EEEE, MMMM d')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-3">
@@ -356,27 +670,34 @@ export const OperationsRouteCalendar = ({ userId, onStepClick }: OperationsRoute
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950">
-                    <Package className="h-5 w-5 mx-auto text-blue-600 mb-1" />
-                    <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950">
+                    <Package className="h-4 w-4 mx-auto text-blue-600 mb-1" />
+                    <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
                       {Array.from(dayRoutes.values()).reduce((sum, d) => sum + d.collections.length, 0)}
                     </p>
-                    <p className="text-[10px] text-blue-600 dark:text-blue-400">Collections</p>
+                    <p className="text-[10px] text-blue-600 dark:text-blue-400">Collect</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950">
-                    <Truck className="h-5 w-5 mx-auto text-green-600 mb-1" />
-                    <p className="text-xl font-bold text-green-700 dark:text-green-300">
+                  <div className="p-2 rounded-lg bg-green-50 dark:bg-green-950">
+                    <Truck className="h-4 w-4 mx-auto text-green-600 mb-1" />
+                    <p className="text-lg font-bold text-green-700 dark:text-green-300">
                       {Array.from(dayRoutes.values()).reduce((sum, d) => sum + d.deliveries.length, 0)}
                     </p>
-                    <p className="text-[10px] text-green-600 dark:text-green-400">Deliveries</p>
+                    <p className="text-[10px] text-green-600 dark:text-green-400">Deliver</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-muted">
-                    <CalendarDays className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-                    <p className="text-xl font-bold">
+                  <div className="p-2 rounded-lg bg-orange-50 dark:bg-orange-950">
+                    <StickyNote className="h-4 w-4 mx-auto text-orange-600 mb-1" />
+                    <p className="text-lg font-bold text-orange-700 dark:text-orange-300">
+                      {reminders.filter(r => !r.is_completed).length}
+                    </p>
+                    <p className="text-[10px] text-orange-600 dark:text-orange-400">Reminders</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-muted">
+                    <CalendarDays className="h-4 w-4 mx-auto text-muted-foreground mb-1" />
+                    <p className="text-lg font-bold">
                       {dayRoutes.size}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Active Days</p>
+                    <p className="text-[10px] text-muted-foreground">Days</p>
                   </div>
                 </div>
               </CardContent>
