@@ -13,7 +13,7 @@ import { logTaskAction } from "@/lib/auditLogger";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { SendBackToDesignerDialog } from "./SendBackToDesignerDialog";
-import { SendToProductionDialog } from "./SendToProductionDialog";
+import { SendToProductionChoiceDialog } from "./SendToProductionChoiceDialog";
 import { useConnectionAwareRefetch } from "@/hooks/useConnectionAwareRefetch";
 import { useDebouncedCallback } from "@/hooks/useVisibilityAwareSubscription";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -967,7 +967,7 @@ export const AdminKanbanBoard = () => {
         />
       )}
 
-      <SendToProductionDialog
+      <SendToProductionChoiceDialog
         open={sendToProductionDialogOpen}
         onOpenChange={setSendToProductionDialogOpen}
         task={sendToProductionTask}
