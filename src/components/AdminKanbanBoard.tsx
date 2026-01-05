@@ -760,7 +760,7 @@ export const AdminKanbanBoard = () => {
         return;
       }
 
-      if (!confirm("Remove this item from FOR PRODUCTION? This will also remove any linked operations task and update the estimator's production pipeline.")) {
+      if (!confirm("Remove this item from FOR PRODUCTION? (This only removes from admin view - estimation's production tasks remain unchanged)")) {
         return;
       }
 
@@ -804,72 +804,32 @@ export const AdminKanbanBoard = () => {
         toast.success("Removed successfully");
         await fetchTasks();
       } else {
-        // It's a regular task - set flag to permanently hide from FOR PRODUCTION
-        // Also remove any linked operations task and update estimator's production pipeline
-        console.log('📋 This is a TASK - marking as removed from FOR PRODUCTION');
+        // It's a regular task - just mark as removed from FOR PRODUCTION
+        // DO NOT modify status or delete - estimation's production pipeline should be unaffected
+        console.log('📋 This is a TASK - marking as removed from FOR PRODUCTION only');
         console.log('📋 Task details:', {
           taskId,
           currentStatus: task.status,
           originalStatus: task.original_status || 'done'
         });
         
-        // First, find and delete any linked operations task
-        const { data: linkedOperationsTask } = await supabase
-          .from('tasks')
-          .select('id')
-          .eq('linked_task_id', taskId)
-          .is('deleted_at', null)
-          .maybeSingle();
-
-        if (linkedOperationsTask) {
-          console.log('🔗 Found linked operations task:', linkedOperationsTask.id);
-          
-          // Delete workflow steps associated with the operations task
-          await supabase
-            .from('task_workflow_steps')
-            .delete()
-            .eq('task_id', linkedOperationsTask.id);
-          
-          // Delete task products associated with the operations task
-          await supabase
-            .from('task_products')
-            .delete()
-            .eq('task_id', linkedOperationsTask.id);
-          
-          // Soft delete the operations task
-          await supabase
-            .from('tasks')
-            .update({ 
-              deleted_at: new Date().toISOString(),
-              admin_removed_from_production: true
-            })
-            .eq('id', linkedOperationsTask.id);
-          
-          console.log('✅ Linked operations task removed');
-        }
-        
-        // Update the original task - mark as removed from production
-        // Also change status back to 'production' so it stays in estimator's pipeline but not FOR PRODUCTION
+        // Only update the admin_removed_from_production flag
+        // DO NOT change status, DO NOT delete, DO NOT affect linked tasks
         const { error: taskError } = await supabase
           .from('tasks')
           .update({ 
-            admin_removed_from_production: true,
-            // Move task status back to production (for estimation) since it's no longer going to operations
-            status: 'production',
-            previous_status: 'done',
-            updated_at: new Date().toISOString(),
-            status_changed_at: new Date().toISOString()
+            admin_removed_from_production: true
           })
           .eq('id', taskId);
 
         if (taskError) {
-          console.error('❌ Error removing task:', taskError);
+          console.error('❌ Error removing task from FOR PRODUCTION:', taskError);
           toast.error(`Failed to remove: ${taskError.message}`);
           return;
         }
 
-        console.log('✅ Task removed from FOR PRODUCTION and moved to estimation production');
-        toast.success("Removed from operations. Task remains in estimation's production pipeline.");
+        console.log('✅ Task removed from FOR PRODUCTION view only');
+        toast.success("Removed from FOR PRODUCTION");
         await fetchTasks();
       }
     } catch (error: any) {
