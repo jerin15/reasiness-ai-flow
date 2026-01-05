@@ -26,6 +26,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, isToday, isPast } from 'date-fns';
 
+interface StepProduct {
+  id: string;
+  product_name: string;
+  quantity: number | null;
+  unit: string | null;
+}
+
 interface WorkflowStep {
   id: string;
   step_order: number;
@@ -39,6 +46,7 @@ interface WorkflowStep {
   task_title?: string;
   task_client?: string | null;
   task_priority?: string;
+  products?: StepProduct[];
 }
 
 interface SimpleOperationsViewProps {
@@ -116,11 +124,38 @@ export const SimpleOperationsView = ({
 
       if (error) throw error;
 
+      // Fetch products for all steps
+      const stepIds = (stepsData || []).map((s: any) => s.id);
+      let productsMap: Record<string, StepProduct[]> = {};
+      
+      if (stepIds.length > 0) {
+        const { data: productsData } = await supabase
+          .from('task_products')
+          .select('id, workflow_step_id, product_name, quantity, unit')
+          .in('workflow_step_id', stepIds);
+        
+        // Group products by step
+        (productsData || []).forEach((p: any) => {
+          if (p.workflow_step_id) {
+            if (!productsMap[p.workflow_step_id]) {
+              productsMap[p.workflow_step_id] = [];
+            }
+            productsMap[p.workflow_step_id].push({
+              id: p.id,
+              product_name: p.product_name,
+              quantity: p.quantity,
+              unit: p.unit
+            });
+          }
+        });
+      }
+
       const enrichedSteps = (stepsData || []).map((step: any) => ({
         ...step,
         task_title: step.tasks?.title,
         task_client: step.tasks?.client_name,
-        task_priority: step.tasks?.priority
+        task_priority: step.tasks?.priority,
+        products: productsMap[step.id] || []
       }));
 
       setSteps(enrichedSteps);
@@ -354,6 +389,32 @@ export const SimpleOperationsView = ({
                 {step.task_client || step.task_title}
               </p>
 
+              {/* Products List */}
+              {step.products && step.products.length > 0 && (
+                <div className="mt-2 p-2 bg-background/80 rounded-md border">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-1">
+                    <Package className="h-3 w-3" />
+                    Products ({step.products.length}):
+                  </p>
+                  <div className="space-y-1">
+                    {step.products.slice(0, 5).map((product, idx) => (
+                      <div key={product.id || idx} className="text-xs flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                        <span className="font-medium">{product.product_name}</span>
+                        {product.quantity && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1">
+                            {product.quantity} {product.unit || 'pcs'}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                    {step.products.length > 5 && (
+                      <p className="text-xs text-muted-foreground">+{step.products.length - 5} more</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Address for non-S→S */}
               {step.location_address && step.step_type !== 'supplier_to_supplier' && (
                 <p className="text-xs text-muted-foreground mt-1 flex items-start gap-1">
@@ -492,9 +553,14 @@ export const SimpleOperationsView = ({
               </div>
             ) : (
               <>
-                <div className="text-xs text-purple-600 font-medium mb-2 flex items-center gap-1">
-                  <Factory className="h-4 w-4" />
-                  Items currently at supplier for production
+                <div className="bg-purple-100 dark:bg-purple-950/30 rounded-lg p-3 mb-3 border border-purple-200">
+                  <p className="text-sm text-purple-700 dark:text-purple-300 font-medium flex items-center gap-2">
+                    <Factory className="h-4 w-4" />
+                    Items at suppliers for production/fabrication
+                  </p>
+                  <p className="text-xs text-purple-600/70 mt-1">
+                    These items have been transferred to suppliers and are being produced
+                  </p>
                 </div>
                 {atProduction.map(step => renderStepCard(step, true))}
               </>
