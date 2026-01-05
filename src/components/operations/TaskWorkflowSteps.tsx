@@ -526,10 +526,12 @@ export const TaskWorkflowSteps = ({
                                       <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md px-2.5 py-2 mt-2">
                                         <div className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5 mb-1">
                                           <Package className="h-3 w-3" />
-                                          📦 COLLECT FROM:
+                                          📦 {step.step_type === 'supplier_to_supplier' ? 'TRANSFER FROM:' : 'COLLECT FROM:'}
                                         </div>
                                         <div className="text-sm font-medium">
-                                          {step.step_type === 'supplier_to_supplier' ? fromSupplierName : step.supplier_name || 'Supplier'}
+                                          {step.step_type === 'supplier_to_supplier' 
+                                            ? (fromSupplierName || <span className="text-muted-foreground italic">Not specified</span>) 
+                                            : (step.supplier_name || 'Supplier')}
                                         </div>
                                         {step.step_type === 'supplier_to_supplier' && fromSupplierAddress && (
                                           <div className="text-xs text-muted-foreground flex items-start gap-1 mt-0.5">
