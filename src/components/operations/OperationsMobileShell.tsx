@@ -20,7 +20,8 @@ import {
   LayoutList,
   RefreshCw,
   CalendarDays,
-  Navigation
+  Navigation,
+  Zap
 } from 'lucide-react';
 import {
   Sheet,
@@ -33,6 +34,7 @@ import { OperationsLocationMap } from './OperationsLocationMap';
 import { OperationsMobileTaskCard, type OperationsTaskWithSteps, type WorkflowStep, type WorkflowStepProduct } from './OperationsMobileTaskCard';
 import { OperationsMobileTaskSheet } from './OperationsMobileTaskSheet';
 import { OperationsRouteCalendar } from './OperationsRouteCalendar';
+import { SimpleOperationsView } from './SimpleOperationsView';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -43,7 +45,7 @@ interface OperationsMobileShellProps {
   isAdmin?: boolean;
 }
 
-type ViewMode = 'tasks' | 'calendar' | 'map';
+type ViewMode = 'simple' | 'tasks' | 'calendar' | 'map';
 
 export const OperationsMobileShell = ({ 
   userId, 
@@ -51,7 +53,7 @@ export const OperationsMobileShell = ({
   operationsUsers,
   isAdmin = false
 }: OperationsMobileShellProps) => {
-  const [viewMode, setViewMode] = useState<ViewMode>('tasks');
+  const [viewMode, setViewMode] = useState<ViewMode>('simple');
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [tempToken, setTempToken] = useState('');
@@ -341,60 +343,71 @@ export const OperationsMobileShell = ({
         </div>
       </header>
 
-      {/* Stats Bar */}
-      <div className="px-4 py-3 bg-muted/30 border-b flex items-center gap-3 overflow-x-auto">
-        <Badge variant="default" className="shrink-0 gap-1.5 py-1.5">
-          <ClipboardList className="h-3.5 w-3.5" />
-          {tasks.length} Tasks
-        </Badge>
-        {myTasks.length > 0 && (
-          <Badge variant="secondary" className="shrink-0 gap-1.5 py-1.5">
-            <User className="h-3.5 w-3.5" />
-            {myTasks.length} Mine
+      {/* Stats Bar - hide for simple view which has its own */}
+      {viewMode !== 'simple' && (
+        <div className="px-4 py-3 bg-muted/30 border-b flex items-center gap-3 overflow-x-auto">
+          <Badge variant="default" className="shrink-0 gap-1.5 py-1.5">
+            <ClipboardList className="h-3.5 w-3.5" />
+            {tasks.length} Tasks
           </Badge>
-        )}
-        {urgentTasks.length > 0 && (
-          <Badge variant="destructive" className="shrink-0 gap-1.5 py-1.5">
-            <AlertTriangle className="h-3.5 w-3.5" />
-            {urgentTasks.length} Urgent
-          </Badge>
-        )}
-      </div>
+          {myTasks.length > 0 && (
+            <Badge variant="secondary" className="shrink-0 gap-1.5 py-1.5">
+              <User className="h-3.5 w-3.5" />
+              {myTasks.length} Mine
+            </Badge>
+          )}
+          {urgentTasks.length > 0 && (
+            <Badge variant="destructive" className="shrink-0 gap-1.5 py-1.5">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {urgentTasks.length} Urgent
+            </Badge>
+          )}
+        </div>
+      )}
 
       {/* View Toggle & Search */}
       <div className="px-4 py-3 border-b bg-background sticky top-[68px] z-40 space-y-3">
         {/* View Toggle */}
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
+          <Button
+            variant={viewMode === 'simple' ? 'default' : 'outline'}
+            size="sm"
+            className="flex-1 gap-1 px-2"
+            onClick={() => setViewMode('simple')}
+          >
+            <Zap className="h-4 w-4" />
+            <span className="text-xs">Quick</span>
+          </Button>
           <Button
             variant={viewMode === 'tasks' ? 'default' : 'outline'}
             size="sm"
-            className="flex-1 gap-1.5"
+            className="flex-1 gap-1 px-2"
             onClick={() => setViewMode('tasks')}
           >
             <LayoutList className="h-4 w-4" />
-            <span className="hidden sm:inline">Tasks</span>
+            <span className="text-xs">Detail</span>
           </Button>
           <Button
             variant={viewMode === 'calendar' ? 'default' : 'outline'}
             size="sm"
-            className="flex-1 gap-1.5"
+            className="flex-1 gap-1 px-2"
             onClick={() => setViewMode('calendar')}
           >
             <CalendarDays className="h-4 w-4" />
-            <span className="hidden sm:inline">Routes</span>
+            <span className="text-xs">Routes</span>
           </Button>
           <Button
             variant={viewMode === 'map' ? 'default' : 'outline'}
             size="sm"
-            className="flex-1 gap-1.5"
+            className="flex-1 gap-1 px-2"
             onClick={() => setViewMode('map')}
           >
             <Map className="h-4 w-4" />
-            <span className="hidden sm:inline">Map</span>
+            <span className="text-xs">Map</span>
           </Button>
         </div>
 
-        {/* Search (only for tasks view) */}
+        {/* Search (only for detailed tasks view) */}
         {viewMode === 'tasks' && (
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -410,7 +423,15 @@ export const OperationsMobileShell = ({
       </div>
 
       <main className="flex-1 overflow-hidden">
-        {viewMode === 'tasks' ? (
+        {viewMode === 'simple' ? (
+          // Simple Quick View - One tap actions
+          <SimpleOperationsView
+            userId={userId}
+            userName={userName}
+            isAdmin={isAdmin}
+            onRefresh={fetchTasks}
+          />
+        ) : viewMode === 'tasks' ? (
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4 pb-24">
               {isLoadingTasks ? (
