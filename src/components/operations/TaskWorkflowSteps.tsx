@@ -143,6 +143,12 @@ export const TaskWorkflowSteps = ({
   // For supplier_to_supplier step
   const [fromSupplierName, setFromSupplierName] = useState('');
   const [fromSupplierAddress, setFromSupplierAddress] = useState('');
+  
+  // Products for new step
+  const [newStepProducts, setNewStepProducts] = useState<Array<{id: string; product_name: string; quantity: number; unit: string}>>([]);
+  const [tempProductName, setTempProductName] = useState('');
+  const [tempProductQty, setTempProductQty] = useState('');
+  const [tempProductUnit, setTempProductUnit] = useState('pcs');
 
   const fetchSteps = useCallback(async () => {
     try {
@@ -259,7 +265,7 @@ export const TaskWorkflowSteps = ({
         ? `FROM: ${fromSupplierName.trim()}${fromSupplierAddress ? ` (${fromSupplierAddress.trim()})` : ''}\n${newNotes.trim() || ''}`
         : newNotes.trim() || null;
 
-      const { error } = await supabase
+      const { data: insertedStep, error } = await supabase
         .from('task_workflow_steps')
         .insert({
           task_id: taskId,
@@ -270,11 +276,35 @@ export const TaskWorkflowSteps = ({
           location_notes: notesWithFromInfo,
           due_date: newDueDate || null,
           status: 'pending'
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      toast.success('Step added');
+      // Insert products for this step
+      if (newStepProducts.length > 0 && insertedStep) {
+        const productsToInsert = newStepProducts.map((product, idx) => ({
+          task_id: taskId,
+          workflow_step_id: insertedStep.id,
+          product_name: product.product_name,
+          quantity: product.quantity,
+          unit: product.unit,
+          supplier_name: newSupplierName.trim() || null,
+          position: idx
+        }));
+
+        const { error: productsError } = await supabase
+          .from('task_products')
+          .insert(productsToInsert);
+
+        if (productsError) {
+          console.error('Error adding products:', productsError);
+          toast.error('Step added but failed to add products');
+        }
+      }
+
+      toast.success(`Step added${newStepProducts.length > 0 ? ` with ${newStepProducts.length} product(s)` : ''}`);
       setNewSupplierName('');
       setNewAddress('');
       setNewNotes('');
@@ -282,6 +312,10 @@ export const TaskWorkflowSteps = ({
       setNewStepType('collect');
       setFromSupplierName('');
       setFromSupplierAddress('');
+      setNewStepProducts([]);
+      setTempProductName('');
+      setTempProductQty('');
+      setTempProductUnit('pcs');
       fetchSteps();
       onStepChange?.();
     } catch (error: any) {
@@ -870,6 +904,96 @@ export const TaskWorkflowSteps = ({
                   rows={2}
                   className="mt-1"
                 />
+              </div>
+
+              {/* Products Section */}
+              <div className="border rounded-lg p-3 space-y-3 bg-purple-50/50 dark:bg-purple-950/20">
+                <Label className="text-xs font-semibold flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                  <Package className="h-3 w-3" />
+                  Products for this step ({newStepProducts.length})
+                </Label>
+                
+                {/* List of added products */}
+                {newStepProducts.length > 0 && (
+                  <div className="space-y-1">
+                    {newStepProducts.map((product, idx) => (
+                      <div key={product.id} className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm">
+                        <span>
+                          <span className="font-medium">{product.product_name}</span>
+                          <span className="text-muted-foreground ml-2">({product.quantity} {product.unit})</span>
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                          onClick={() => setNewStepProducts(newStepProducts.filter(p => p.id !== product.id))}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Add product form */}
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Product name"
+                      value={tempProductName}
+                      onChange={(e) => setTempProductName(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="w-16">
+                    <Input
+                      type="number"
+                      placeholder="Qty"
+                      value={tempProductQty}
+                      onChange={(e) => setTempProductQty(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="w-20">
+                    <Select value={tempProductUnit} onValueChange={setTempProductUnit}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pcs">pcs</SelectItem>
+                        <SelectItem value="sqft">sqft</SelectItem>
+                        <SelectItem value="sqm">sqm</SelectItem>
+                        <SelectItem value="meters">meters</SelectItem>
+                        <SelectItem value="kg">kg</SelectItem>
+                        <SelectItem value="sets">sets</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => {
+                      if (!tempProductName.trim()) {
+                        toast.error('Enter product name');
+                        return;
+                      }
+                      setNewStepProducts([...newStepProducts, {
+                        id: crypto.randomUUID(),
+                        product_name: tempProductName.trim(),
+                        quantity: parseFloat(tempProductQty) || 1,
+                        unit: tempProductUnit
+                      }]);
+                      setTempProductName('');
+                      setTempProductQty('');
+                      setTempProductUnit('pcs');
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <Button 
