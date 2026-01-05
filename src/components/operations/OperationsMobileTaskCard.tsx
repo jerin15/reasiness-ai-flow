@@ -138,9 +138,10 @@ export const OperationsMobileTaskCard = ({
     try {
       let newStatus: WorkflowStep['status'];
       
-      if (step.status === 'pending') {
-        newStatus = 'in_progress';
-      } else if (step.status === 'in_progress') {
+      // One-tap action: pending -> completed directly (skip in_progress)
+      // For collect steps, user taps = "Collected"
+      // For deliver steps, user taps = "Delivered"
+      if (step.status === 'pending' || step.status === 'in_progress') {
         newStatus = 'completed';
       } else {
         newStatus = 'pending';
@@ -149,11 +150,10 @@ export const OperationsMobileTaskCard = ({
       const updates: any = { status: newStatus };
       const nowIso = new Date().toISOString();
       
-      if (newStatus === 'in_progress') {
-        updates.started_at = nowIso;
-      } else if (newStatus === 'completed') {
+      if (newStatus === 'completed') {
         updates.completed_at = nowIso;
         updates.completed_by = currentUserId;
+        updates.started_at = updates.started_at || nowIso; // Set started if not already
       } else {
         updates.started_at = null;
         updates.completed_at = null;
@@ -166,6 +166,11 @@ export const OperationsMobileTaskCard = ({
         .eq('id', step.id);
 
       if (error) throw error;
+
+      // Get user-friendly action name
+      const actionLabel = step.step_type === 'collect' ? 'Collected' : 
+                         step.step_type === 'deliver_to_client' ? 'Delivered' : 
+                         step.step_type === 'supplier_to_supplier' ? 'Transferred' : 'Done';
 
       // Create notification for step completion
       if (newStatus === 'completed') {
@@ -185,14 +190,17 @@ export const OperationsMobileTaskCard = ({
             sender_id: currentUserId,
             recipient_id: null, // broadcast
             is_broadcast: true,
-            title: `✅ Step Completed: ${stepConfig.label}`,
-            message: `${completedByName} completed "${stepConfig.label}" step for task "${task.title}".\n\nSupplier: ${step.supplier_name || 'N/A'}\nCompleted at: ${format(new Date(), 'MMM d, yyyy h:mm a')}`,
+            title: `✅ ${actionLabel}: ${step.supplier_name || stepConfig.label}`,
+            message: `${completedByName} marked "${step.supplier_name || stepConfig.label}" as ${actionLabel.toLowerCase()} for task "${task.title}".\n\nCompleted at: ${format(new Date(), 'MMM d, yyyy h:mm a')}`,
             priority: 'medium',
             is_acknowledged: false
           });
-      }
 
-      toast.success(`Step marked as ${newStatus.replace('_', ' ')}`);
+        toast.success(`✓ ${actionLabel}!`);
+      } else {
+        toast.success('Step reset');
+      }
+      
       onStepUpdated();
     } catch (error: any) {
       console.error('Error updating step:', error);
