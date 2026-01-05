@@ -653,12 +653,18 @@ export const SendToProductionChoiceDialog = ({
                           )}
                           
                           {step.products.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {step.products.map(p => (
-                                <Badge key={p.id} variant="outline" className="text-xs">
-                                  {p.product_name} x{p.quantity}
-                                </Badge>
-                              ))}
+                            <div className="mt-2 bg-purple-50/50 dark:bg-purple-950/20 rounded p-2">
+                              <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-1 flex items-center gap-1">
+                                <Package className="h-3 w-3" /> Products ({step.products.length})
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {step.products.map(p => (
+                                  <Badge key={p.id} variant="outline" className="text-xs">
+                                    {p.product_name} ({p.quantity} {p.unit})
+                                    {p.estimated_price && ` - AED ${p.estimated_price}`}
+                                  </Badge>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </CardContent>
@@ -764,34 +770,80 @@ export const SendToProductionChoiceDialog = ({
                       </div>
 
                       {/* Products for this step */}
-                      <div className="space-y-2">
-                        <Label>Products for this step</Label>
-                        {newStepProducts.map(p => (
-                          <Badge key={p.id} variant="secondary" className="mr-1">
-                            {p.product_name} x{p.quantity}
-                            <button
-                              className="ml-1 hover:text-destructive"
-                              onClick={() => setNewStepProducts(newStepProducts.filter(x => x.id !== p.id))}
-                            >
-                              ×
-                            </button>
-                          </Badge>
-                        ))}
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Product name"
-                            value={tempProductName}
-                            onChange={(e) => setTempProductName(e.target.value)}
-                            className="flex-1"
-                          />
-                          <Input
-                            placeholder="Qty"
-                            type="number"
-                            value={tempProductQty}
-                            onChange={(e) => setTempProductQty(e.target.value)}
-                            className="w-16"
-                          />
-                          <Button type="button" size="sm" variant="outline" onClick={handleAddProduct}>
+                      <div className="border rounded-lg p-3 space-y-3 bg-purple-50/50 dark:bg-purple-950/20">
+                        <Label className="text-xs font-semibold flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                          <Package className="h-3 w-3" />
+                          Products for this step ({newStepProducts.length})
+                        </Label>
+                        
+                        {/* List of added products */}
+                        {newStepProducts.length > 0 && (
+                          <div className="space-y-1">
+                            {newStepProducts.map((p, idx) => (
+                              <div key={p.id} className="flex items-center justify-between bg-background rounded px-2 py-1.5 text-sm">
+                                <span>
+                                  <span className="font-medium">{p.product_name}</span>
+                                  <span className="text-muted-foreground ml-2">({p.quantity} {p.unit})</span>
+                                  {p.estimated_price && <span className="text-muted-foreground ml-1">- AED {p.estimated_price}</span>}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                  onClick={() => setNewStepProducts(newStepProducts.filter(x => x.id !== p.id))}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Add product form */}
+                        <div className="flex gap-2 items-end flex-wrap">
+                          <div className="flex-1 min-w-[120px]">
+                            <Input
+                              placeholder="Product name"
+                              value={tempProductName}
+                              onChange={(e) => setTempProductName(e.target.value)}
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="w-16">
+                            <Input
+                              type="number"
+                              placeholder="Qty"
+                              value={tempProductQty}
+                              onChange={(e) => setTempProductQty(e.target.value)}
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="w-20">
+                            <Select value={tempProductUnit} onValueChange={setTempProductUnit}>
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pcs">pcs</SelectItem>
+                                <SelectItem value="sqft">sqft</SelectItem>
+                                <SelectItem value="sqm">sqm</SelectItem>
+                                <SelectItem value="meters">meters</SelectItem>
+                                <SelectItem value="kg">kg</SelectItem>
+                                <SelectItem value="sets">sets</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="w-20">
+                            <Input
+                              type="number"
+                              placeholder="Price"
+                              value={tempProductPrice}
+                              onChange={(e) => setTempProductPrice(e.target.value)}
+                              className="h-9"
+                            />
+                          </div>
+                          <Button type="button" size="sm" variant="outline" className="h-9" onClick={handleAddProduct}>
                             <Plus className="h-4 w-4" />
                           </Button>
                         </div>
