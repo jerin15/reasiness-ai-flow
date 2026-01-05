@@ -317,6 +317,12 @@ export const CreateOperationsTaskDialog = ({
         for (let i = 0; i < workflowSteps.length; i++) {
           const step = workflowSteps[i];
           
+          // For S→S transfers, store FROM info in location_notes
+          let locationNotes = step.location_notes || '';
+          if (step.step_type === 'supplier_to_supplier' && step.from_supplier_name) {
+            locationNotes = `FROM: ${step.from_supplier_name}${step.from_supplier_address ? ` (${step.from_supplier_address})` : ''}\n${locationNotes}`.trim();
+          }
+          
           // Insert workflow step
           const { data: insertedStep, error: stepError } = await supabase
             .from('task_workflow_steps')
@@ -326,7 +332,7 @@ export const CreateOperationsTaskDialog = ({
               step_type: step.step_type,
               supplier_name: step.supplier_name || null,
               location_address: step.location_address || null,
-              location_notes: step.location_notes || null,
+              location_notes: locationNotes || null,
               due_date: step.due_date || null,
               status: 'pending'
             })
@@ -835,16 +841,49 @@ const WorkflowStepCard = ({ step, index, onRemove, onAddProduct, onRemoveProduct
                 <StepIcon className="h-3 w-3 mr-1" />
                 {config.shortLabel}
               </Badge>
-              <span className="font-medium text-sm">
-                {step.supplier_name || 'Client'}
-              </span>
             </div>
             
-            {step.location_address && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {step.location_address}
-              </p>
+            {step.step_type === 'supplier_to_supplier' ? (
+              <div className="space-y-2">
+                {/* FROM */}
+                <div className="bg-blue-50 dark:bg-blue-950/30 rounded p-2">
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                    <Package className="h-3 w-3" /> FROM
+                  </p>
+                  <p className="text-sm font-medium">{step.from_supplier_name}</p>
+                  {step.from_supplier_address && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {step.from_supplier_address}
+                    </p>
+                  )}
+                </div>
+                {/* TO */}
+                <div className="bg-purple-50 dark:bg-purple-950/30 rounded p-2">
+                  <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 flex items-center gap-1">
+                    <Truck className="h-3 w-3" /> TO
+                  </p>
+                  <p className="text-sm font-medium">{step.supplier_name || 'Client'}</p>
+                  {step.location_address && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {step.location_address}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <span className="font-medium text-sm">
+                  {step.supplier_name || 'Client'}
+                </span>
+                {step.location_address && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {step.location_address}
+                  </p>
+                )}
+              </>
             )}
             
             {step.due_date && (

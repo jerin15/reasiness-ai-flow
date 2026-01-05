@@ -389,6 +389,12 @@ export const SendToProductionChoiceDialog = ({
           for (let i = 0; i < workflowSteps.length; i++) {
             const step = workflowSteps[i];
 
+            // For S→S transfers, store FROM info in location_notes
+            let locationNotes = step.location_notes || '';
+            if (step.step_type === 'supplier_to_supplier' && step.from_supplier_name) {
+              locationNotes = `FROM: ${step.from_supplier_name}${step.from_supplier_address ? ` (${step.from_supplier_address})` : ''}\n${locationNotes}`.trim();
+            }
+
             const { data: insertedStep, error: stepError } = await supabase
               .from('task_workflow_steps')
               .insert({
@@ -397,7 +403,7 @@ export const SendToProductionChoiceDialog = ({
                 step_type: step.step_type,
                 supplier_name: step.supplier_name || null,
                 location_address: step.location_address || null,
-                location_notes: step.location_notes || null,
+                location_notes: locationNotes || null,
                 due_date: step.due_date || null,
                 status: 'pending',
               })
@@ -593,6 +599,7 @@ export const SendToProductionChoiceDialog = ({
                   {workflowSteps.map((step, index) => {
                     const config = stepTypeConfig[step.step_type];
                     const Icon = config.icon;
+                    const isS2S = step.step_type === 'supplier_to_supplier';
                     return (
                       <Card key={step.id} className="border-l-4" style={{ borderLeftColor: 'hsl(var(--primary))' }}>
                         <CardContent className="p-4">
@@ -612,18 +619,46 @@ export const SendToProductionChoiceDialog = ({
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
-                          <p className="text-sm">{step.supplier_name}</p>
-                          {step.location_address && (
-                            <p className="text-xs text-muted-foreground">{step.location_address}</p>
+                          
+                          {isS2S ? (
+                            <div className="space-y-2">
+                              {/* FROM */}
+                              <div className="bg-blue-50 dark:bg-blue-950/30 rounded p-2">
+                                <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                                  <Package className="h-3 w-3" /> FROM
+                                </p>
+                                <p className="text-sm">{step.from_supplier_name}</p>
+                                {step.from_supplier_address && (
+                                  <p className="text-xs text-muted-foreground">{step.from_supplier_address}</p>
+                                )}
+                              </div>
+                              {/* TO */}
+                              <div className="bg-purple-50 dark:bg-purple-950/30 rounded p-2">
+                                <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 flex items-center gap-1">
+                                  <Truck className="h-3 w-3" /> TO
+                                </p>
+                                <p className="text-sm">{step.supplier_name}</p>
+                                {step.location_address && (
+                                  <p className="text-xs text-muted-foreground">{step.location_address}</p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm">{step.supplier_name}</p>
+                              {step.location_address && (
+                                <p className="text-xs text-muted-foreground">{step.location_address}</p>
+                              )}
+                            </>
                           )}
+                          
                           {step.products.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1">
                               {step.products.map(p => (
                                 <Badge key={p.id} variant="outline" className="text-xs">
                                   {p.product_name} x{p.quantity}
                                 </Badge>
-                              ))
-                            }
+                              ))}
                             </div>
                           )}
                         </CardContent>
@@ -653,34 +688,69 @@ export const SendToProductionChoiceDialog = ({
                         </Select>
                       </div>
 
-                      {newStepType === 'supplier_to_supplier' && (
-                        <div className="grid gap-2">
-                          <Label>From Supplier</Label>
-                          <Input
-                            placeholder="Source supplier name"
-                            value={fromSupplierName}
-                            onChange={(e) => setFromSupplierName(e.target.value)}
-                          />
-                        </div>
+                      {newStepType === 'supplier_to_supplier' ? (
+                        <>
+                          {/* FROM Supplier */}
+                          <div className="border rounded-lg p-3 space-y-3 bg-blue-50 dark:bg-blue-950/30">
+                            <Label className="text-blue-700 dark:text-blue-400 font-semibold flex items-center gap-2">
+                              <Package className="h-4 w-4" />
+                              Collect FROM
+                            </Label>
+                            <div className="grid gap-2">
+                              <Input
+                                placeholder="From Supplier Name"
+                                value={fromSupplierName}
+                                onChange={(e) => setFromSupplierName(e.target.value)}
+                              />
+                              <Input
+                                placeholder="From Supplier Address"
+                                value={fromSupplierAddress}
+                                onChange={(e) => setFromSupplierAddress(e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          {/* TO Supplier */}
+                          <div className="border rounded-lg p-3 space-y-3 bg-purple-50 dark:bg-purple-950/30">
+                            <Label className="text-purple-700 dark:text-purple-400 font-semibold flex items-center gap-2">
+                              <Truck className="h-4 w-4" />
+                              Deliver TO
+                            </Label>
+                            <div className="grid gap-2">
+                              <Input
+                                placeholder="To Supplier Name"
+                                value={newSupplierName}
+                                onChange={(e) => setNewSupplierName(e.target.value)}
+                              />
+                              <Input
+                                placeholder="To Supplier Address"
+                                value={newAddress}
+                                onChange={(e) => setNewAddress(e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="grid gap-2">
+                            <Label>{newStepType === 'deliver_to_client' ? 'Location Name' : 'Supplier Name'}</Label>
+                            <Input
+                              placeholder={newStepType === 'deliver_to_client' ? 'Client location' : 'Supplier name'}
+                              value={newSupplierName}
+                              onChange={(e) => setNewSupplierName(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="grid gap-2">
+                            <Label>Address (Optional)</Label>
+                            <Input
+                              placeholder="Full address"
+                              value={newAddress}
+                              onChange={(e) => setNewAddress(e.target.value)}
+                            />
+                          </div>
+                        </>
                       )}
-
-                      <div className="grid gap-2">
-                        <Label>{newStepType === 'deliver_to_client' ? 'Location Name' : newStepType === 'supplier_to_supplier' ? 'To Supplier' : 'Supplier Name'}</Label>
-                        <Input
-                          placeholder={newStepType === 'deliver_to_client' ? 'Client location' : 'Supplier name'}
-                          value={newSupplierName}
-                          onChange={(e) => setNewSupplierName(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label>Address (Optional)</Label>
-                        <Input
-                          placeholder="Full address"
-                          value={newAddress}
-                          onChange={(e) => setNewAddress(e.target.value)}
-                        />
-                      </div>
 
                       <div className="grid grid-cols-2 gap-2">
                         <div className="grid gap-2">
