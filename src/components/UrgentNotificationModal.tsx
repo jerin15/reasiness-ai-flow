@@ -210,6 +210,22 @@ export const UrgentNotificationModal = () => {
         return;
       }
 
+      // Check if this is an operations-specific notification
+      const isOperationsRelated = 
+        titleLower.includes('operations task') ||
+        titleLower.includes('new operations') ||
+        titleLower.includes('unassigned operations') ||
+        titleLower.includes('📦 new') ||
+        messageLower.includes('new operations task') ||
+        messageLower.includes('workflow steps') ||
+        messageLower.includes('claim this task');
+
+      // Filter out operations notifications for non-operations and non-admin users
+      if (isOperationsRelated && currentRole !== 'operations' && currentRole !== 'admin') {
+        console.log('⏭️ Skipping operations notification for', currentRole, 'user. Title:', titleLower);
+        return;
+      }
+
       // Fetch sender profile separately with error handling
       const { data: profile } = await supabase
         .from('profiles')
