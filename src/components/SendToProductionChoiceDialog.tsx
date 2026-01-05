@@ -433,12 +433,65 @@ export const SendToProductionChoiceDialog = ({
           }
         }
 
-        // Send notification to assigned operations user
+        // Send notifications to operations team
+        // Get the current user's profile for the notification
+        const { data: senderProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        const senderName = senderProfile?.full_name || 'Admin';
+        const stepsSummary = workflowSteps.length > 0 
+          ? `\n\n📦 Workflow Steps: ${workflowSteps.length} step(s)\n${workflowSteps.map((s, i) => {
+              const config = stepTypeConfig[s.step_type];
+              if (s.step_type === 'supplier_to_supplier') {
+                return `  ${i + 1}. ${config.shortLabel}: ${s.from_supplier_name || 'N/A'} → ${s.supplier_name}${s.products.length > 0 ? ` (${s.products.length} products)` : ''}`;
+              }
+              return `  ${i + 1}. ${config.shortLabel}: ${s.supplier_name || 'Client'}${s.products.length > 0 ? ` (${s.products.length} products)` : ''}`;
+            }).join('\n')}`
+          : '';
+
+        const notificationMessage = `📦 NEW OPERATIONS TASK
+
+Task: ${task.title}
+Client: ${task.client_name || 'N/A'}
+Priority: ${task.priority?.toUpperCase() || 'MEDIUM'}
+${deliveryAddress ? `\n📍 Delivery: ${deliveryAddress}` : ''}${stepsSummary}
+
+Sent by: ${senderName}
+${normalizedAssignedTo ? `Assigned to: ${operationsUsers.find(u => u.id === normalizedAssignedTo)?.full_name || 'Team member'}` : '⚠️ Unassigned - Please claim this task!'}`;
+
+        if (normalizedAssignedTo) {
+          // Send targeted notification to assigned user
+          await supabase.from('urgent_notifications').insert({
+            sender_id: user.id,
+            recipient_id: normalizedAssignedTo,
+            title: `📦 New Operations Task: ${task.title}`,
+            message: notificationMessage,
+            priority: task.priority === 'urgent' ? 'urgent' : 'high',
+            is_broadcast: false,
+            is_acknowledged: false
+          });
+        } else {
+          // Send broadcast to all operations team members
+          await supabase.from('urgent_notifications').insert({
+            sender_id: user.id,
+            recipient_id: null,
+            title: `📦 New Unassigned Operations Task: ${task.title}`,
+            message: notificationMessage,
+            priority: 'high',
+            is_broadcast: true,
+            is_acknowledged: false
+          });
+        }
+        
+        // Also send a chat message notification if assigned
         if (normalizedAssignedTo) {
           await supabase.from('messages').insert({
             sender_id: user.id,
             recipient_id: normalizedAssignedTo,
-            message: `📦 New production task assigned: "${task.title}"`,
+            message: `📦 New production task assigned to you: "${task.title}"${workflowSteps.length > 0 ? ` with ${workflowSteps.length} workflow step(s)` : ''}`,
             message_type: 'notification'
           });
         }
