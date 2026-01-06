@@ -54,7 +54,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { OperationsRouteMap } from './OperationsRouteMap';
-import { SwipeConfirmDialog } from './SwipeConfirmDialog';
+import { SwipeConfirmDialog, type ActionType } from './SwipeConfirmDialog';
 import { OperationsProductEditor } from './OperationsProductEditor';
 import { CreateOperationsTaskDialog } from '../CreateOperationsTaskDialog';
 
@@ -77,6 +77,8 @@ interface OperationItem {
   toSupplier?: string | null;
   locationNotes?: string | null;
   stepOrder: number;
+  productionStatus?: 'pending_delivery' | 'at_production' | 'production_done' | 'ready_for_collection';
+  notes?: string | null;
 }
 
 interface SimpleOperationsViewProps {
@@ -89,6 +91,9 @@ interface SimpleOperationsViewProps {
 
 type TabType = 'collect' | 'production' | 'deliver' | 'done';
 type ViewMode = 'list' | 'map';
+
+// Production status for S→S workflow
+type ProductionStatus = 'pending_delivery' | 'at_production' | 'production_done' | 'ready_for_collection';
 
 // Extract area from address
 const extractArea = (address: string | null): string => {
@@ -144,11 +149,12 @@ export const SimpleOperationsView = ({
     open: boolean;
     stepId: string;
     label: string;
-    type: 'collect' | 'deliver' | 'production';
+    type: 'collect' | 'deliver' | 'production' | 'sent_for_production' | 'production_done' | 'collect_for_delivery';
     taskTitle: string;
     supplierName?: string;
     clientName?: string;
     products: { name: string; qty: number | null; unit: string | null }[];
+    item?: OperationItem;
   } | null>(null);
 
   // Delete confirmation dialog state
@@ -184,7 +190,7 @@ export const SimpleOperationsView = ({
       const { data: stepsData, error } = await supabase
         .from('task_workflow_steps')
         .select(`
-          id, step_type, supplier_name, status, location_address, due_date, task_id, completed_at, location_notes, step_order, assigned_to,
+          id, step_type, supplier_name, status, location_address, due_date, task_id, completed_at, location_notes, step_order, assigned_to, notes,
           tasks!inner (id, title, client_name, priority, due_date, delivery_address, delivery_instructions, assigned_to, deleted_at, status)
         `)
         .is('tasks.deleted_at', null)
@@ -254,19 +260,74 @@ export const SimpleOperationsView = ({
           locationNotes: step.location_notes,
           fromSupplier: s2sInfo.fromSupplier,
           toSupplier: step.supplier_name,
-          stepOrder: step.step_order || 0
+          stepOrder: step.step_order || 0,
+          notes: step.notes
         };
+
+        // Parse production status from notes for S→S workflow
+        const parseProductionStatus = (notes: string | null): OperationItem['productionStatus'] => {
+          if (!notes) return undefined;
+          if (notes.includes('[PRODUCTION_STATUS:ready_for_collection]')) return 'ready_for_collection';
+          if (notes.includes('[PRODUCTION_STATUS:production_done]')) return 'production_done';
+          if (notes.includes('[PRODUCTION_STATUS:at_production]')) return 'at_production';
+          if (notes.includes('[PRODUCTION_STATUS:pending_delivery]')) return 'pending_delivery';
+          return undefined;
+        };
+
+        const productionStatus = parseProductionStatus(step.notes);
 
         if (step.status === 'completed') {
           completed.push({ ...baseItem, isAtProduction: false });
           
-          // S→S completed goes to "At Production" 
+          // S→S completed collection - check production status
           if (step.step_type === 'supplier_to_supplier') {
-            productions.push({ ...baseItem, isAtProduction: true });
+            if (productionStatus === 'ready_for_collection') {
+              // Production done, ready for collection for delivery
+              collections.push({ 
+                ...baseItem, 
+                isAtProduction: false,
+                productionStatus: 'ready_for_collection',
+                stepType: 'collect_for_delivery'
+              });
+            } else if (productionStatus === 'production_done') {
+              // Production complete, waiting for collection
+              productions.push({ 
+                ...baseItem, 
+                isAtProduction: true, 
+                productionStatus: 'production_done' 
+              });
+            } else if (productionStatus === 'at_production') {
+              // At production, in progress
+              productions.push({ 
+                ...baseItem, 
+                isAtProduction: true, 
+                productionStatus: 'at_production' 
+              });
+            } else {
+              // Collected but not yet sent for production
+              productions.push({ 
+                ...baseItem, 
+                isAtProduction: false, 
+                productionStatus: 'pending_delivery' 
+              });
+            }
           }
+          
           // deliver_to_supplier completed also means "At Production"
           if (step.step_type === 'deliver_to_supplier') {
-            productions.push({ ...baseItem, isAtProduction: true });
+            if (productionStatus === 'production_done' || productionStatus === 'ready_for_collection') {
+              productions.push({ 
+                ...baseItem, 
+                isAtProduction: true, 
+                productionStatus 
+              });
+            } else {
+              productions.push({ 
+                ...baseItem, 
+                isAtProduction: true, 
+                productionStatus: 'at_production' 
+              });
+            }
           }
         } else if (step.status === 'pending') {
           // Apply today filter
@@ -280,7 +341,6 @@ export const SimpleOperationsView = ({
           // 2. deliver_to_client -> Deliveries tab  
           // 3. deliver_to_supplier -> Production tab (delivery FOR production)
           // 4. supplier_to_supplier -> Collections tab (collect from 1st supplier) 
-          //    When completed, it shows in Production tab as "At Production" and creates delivery to 2nd supplier
           
           switch (step.step_type) {
             case 'collect':
@@ -290,7 +350,7 @@ export const SimpleOperationsView = ({
               deliveries.push(baseItem);
               break;
             case 'deliver_to_supplier':
-              productions.push({ ...baseItem, isAtProduction: false });
+              productions.push({ ...baseItem, isAtProduction: false, productionStatus: 'pending_delivery' });
               break;
             case 'supplier_to_supplier':
               // This appears as a COLLECTION from the first supplier
@@ -299,6 +359,15 @@ export const SimpleOperationsView = ({
                 supplierName: s2sInfo.fromSupplier || step.supplier_name || 'Unknown'
               });
               break;
+          }
+        } else if (step.status === 'in_progress') {
+          // In progress items show based on their type
+          if (step.step_type === 'supplier_to_supplier' || step.step_type === 'deliver_to_supplier') {
+            productions.push({ 
+              ...baseItem, 
+              isAtProduction: true, 
+              productionStatus: productionStatus || 'at_production' 
+            });
           }
         }
       });
@@ -399,6 +468,48 @@ export const SimpleOperationsView = ({
     }
   };
 
+  // Update production status for S→S workflow
+  const updateProductionStatus = async (stepId: string, status: 'pending_delivery' | 'at_production' | 'production_done' | 'ready_for_collection', label: string, taskId: string) => {
+    setCompletingStep(stepId);
+    try {
+      // Get current notes
+      const { data: stepData } = await supabase
+        .from('task_workflow_steps')
+        .select('notes')
+        .eq('id', stepId)
+        .single();
+      
+      // Remove any existing production status and add new one
+      let currentNotes = stepData?.notes || '';
+      currentNotes = currentNotes.replace(/\[PRODUCTION_STATUS:\w+\]/g, '').trim();
+      const newNotes = `${currentNotes} [PRODUCTION_STATUS:${status}]`.trim();
+      
+      const { error } = await supabase
+        .from('task_workflow_steps')
+        .update({ notes: newNotes })
+        .eq('id', stepId);
+      
+      if (error) throw error;
+      
+      toast.success(`✓ ${label}`);
+      
+      // Log activity
+      await supabase.from('task_activity_log').insert({
+        task_id: taskId,
+        user_id: userId,
+        action: 'production_status_updated',
+        details: { step_id: stepId, production_status: status, label }
+      });
+      
+      fetchData();
+      onRefresh?.();
+    } catch (e) {
+      toast.error('Failed');
+    } finally {
+      setCompletingStep(null);
+    }
+  };
+
   const openMaps = (address: string) => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
   };
@@ -415,7 +526,7 @@ export const SimpleOperationsView = ({
     if (diff > 0) setSwipeOffset(Math.min(diff, 120));
   };
 
-  const handleTouchEnd = (item: OperationItem, type: 'collect' | 'deliver' | 'production') => {
+  const handleTouchEnd = (item: OperationItem, type: ActionType) => {
     if (swipeOffset > 80) {
       showConfirmation(item, type);
     }
@@ -424,18 +535,31 @@ export const SimpleOperationsView = ({
   };
 
   // Show confirmation dialog (works for both swipe and click)
-  const showConfirmation = (item: OperationItem, type: 'collect' | 'deliver' | 'production') => {
+  const showConfirmation = (item: OperationItem, type: ActionType) => {
     let label = '';
-    if (type === 'collect') {
-      if (item.stepType === 'supplier_to_supplier') {
-        label = `Collected from ${item.fromSupplier || item.supplierName} → Ready for ${item.toSupplier || 'production'}`;
-      } else {
-        label = `Collected from ${item.supplierName}`;
-      }
-    } else if (type === 'deliver') {
-      label = `Delivered to ${item.clientName || 'client'}`;
-    } else {
-      label = `Sent to ${item.supplierName} for production`;
+    switch (type) {
+      case 'collect':
+        if (item.stepType === 'supplier_to_supplier') {
+          label = `Collected from ${item.fromSupplier || item.supplierName} → Ready for ${item.toSupplier || 'production'}`;
+        } else {
+          label = `Collected from ${item.supplierName}`;
+        }
+        break;
+      case 'deliver':
+        label = `Delivered to ${item.clientName || 'client'}`;
+        break;
+      case 'production':
+        label = `Sent to ${item.supplierName} for production`;
+        break;
+      case 'sent_for_production':
+        label = `Sent to ${item.toSupplier || item.supplierName} for production`;
+        break;
+      case 'production_done':
+        label = `Production completed at ${item.supplierName}`;
+        break;
+      case 'collect_for_delivery':
+        label = `Collected from ${item.supplierName} for delivery`;
+        break;
     }
     
     setConfirmDialog({
@@ -446,18 +570,47 @@ export const SimpleOperationsView = ({
       taskTitle: item.taskTitle,
       supplierName: item.supplierName,
       clientName: item.clientName,
-      products: item.products
+      products: item.products,
+      item
     });
   };
 
   // Desktop click handler
-  const handleClickComplete = (item: OperationItem, type: 'collect' | 'deliver' | 'production') => {
+  const handleClickComplete = (item: OperationItem, type: ActionType) => {
     showConfirmation(item, type);
   };
 
   const handleConfirmComplete = async () => {
     if (!confirmDialog) return;
-    await handleComplete(confirmDialog.stepId, confirmDialog.label);
+    
+    const { type, stepId, label, item } = confirmDialog;
+    
+    // Handle different action types
+    switch (type) {
+      case 'collect':
+      case 'deliver':
+      case 'production':
+        await handleComplete(stepId, label, item?.stepType);
+        break;
+      case 'sent_for_production':
+        if (item) {
+          await updateProductionStatus(stepId, 'at_production', label, item.taskId);
+        }
+        break;
+      case 'production_done':
+        if (item) {
+          await updateProductionStatus(stepId, 'ready_for_collection', label, item.taskId);
+        }
+        break;
+      case 'collect_for_delivery':
+        // Create a delivery step or mark ready for final delivery
+        if (item) {
+          await updateProductionStatus(stepId, 'ready_for_collection', label, item.taskId);
+          // This item will now appear in deliveries
+        }
+        break;
+    }
+    
     setConfirmDialog(null);
   };
 
@@ -1027,35 +1180,103 @@ export const SimpleOperationsView = ({
                 </div>
               ) : (
                 <>
-                  {/* Pending Production */}
-                  {pendingProductionCount > 0 && (
+                  {/* Pending Delivery to Production (from S→S collection) */}
+                  {productionItems.filter(p => p.productionStatus === 'pending_delivery' && !p.isAtProduction).length > 0 && (
+                    <div className="mb-6">
+                      <div className="flex items-center gap-2 mb-3 sticky top-0 bg-background py-1 z-10">
+                        <Truck className="h-4 w-4 text-amber-600" />
+                        <span className="font-bold text-sm text-amber-700 dark:text-amber-400">Send for Production</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {productionItems.filter(p => p.productionStatus === 'pending_delivery' && !p.isAtProduction).length}
+                        </Badge>
+                      </div>
+                      {productionItems.filter(p => p.productionStatus === 'pending_delivery' && !p.isAtProduction).map(item => (
+                        <Card key={`pending-${item.stepId}`} className="border-l-4 border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20 mb-3">
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <Package className="h-4 w-4 text-amber-600 shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-sm truncate">
+                                    {item.fromSupplier || item.supplierName} → {item.toSupplier || 'Production'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground truncate">{item.taskTitle}</p>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 text-[10px] shrink-0">
+                                Collected
+                              </Badge>
+                            </div>
+                            
+                            {item.products.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-3">
+                                {item.products.slice(0, 4).map((p, i) => (
+                                  <Badge key={i} variant="secondary" className="text-[10px]">
+                                    {p.name} {p.qty && `(${p.qty})`}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                className="flex-1 h-9 text-xs font-semibold bg-purple-600 hover:bg-purple-700"
+                                onClick={() => handleClickComplete(item, 'sent_for_production')}
+                              >
+                                <Factory className="h-4 w-4 mr-1.5" />
+                                Mark Sent for Production
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 px-2"
+                                onClick={() => setProductEditor({
+                                  open: true,
+                                  taskId: item.taskId,
+                                  taskTitle: item.taskTitle
+                                })}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Deliver for Production (deliver_to_supplier pending) */}
+                  {productionItems.filter(p => !p.isAtProduction && p.stepType === 'deliver_to_supplier').length > 0 && (
                     <div className="mb-6">
                       <div className="flex items-center gap-2 mb-3 sticky top-0 bg-background py-1 z-10">
                         <Truck className="h-4 w-4 text-amber-600" />
                         <span className="font-bold text-sm text-amber-700 dark:text-amber-400">Deliver for Production</span>
-                        <Badge variant="secondary" className="text-xs">{pendingProductionCount}</Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {productionItems.filter(p => !p.isAtProduction && p.stepType === 'deliver_to_supplier').length}
+                        </Badge>
                       </div>
-                      {productionItems.filter(p => !p.isAtProduction).map(item => 
+                      {productionItems.filter(p => !p.isAtProduction && p.stepType === 'deliver_to_supplier').map(item => 
                         renderOperationCard(item, 'production')
                       )}
                     </div>
                   )}
 
-                  {/* At Production */}
-                  {atProductionCount > 0 && (
-                    <div>
+                  {/* At Production - In Progress */}
+                  {productionItems.filter(p => p.isAtProduction && p.productionStatus === 'at_production').length > 0 && (
+                    <div className="mb-6">
                       <div className="flex items-center gap-2 mb-3 sticky top-0 bg-background py-1 z-10">
                         <Factory className="h-4 w-4 text-purple-600" />
                         <span className="font-bold text-sm text-purple-700 dark:text-purple-400">At Production</span>
                         <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 text-xs">
-                          {atProductionCount}
+                          {productionItems.filter(p => p.isAtProduction && p.productionStatus === 'at_production').length}
                         </Badge>
                       </div>
                       <div className="space-y-2">
-                        {productionItems.filter(p => p.isAtProduction).map(item => (
+                        {productionItems.filter(p => p.isAtProduction && p.productionStatus === 'at_production').map(item => (
                           <Card key={`at-${item.stepId}`} className="border-l-4 border-l-purple-500 bg-purple-50/50 dark:bg-purple-950/20">
                             <CardContent className="p-3">
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-start justify-between gap-2 mb-2">
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                   <Factory className="h-4 w-4 text-purple-600 shrink-0" />
                                   <div className="min-w-0">
@@ -1063,44 +1284,13 @@ export const SimpleOperationsView = ({
                                     <p className="text-xs text-muted-foreground truncate">{item.taskTitle}</p>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <Badge variant="outline" className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 text-[10px]">
-                                    In Progress
-                                  </Badge>
-                                  {/* Edit Products */}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2"
-                                    onClick={() => setProductEditor({
-                                      open: true,
-                                      taskId: item.taskId,
-                                      taskTitle: item.taskTitle
-                                    })}
-                                  >
-                                    <Edit2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                  {isAdmin && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeleteDialog({
-                                          open: true,
-                                          taskId: item.taskId,
-                                          taskTitle: item.taskTitle
-                                        });
-                                      }}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  )}
-                                </div>
+                                <Badge variant="outline" className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 text-[10px] shrink-0">
+                                  🏭 In Progress
+                                </Badge>
                               </div>
+                              
                               {item.products.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-2">
+                                <div className="flex flex-wrap gap-1 mb-3">
                                   {item.products.slice(0, 4).map((p, i) => (
                                     <Badge key={i} variant="secondary" className="text-[10px]">
                                       {p.name} {p.qty && `(${p.qty})`}
@@ -1113,6 +1303,108 @@ export const SimpleOperationsView = ({
                                   )}
                                 </div>
                               )}
+                              
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  className="flex-1 h-9 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700"
+                                  onClick={() => handleClickComplete(item, 'production_done')}
+                                >
+                                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                                  Production Complete
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-9 px-2"
+                                  onClick={() => setProductEditor({
+                                    open: true,
+                                    taskId: item.taskId,
+                                    taskTitle: item.taskTitle
+                                  })}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                {isAdmin && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-9 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteDialog({
+                                        open: true,
+                                        taskId: item.taskId,
+                                        taskTitle: item.taskTitle
+                                      });
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Production Done - Ready for Collection */}
+                  {productionItems.filter(p => p.productionStatus === 'production_done' || p.productionStatus === 'ready_for_collection').length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3 sticky top-0 bg-background py-1 z-10">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        <span className="font-bold text-sm text-emerald-700 dark:text-emerald-400">Production Done</span>
+                        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 text-xs">
+                          {productionItems.filter(p => p.productionStatus === 'production_done' || p.productionStatus === 'ready_for_collection').length}
+                        </Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {productionItems.filter(p => p.productionStatus === 'production_done' || p.productionStatus === 'ready_for_collection').map(item => (
+                          <Card key={`done-prod-${item.stepId}`} className="border-l-4 border-l-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20">
+                            <CardContent className="p-3">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-sm truncate">{item.supplierName}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{item.taskTitle}</p>
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] shrink-0">
+                                  ✓ Ready for Collection
+                                </Badge>
+                              </div>
+                              
+                              {item.products.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-3">
+                                  {item.products.slice(0, 4).map((p, i) => (
+                                    <Badge key={i} variant="secondary" className="text-[10px]">
+                                      {p.name} {p.qty && `(${p.qty})`}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {item.address && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full h-9 text-xs justify-between mb-2"
+                                  onClick={() => openMaps(item.address!)}
+                                >
+                                  <div className="flex items-center gap-1 truncate">
+                                    <MapPin className="h-3 w-3 shrink-0 text-primary" />
+                                    <span className="truncate text-left">{item.address}</span>
+                                  </div>
+                                  <Navigation className="h-3.5 w-3.5 shrink-0 ml-2 text-primary" />
+                                </Button>
+                              )}
+                              
+                              <p className="text-[10px] text-center text-muted-foreground mb-2">
+                                This item will appear in Collections tab for pickup
+                              </p>
                             </CardContent>
                           </Card>
                         ))}
