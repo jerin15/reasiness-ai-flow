@@ -12,19 +12,28 @@ import {
   Clock,
   User,
   RefreshCw,
-  ChevronRight,
   AlertTriangle,
   ArrowRight,
   Building2,
   CheckCircle2,
   Loader2,
   Factory,
-  ArrowRightLeft
+  ArrowRightLeft,
+  History,
+  Calendar,
+  Filter
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format, isToday, isPast } from 'date-fns';
+import { format, isToday, isPast, isTomorrow, startOfDay } from 'date-fns';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface StepProduct {
   id: string;
@@ -42,11 +51,17 @@ interface WorkflowStep {
   location_address: string | null;
   location_notes: string | null;
   due_date: string | null;
+  completed_at: string | null;
   task_id: string;
   task_title?: string;
   task_client?: string | null;
   task_priority?: string;
+  task_assigned_to?: string | null;
   products?: StepProduct[];
+  // For S→S tracking
+  fromSupplier?: string;
+  toSupplier?: string;
+  isCollectionPhase?: boolean; // true = need to collect, false = need to send to production
 }
 
 interface SimpleOperationsViewProps {
@@ -54,54 +69,25 @@ interface SimpleOperationsViewProps {
   userName: string;
   isAdmin?: boolean;
   onRefresh?: () => void;
+  operationsUsers?: Array<{ id: string; full_name: string | null; email: string }>;
 }
 
-// Color configurations for each step type
-const stepTypeColors = {
-  collect: {
-    bg: 'bg-blue-50 dark:bg-blue-950/30',
-    border: 'border-blue-200 dark:border-blue-800',
-    text: 'text-blue-700 dark:text-blue-300',
-    icon: 'text-blue-600',
-    badge: 'bg-blue-100 text-blue-700 border-blue-300',
-    iconBg: 'bg-blue-100'
-  },
-  deliver_to_client: {
-    bg: 'bg-green-50 dark:bg-green-950/30',
-    border: 'border-green-200 dark:border-green-800',
-    text: 'text-green-700 dark:text-green-300',
-    icon: 'text-green-600',
-    badge: 'bg-green-100 text-green-700 border-green-300',
-    iconBg: 'bg-green-100'
-  },
-  deliver_to_supplier: {
-    bg: 'bg-amber-50 dark:bg-amber-950/30',
-    border: 'border-amber-200 dark:border-amber-800',
-    text: 'text-amber-700 dark:text-amber-300',
-    icon: 'text-amber-600',
-    badge: 'bg-amber-100 text-amber-700 border-amber-300',
-    iconBg: 'bg-amber-100'
-  },
-  supplier_to_supplier: {
-    bg: 'bg-purple-50 dark:bg-purple-950/30',
-    border: 'border-purple-200 dark:border-purple-800',
-    text: 'text-purple-700 dark:text-purple-300',
-    icon: 'text-purple-600',
-    badge: 'bg-purple-100 text-purple-700 border-purple-300',
-    iconBg: 'bg-purple-100'
-  }
-};
+type TabType = 'collect' | 'production' | 'deliver' | 'history';
+type HistoryFilter = 'all' | 'at-production' | 'collections' | 'deliveries';
 
 export const SimpleOperationsView = ({ 
   userId, 
   userName,
   isAdmin = false,
-  onRefresh
+  onRefresh,
+  operationsUsers = []
 }: SimpleOperationsViewProps) => {
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingStep, setUpdatingStep] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'pending' | 'at-production' | 'done'>('pending');
+  const [activeTab, setActiveTab] = useState<TabType>('collect');
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
+  const [teamFilter, setTeamFilter] = useState<string>('all');
 
   const fetchAllSteps = useCallback(async () => {
     try {
@@ -112,9 +98,9 @@ export const SimpleOperationsView = ({
         .from('task_workflow_steps')
         .select(`
           id, step_order, step_type, supplier_name, status,
-          location_address, location_notes, due_date, task_id,
+          location_address, location_notes, due_date, task_id, completed_at,
           tasks!inner (
-            id, title, client_name, priority, status, deleted_at
+            id, title, client_name, priority, status, deleted_at, assigned_to
           )
         `)
         .is('tasks.deleted_at', null)
@@ -134,7 +120,6 @@ export const SimpleOperationsView = ({
           .select('id, workflow_step_id, product_name, quantity, unit')
           .in('workflow_step_id', stepIds);
         
-        // Group products by step
         (productsData || []).forEach((p: any) => {
           if (p.workflow_step_id) {
             if (!productsMap[p.workflow_step_id]) {
@@ -150,13 +135,29 @@ export const SimpleOperationsView = ({
         });
       }
 
-      const enrichedSteps = (stepsData || []).map((step: any) => ({
-        ...step,
-        task_title: step.tasks?.title,
-        task_client: step.tasks?.client_name,
-        task_priority: step.tasks?.priority,
-        products: productsMap[step.id] || []
-      }));
+      const enrichedSteps = (stepsData || []).map((step: any) => {
+        // Parse FROM/TO for S→S
+        let fromSupplier = '';
+        let toSupplier = '';
+        if (step.step_type === 'supplier_to_supplier' && step.location_notes) {
+          const lines = step.location_notes.split('\n');
+          const fromLine = lines.find((l: string) => l.startsWith('FROM:'));
+          const toLine = lines.find((l: string) => l.startsWith('TO:'));
+          if (fromLine) fromSupplier = fromLine.replace('FROM:', '').split('(')[0].trim();
+          if (toLine) toSupplier = toLine.replace('TO:', '').split('(')[0].trim();
+        }
+
+        return {
+          ...step,
+          task_title: step.tasks?.title,
+          task_client: step.tasks?.client_name,
+          task_priority: step.tasks?.priority,
+          task_assigned_to: step.tasks?.assigned_to,
+          products: productsMap[step.id] || [],
+          fromSupplier,
+          toSupplier
+        };
+      });
 
       setSteps(enrichedSteps);
     } catch (error) {
@@ -185,8 +186,8 @@ export const SimpleOperationsView = ({
     return () => { supabase.removeChannel(channel); };
   }, [fetchAllSteps]);
 
-  // One-tap action: Mark as Collected/Delivered/Done
-  const handleQuickComplete = async (step: WorkflowStep) => {
+  // One-tap action handler
+  const handleQuickComplete = async (step: WorkflowStep, actionType: string) => {
     setUpdatingStep(step.id);
     
     try {
@@ -203,12 +204,7 @@ export const SimpleOperationsView = ({
 
       if (error) throw error;
 
-      // Get action label
-      const actionLabel = step.step_type === 'collect' ? 'Collected' : 
-                         step.step_type === 'deliver_to_client' ? 'Delivered' : 
-                         step.step_type === 'supplier_to_supplier' ? 'Sent to Production' : 'Completed';
-
-      toast.success(`✓ ${actionLabel}!`);
+      toast.success(`✓ ${actionType}!`);
       fetchAllSteps();
       onRefresh?.();
     } catch (error: any) {
@@ -219,124 +215,103 @@ export const SimpleOperationsView = ({
     }
   };
 
-  // Categorize steps
-  // Pending: Collections (collect + S→S pending)
-  const pendingCollections = steps.filter(s => 
-    (s.step_type === 'collect' || s.step_type === 'supplier_to_supplier') && 
-    s.status === 'pending'
+  // Apply team filter if admin
+  const filteredSteps = isAdmin && teamFilter !== 'all' 
+    ? steps.filter(s => s.task_assigned_to === teamFilter)
+    : steps;
+
+  // ============ CATEGORIZE STEPS INTO 4 TABS ============
+
+  // COLLECT TAB: Items to pick up
+  // - collect type + pending
+  // - S→S type + pending (collection phase)
+  const collectItems = filteredSteps.filter(s => 
+    (s.step_type === 'collect' && s.status === 'pending') ||
+    (s.step_type === 'supplier_to_supplier' && s.status === 'pending')
   );
-  
-  // Pending: Deliveries to client
-  const pendingDeliveries = steps.filter(s => 
+
+  // PRODUCTION TAB: Items to send to suppliers for fabrication
+  // - deliver_to_supplier + pending
+  // - S→S completed (now at production, waiting)
+  const productionItems = filteredSteps.filter(s => 
+    (s.step_type === 'deliver_to_supplier' && (s.status === 'pending' || s.status === 'in_progress')) ||
+    (s.step_type === 'supplier_to_supplier' && s.status === 'completed')
+  );
+
+  // DELIVER TAB: Items ready to deliver to clients
+  // - deliver_to_client + pending/in_progress
+  const deliverItems = filteredSteps.filter(s => 
     s.step_type === 'deliver_to_client' && 
     (s.status === 'pending' || s.status === 'in_progress')
   );
 
-  // At Production: S→S completed (sent from one supplier to another for production)
-  // OR deliver_to_supplier in_progress/completed
-  // OR collect in_progress (items picked up, being processed)
-  const atProduction = steps.filter(s => 
-    (s.step_type === 'supplier_to_supplier' && s.status === 'completed') ||
-    (s.step_type === 'deliver_to_supplier' && (s.status === 'in_progress' || s.status === 'completed')) ||
-    (s.step_type === 'collect' && s.status === 'in_progress')
-  );
-  
-  // Completed deliveries to client
-  const completedDeliveries = steps.filter(s => 
-    s.step_type === 'deliver_to_client' && s.status === 'completed'
-  );
-
-  // All pending items sorted by due date
-  const allPending = [...pendingCollections, ...pendingDeliveries].sort((a, b) => {
-    if (!a.due_date) return 1;
-    if (!b.due_date) return -1;
-    return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+  // HISTORY TAB: All completed items with filters
+  const historyItems = filteredSteps.filter(s => {
+    if (historyFilter === 'all') {
+      return s.status === 'completed';
+    } else if (historyFilter === 'at-production') {
+      return s.step_type === 'supplier_to_supplier' && s.status === 'completed';
+    } else if (historyFilter === 'collections') {
+      return (s.step_type === 'collect' || s.step_type === 'supplier_to_supplier') && s.status === 'completed';
+    } else if (historyFilter === 'deliveries') {
+      return s.step_type === 'deliver_to_client' && s.status === 'completed';
+    }
+    return false;
   });
 
-  const getStepIcon = (step: WorkflowStep) => {
-    switch (step.step_type) {
-      case 'collect': return <Package className={cn("h-5 w-5", stepTypeColors.collect.icon)} />;
-      case 'deliver_to_client': return <Truck className={cn("h-5 w-5", stepTypeColors.deliver_to_client.icon)} />;
-      case 'supplier_to_supplier': return <ArrowRightLeft className={cn("h-5 w-5", stepTypeColors.supplier_to_supplier.icon)} />;
-      default: return <MapPin className={cn("h-5 w-5", stepTypeColors.deliver_to_supplier.icon)} />;
+  // Today summary
+  const today = startOfDay(new Date());
+  const todayCollections = collectItems.filter(s => s.due_date && isToday(new Date(s.due_date))).length;
+  const todayProduction = productionItems.filter(s => 
+    s.step_type === 'deliver_to_supplier' && s.due_date && isToday(new Date(s.due_date))
+  ).length;
+  const todayDeliveries = deliverItems.filter(s => s.due_date && isToday(new Date(s.due_date))).length;
+
+  // ============ RENDER FUNCTIONS ============
+
+  const getDueDateBadge = (dueDate: string | null) => {
+    if (!dueDate) return null;
+    const date = new Date(dueDate);
+    const isOverdue = isPast(date) && !isToday(date);
+    const isDueToday = isToday(date);
+    const isDueTomorrow = isTomorrow(date);
+
+    if (isOverdue) {
+      return <Badge variant="destructive" className="text-xs">⚠️ OVERDUE</Badge>;
+    } else if (isDueToday) {
+      return <Badge className="text-xs bg-orange-500 text-white">📅 Today</Badge>;
+    } else if (isDueTomorrow) {
+      return <Badge className="text-xs bg-blue-500 text-white">📅 Tomorrow</Badge>;
     }
+    return <Badge variant="outline" className="text-xs">📅 {format(date, 'MMM d')}</Badge>;
   };
 
-  const getActionLabel = (step: WorkflowStep) => {
-    switch (step.step_type) {
-      case 'collect': return 'Collected';
-      case 'deliver_to_client': return 'Delivered';
-      case 'supplier_to_supplier': return 'Sent to Production';
-      default: return 'Done';
-    }
-  };
-
-  const getStepLabel = (step: WorkflowStep) => {
-    switch (step.step_type) {
-      case 'collect': return '📦 COLLECT';
-      case 'deliver_to_client': return '🚚 DELIVER';
-      case 'supplier_to_supplier': return '🔄 S→S TRANSFER';
-      default: return '📍 TO SUPPLIER';
-    }
-  };
-
-  const renderStepCard = (step: WorkflowStep, showProductionStatus = false) => {
+  const renderCollectCard = (step: WorkflowStep) => {
     const isUpdating = updatingStep === step.id;
-    const dueDate = step.due_date ? new Date(step.due_date) : null;
-    const isOverdue = dueDate && isPast(dueDate) && !isToday(dueDate);
-    const isDueToday = dueDate && isToday(dueDate);
     const isUrgent = step.task_priority === 'urgent' || step.task_priority === 'high';
-    const colors = stepTypeColors[step.step_type];
-
-    // Parse FROM/TO for S→S
-    let fromSupplier = '';
-    let toSupplier = '';
-    if (step.step_type === 'supplier_to_supplier' && step.location_notes) {
-      const lines = step.location_notes.split('\n');
-      const fromLine = lines.find(l => l.startsWith('FROM:'));
-      const toLine = lines.find(l => l.startsWith('TO:'));
-      if (fromLine) fromSupplier = fromLine.replace('FROM:', '').split('(')[0].trim();
-      if (toLine) toSupplier = toLine.replace('TO:', '').split('(')[0].trim();
-    }
+    const isStoS = step.step_type === 'supplier_to_supplier';
 
     return (
       <Card 
         key={step.id}
         className={cn(
-          "overflow-hidden transition-all border-l-4",
-          colors.bg,
-          step.step_type === 'collect' && "border-l-blue-500",
-          step.step_type === 'deliver_to_client' && "border-l-green-500",
-          step.step_type === 'supplier_to_supplier' && "border-l-purple-500",
-          step.step_type === 'deliver_to_supplier' && "border-l-amber-500",
-          isOverdue && "border-l-destructive bg-destructive/5"
+          "overflow-hidden border-l-4 border-l-blue-500",
+          "bg-blue-50/50 dark:bg-blue-950/20"
         )}
       >
-        <CardContent className="p-3">
+        <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            {/* Icon with type-specific background */}
-            <div className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-              step.status === 'completed' ? "bg-green-100" : colors.iconBg
-            )}>
-              {step.status === 'completed' ? (
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-              ) : showProductionStatus ? (
-                <Factory className="h-5 w-5 text-purple-600" />
-              ) : (
-                getStepIcon(step)
-              )}
+            {/* Icon */}
+            <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center shrink-0">
+              <Package className="h-6 w-6 text-blue-600" />
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-w-0">
-              {/* Header with type badge */}
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <Badge 
-                  variant="outline" 
-                  className={cn("text-xs font-bold", colors.badge)}
-                >
-                  {getStepLabel(step)}
+            <div className="flex-1 min-w-0 space-y-2">
+              {/* Header */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-blue-600 text-white text-xs font-bold">
+                  📥 COLLECT
                 </Badge>
                 {isUrgent && (
                   <Badge variant="destructive" className="text-xs">
@@ -344,110 +319,348 @@ export const SimpleOperationsView = ({
                     {step.task_priority?.toUpperCase()}
                   </Badge>
                 )}
-                {showProductionStatus && step.step_type === 'supplier_to_supplier' && (
-                  <Badge className="text-xs bg-purple-600 text-white">
-                    <Factory className="h-3 w-3 mr-0.5" />
-                    AT PRODUCTION
-                  </Badge>
-                )}
+                {getDueDateBadge(step.due_date)}
               </div>
 
-              {/* Due date if applicable */}
-              {dueDate && !showProductionStatus && (
-                <div className={cn(
-                  "text-xs mb-1 font-medium",
-                  isOverdue && "text-destructive",
-                  isDueToday && !isOverdue && "text-orange-600"
-                )}>
-                  {isOverdue ? '⚠️ OVERDUE' : isDueToday ? '📅 Due Today' : `📅 ${format(dueDate, 'MMM d')}`}
-                </div>
-              )}
+              {/* Supplier/Location */}
+              <p className="text-base font-bold text-foreground">
+                {isStoS ? step.fromSupplier || step.supplier_name : step.supplier_name || step.location_address}
+              </p>
 
-              {/* Supplier/Location - Type specific display */}
-              {step.step_type === 'supplier_to_supplier' ? (
-                <div className="space-y-1">
-                  <p className="text-sm font-bold flex items-center gap-1">
-                    <span className="text-blue-600">{fromSupplier || 'Supplier'}</span>
-                    <ArrowRight className="h-4 w-4 text-purple-500" />
-                    <span className="text-purple-600">{toSupplier || step.supplier_name || 'Production'}</span>
-                  </p>
-                  {showProductionStatus && (
-                    <p className="text-xs text-purple-600 font-medium">
-                      🏭 Item is at {toSupplier || step.supplier_name} for production
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm font-bold line-clamp-1">
-                  {step.supplier_name || step.location_address || 'No location'}
-                </p>
-              )}
-
-              {/* Task Reference */}
-              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                <Building2 className="h-3 w-3" />
+              {/* Client */}
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
                 {step.task_client || step.task_title}
               </p>
 
-              {/* Products List */}
+              {/* Products */}
               {step.products && step.products.length > 0 && (
-                <div className="mt-2 p-2 bg-background/80 rounded-md border">
-                  <p className="text-xs font-semibold text-muted-foreground mb-1 flex items-center gap-1">
+                <div className="bg-white/80 dark:bg-background/50 rounded-lg p-2 border">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
                     <Package className="h-3 w-3" />
-                    Products ({step.products.length}):
+                    Products:
                   </p>
                   <div className="space-y-1">
-                    {step.products.slice(0, 5).map((product, idx) => (
-                      <div key={product.id || idx} className="text-xs flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                    {step.products.slice(0, 4).map((product, idx) => (
+                      <div key={product.id || idx} className="text-sm flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                         <span className="font-medium">{product.product_name}</span>
                         {product.quantity && (
-                          <Badge variant="outline" className="text-[10px] h-4 px-1">
-                            {product.quantity} {product.unit || 'pcs'}
-                          </Badge>
+                          <span className="text-muted-foreground">
+                            ({product.quantity} {product.unit || 'pcs'})
+                          </span>
                         )}
                       </div>
                     ))}
-                    {step.products.length > 5 && (
-                      <p className="text-xs text-muted-foreground">+{step.products.length - 5} more</p>
+                    {step.products.length > 4 && (
+                      <p className="text-xs text-muted-foreground">+{step.products.length - 4} more items</p>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* Address for non-S→S */}
-              {step.location_address && step.step_type !== 'supplier_to_supplier' && (
-                <p className="text-xs text-muted-foreground mt-1 flex items-start gap-1">
+              {/* Address */}
+              {step.location_address && (
+                <p className="text-xs text-muted-foreground flex items-start gap-1">
                   <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-                  <span className="line-clamp-1">{step.location_address}</span>
+                  <span className="line-clamp-2">{step.location_address}</span>
                 </p>
               )}
             </div>
+          </div>
 
-            {/* Action Button - only for non-completed */}
-            {step.status !== 'completed' && !showProductionStatus && (
-              <Button
-                size="sm"
-                className={cn(
-                  "text-xs h-9 gap-1 shrink-0",
-                  step.step_type === 'collect' && "bg-blue-600 hover:bg-blue-700",
-                  step.step_type === 'deliver_to_client' && "bg-green-600 hover:bg-green-700",
-                  step.step_type === 'supplier_to_supplier' && "bg-purple-600 hover:bg-purple-700",
-                  step.step_type === 'deliver_to_supplier' && "bg-amber-600 hover:bg-amber-700"
-                )}
-                disabled={isUpdating}
-                onClick={() => handleQuickComplete(step)}
-              >
-                {isUpdating ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <>
-                    <Check className="h-3 w-3" />
-                    {getActionLabel(step)}
-                  </>
-                )}
-              </Button>
+          {/* Action Button - Full Width */}
+          <Button
+            className="w-full mt-4 h-12 text-base font-bold bg-blue-600 hover:bg-blue-700"
+            disabled={isUpdating}
+            onClick={() => handleQuickComplete(step, 'Collected')}
+          >
+            {isUpdating ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                <Check className="h-5 w-5 mr-2" />
+                COLLECTED
+              </>
             )}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderProductionCard = (step: WorkflowStep) => {
+    const isUpdating = updatingStep === step.id;
+    const isUrgent = step.task_priority === 'urgent' || step.task_priority === 'high';
+    const isStoSCompleted = step.step_type === 'supplier_to_supplier' && step.status === 'completed';
+    const isDeliverToSupplier = step.step_type === 'deliver_to_supplier';
+
+    return (
+      <Card 
+        key={step.id}
+        className={cn(
+          "overflow-hidden border-l-4",
+          isStoSCompleted ? "border-l-purple-500 bg-purple-50/50 dark:bg-purple-950/20" : "border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
+        )}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            {/* Icon */}
+            <div className={cn(
+              "w-12 h-12 rounded-full flex items-center justify-center shrink-0",
+              isStoSCompleted ? "bg-purple-100 dark:bg-purple-900/50" : "bg-amber-100 dark:bg-amber-900/50"
+            )}>
+              <Factory className={cn("h-6 w-6", isStoSCompleted ? "text-purple-600" : "text-amber-600")} />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0 space-y-2">
+              {/* Header */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {isStoSCompleted ? (
+                  <Badge className="bg-purple-600 text-white text-xs font-bold">
+                    🏭 AT PRODUCTION
+                  </Badge>
+                ) : (
+                  <Badge className="bg-amber-600 text-white text-xs font-bold">
+                    🏭 SEND TO PRODUCTION
+                  </Badge>
+                )}
+                {isUrgent && (
+                  <Badge variant="destructive" className="text-xs">
+                    <AlertTriangle className="h-3 w-3 mr-0.5" />
+                    {step.task_priority?.toUpperCase()}
+                  </Badge>
+                )}
+                {!isStoSCompleted && getDueDateBadge(step.due_date)}
+              </div>
+
+              {/* Supplier */}
+              <p className="text-base font-bold text-foreground">
+                {isStoSCompleted ? step.toSupplier || step.supplier_name : step.supplier_name}
+              </p>
+
+              {/* For S→S completed, show transfer info */}
+              {isStoSCompleted && (
+                <p className="text-sm text-purple-600 flex items-center gap-1">
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Transferred from {step.fromSupplier}
+                </p>
+              )}
+
+              {/* Client */}
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                {step.task_client || step.task_title}
+              </p>
+
+              {/* Products */}
+              {step.products && step.products.length > 0 && (
+                <div className="bg-white/80 dark:bg-background/50 rounded-lg p-2 border">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+                    <Package className="h-3 w-3" />
+                    Products:
+                  </p>
+                  <div className="space-y-1">
+                    {step.products.slice(0, 4).map((product, idx) => (
+                      <div key={product.id || idx} className="text-sm flex items-center gap-2">
+                        <span className={cn(
+                          "w-2 h-2 rounded-full shrink-0",
+                          isStoSCompleted ? "bg-purple-500" : "bg-amber-500"
+                        )} />
+                        <span className="font-medium">{product.product_name}</span>
+                        {product.quantity && (
+                          <span className="text-muted-foreground">
+                            ({product.quantity} {product.unit || 'pcs'})
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {step.products.length > 4 && (
+                      <p className="text-xs text-muted-foreground">+{step.products.length - 4} more items</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Address */}
+              {step.location_address && !isStoSCompleted && (
+                <p className="text-xs text-muted-foreground flex items-start gap-1">
+                  <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                  <span className="line-clamp-2">{step.location_address}</span>
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Action Button - Only for pending items, not for "at production" tracking */}
+          {!isStoSCompleted && (
+            <Button
+              className="w-full mt-4 h-12 text-base font-bold bg-amber-600 hover:bg-amber-700"
+              disabled={isUpdating}
+              onClick={() => handleQuickComplete(step, 'Sent to Production')}
+            >
+              {isUpdating ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Check className="h-5 w-5 mr-2" />
+                  SENT TO PRODUCTION
+                </>
+              )}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderDeliverCard = (step: WorkflowStep) => {
+    const isUpdating = updatingStep === step.id;
+    const isUrgent = step.task_priority === 'urgent' || step.task_priority === 'high';
+
+    return (
+      <Card 
+        key={step.id}
+        className="overflow-hidden border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            {/* Icon */}
+            <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center shrink-0">
+              <Truck className="h-6 w-6 text-green-600" />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0 space-y-2">
+              {/* Header */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-green-600 text-white text-xs font-bold">
+                  🚚 DELIVER
+                </Badge>
+                {isUrgent && (
+                  <Badge variant="destructive" className="text-xs">
+                    <AlertTriangle className="h-3 w-3 mr-0.5" />
+                    {step.task_priority?.toUpperCase()}
+                  </Badge>
+                )}
+                {getDueDateBadge(step.due_date)}
+              </div>
+
+              {/* Client */}
+              <p className="text-base font-bold text-foreground">
+                {step.task_client || step.task_title}
+              </p>
+
+              {/* Products */}
+              {step.products && step.products.length > 0 && (
+                <div className="bg-white/80 dark:bg-background/50 rounded-lg p-2 border">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+                    <Package className="h-3 w-3" />
+                    Products:
+                  </p>
+                  <div className="space-y-1">
+                    {step.products.slice(0, 4).map((product, idx) => (
+                      <div key={product.id || idx} className="text-sm flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                        <span className="font-medium">{product.product_name}</span>
+                        {product.quantity && (
+                          <span className="text-muted-foreground">
+                            ({product.quantity} {product.unit || 'pcs'})
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {step.products.length > 4 && (
+                      <p className="text-xs text-muted-foreground">+{step.products.length - 4} more items</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Address */}
+              {step.location_address && (
+                <p className="text-xs text-muted-foreground flex items-start gap-1">
+                  <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                  <span className="line-clamp-2">{step.location_address}</span>
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <Button
+            className="w-full mt-4 h-12 text-base font-bold bg-green-600 hover:bg-green-700"
+            disabled={isUpdating}
+            onClick={() => handleQuickComplete(step, 'Delivered')}
+          >
+            {isUpdating ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                <Check className="h-5 w-5 mr-2" />
+                DELIVERED
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderHistoryCard = (step: WorkflowStep) => {
+    const getTypeColor = () => {
+      switch (step.step_type) {
+        case 'collect': return 'border-l-blue-500 bg-blue-50/30';
+        case 'deliver_to_client': return 'border-l-green-500 bg-green-50/30';
+        case 'supplier_to_supplier': return 'border-l-purple-500 bg-purple-50/30';
+        case 'deliver_to_supplier': return 'border-l-amber-500 bg-amber-50/30';
+        default: return 'border-l-gray-500';
+      }
+    };
+
+    const getTypeLabel = () => {
+      switch (step.step_type) {
+        case 'collect': return '📥 Collected';
+        case 'deliver_to_client': return '🚚 Delivered';
+        case 'supplier_to_supplier': return '🏭 At Production';
+        case 'deliver_to_supplier': return '📦 To Supplier';
+        default: return '✓ Completed';
+      }
+    };
+
+    return (
+      <Card key={step.id} className={cn("border-l-4", getTypeColor())}>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <Badge variant="secondary" className="text-xs">
+                  {getTypeLabel()}
+                </Badge>
+                {step.completed_at && (
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(step.completed_at), 'MMM d, h:mm a')}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm font-medium line-clamp-1">
+                {step.step_type === 'supplier_to_supplier' 
+                  ? `${step.fromSupplier} → ${step.toSupplier}`
+                  : step.supplier_name || step.location_address
+                }
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {step.task_client || step.task_title}
+              </p>
+              {/* Products summary */}
+              {step.products && step.products.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  📦 {step.products.length} product{step.products.length > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -465,135 +678,202 @@ export const SimpleOperationsView = ({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header Stats with color-coded badges */}
-      <div className="px-4 py-3 bg-muted/30 border-b flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 overflow-x-auto">
-          <Badge className="shrink-0 gap-1 bg-blue-600 text-white">
-            <Package className="h-3 w-3" />
-            {pendingCollections.length}
-          </Badge>
-          <Badge className="shrink-0 gap-1 bg-purple-600 text-white">
-            <Factory className="h-3 w-3" />
-            {atProduction.length}
-          </Badge>
-          <Badge className="shrink-0 gap-1 bg-green-600 text-white">
-            <Truck className="h-3 w-3" />
-            {pendingDeliveries.length}
-          </Badge>
+      {/* Today Summary */}
+      <div className="px-4 py-3 bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-bold text-sm flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            TODAY: {format(new Date(), 'EEE, MMM d')}
+          </h2>
+          <Button variant="ghost" size="icon" onClick={fetchAllSteps}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
-        <Button variant="ghost" size="icon" onClick={fetchAllSteps}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="grid grid-cols-4 gap-2">
+          <div className="bg-blue-100 dark:bg-blue-950/50 rounded-lg p-2 text-center">
+            <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{collectItems.length}</p>
+            <p className="text-[10px] text-blue-600 dark:text-blue-400">📥 Collect</p>
+          </div>
+          <div className="bg-amber-100 dark:bg-amber-950/50 rounded-lg p-2 text-center">
+            <p className="text-lg font-bold text-amber-700 dark:text-amber-300">{productionItems.filter(s => s.step_type === 'deliver_to_supplier').length}</p>
+            <p className="text-[10px] text-amber-600 dark:text-amber-400">🏭 Production</p>
+          </div>
+          <div className="bg-green-100 dark:bg-green-950/50 rounded-lg p-2 text-center">
+            <p className="text-lg font-bold text-green-700 dark:text-green-300">{deliverItems.length}</p>
+            <p className="text-[10px] text-green-600 dark:text-green-400">🚚 Deliver</p>
+          </div>
+          <div className="bg-purple-100 dark:bg-purple-950/50 rounded-lg p-2 text-center">
+            <p className="text-lg font-bold text-purple-700 dark:text-purple-300">{productionItems.filter(s => s.step_type === 'supplier_to_supplier').length}</p>
+            <p className="text-[10px] text-purple-600 dark:text-purple-400">🔄 At Prod</p>
+          </div>
+        </div>
       </div>
 
-      {/* Legend */}
-      <div className="px-4 py-2 bg-muted/20 border-b flex flex-wrap gap-2 text-xs">
-        <span className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-blue-500" />
-          <span>Collect</span>
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-purple-500" />
-          <span>S→S Transfer</span>
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-green-500" />
-          <span>Deliver</span>
-        </span>
-        <span className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded bg-amber-500" />
-          <span>To Supplier</span>
-        </span>
-      </div>
+      {/* Admin Team Filter */}
+      {isAdmin && operationsUsers.length > 0 && (
+        <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={teamFilter} onValueChange={setTeamFilter}>
+            <SelectTrigger className="h-8 w-40 text-xs">
+              <SelectValue placeholder="All Team" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Team</SelectItem>
+              {operationsUsers.map(user => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.full_name || user.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground">
+            {teamFilter === 'all' ? 'Viewing all tasks' : 'Filtered by team member'}
+          </span>
+        </div>
+      )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col">
-        <TabsList className="w-full justify-start px-4 py-2 h-auto bg-background border-b rounded-none">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)} className="flex-1 flex flex-col min-h-0">
+        <TabsList className="w-full justify-start px-2 py-2 h-auto bg-background border-b rounded-none gap-1">
           <TabsTrigger 
-            value="pending" 
-            className="flex-1 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+            value="collect" 
+            className="flex-1 text-xs px-2 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
           >
-            📦 To Do ({allPending.length})
+            📥 Collect ({collectItems.length})
           </TabsTrigger>
           <TabsTrigger 
-            value="at-production" 
-            className="flex-1 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+            value="production" 
+            className="flex-1 text-xs px-2 py-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white"
           >
-            🏭 At Production ({atProduction.length})
+            🏭 Prod ({productionItems.length})
           </TabsTrigger>
           <TabsTrigger 
-            value="done" 
-            className="flex-1 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+            value="deliver" 
+            className="flex-1 text-xs px-2 py-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
           >
-            ✓ Done ({completedDeliveries.length})
+            🚚 Deliver ({deliverItems.length})
+          </TabsTrigger>
+          <TabsTrigger 
+            value="history" 
+            className="flex-1 text-xs px-2 py-2 data-[state=active]:bg-gray-600 data-[state=active]:text-white"
+          >
+            📋 History
           </TabsTrigger>
         </TabsList>
 
         <ScrollArea className="flex-1">
-          <TabsContent value="pending" className="p-4 space-y-3 m-0">
-            {allPending.length === 0 ? (
+          {/* COLLECT TAB */}
+          <TabsContent value="collect" className="p-4 space-y-4 m-0">
+            {collectItems.length === 0 ? (
               <div className="text-center py-12">
                 <CheckCircle2 className="h-12 w-12 text-green-500/50 mx-auto mb-3" />
-                <p className="text-muted-foreground font-medium">All caught up!</p>
-                <p className="text-xs text-muted-foreground mt-1">No pending collections or deliveries</p>
+                <p className="text-muted-foreground font-medium">No collections pending</p>
+                <p className="text-xs text-muted-foreground mt-1">All items have been collected</p>
               </div>
             ) : (
-              allPending.map(step => renderStepCard(step))
+              collectItems.map(step => renderCollectCard(step))
             )}
           </TabsContent>
 
-          <TabsContent value="at-production" className="p-4 space-y-3 m-0">
-            {atProduction.length === 0 ? (
+          {/* PRODUCTION TAB */}
+          <TabsContent value="production" className="p-4 space-y-4 m-0">
+            {productionItems.length === 0 ? (
               <div className="text-center py-12">
-                <Factory className="h-12 w-12 text-purple-500/30 mx-auto mb-3" />
-                <p className="text-muted-foreground font-medium">No items at production</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Items sent via S→S transfer will appear here
-                </p>
+                <Factory className="h-12 w-12 text-amber-500/30 mx-auto mb-3" />
+                <p className="text-muted-foreground font-medium">No production items</p>
+                <p className="text-xs text-muted-foreground mt-1">Nothing to send or track</p>
               </div>
             ) : (
               <>
-                <div className="bg-purple-100 dark:bg-purple-950/30 rounded-lg p-3 mb-3 border border-purple-200">
-                  <p className="text-sm text-purple-700 dark:text-purple-300 font-medium flex items-center gap-2">
-                    <Factory className="h-4 w-4" />
-                    Items at suppliers for production/fabrication
-                  </p>
-                  <p className="text-xs text-purple-600/70 mt-1">
-                    These items have been transferred to suppliers and are being produced
-                  </p>
-                </div>
-                {atProduction.map(step => renderStepCard(step, true))}
+                {/* Items to send */}
+                {productionItems.filter(s => s.step_type === 'deliver_to_supplier').length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">
+                      To Send for Production
+                    </p>
+                    {productionItems.filter(s => s.step_type === 'deliver_to_supplier').map(step => renderProductionCard(step))}
+                  </div>
+                )}
+                
+                {/* Items at production (S→S completed) */}
+                {productionItems.filter(s => s.step_type === 'supplier_to_supplier').length > 0 && (
+                  <div className="space-y-3 mt-6">
+                    <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide">
+                      Currently at Production
+                    </p>
+                    {productionItems.filter(s => s.step_type === 'supplier_to_supplier').map(step => renderProductionCard(step))}
+                  </div>
+                )}
               </>
             )}
           </TabsContent>
 
-          <TabsContent value="done" className="p-4 space-y-3 m-0">
-            {completedDeliveries.length === 0 ? (
+          {/* DELIVER TAB */}
+          <TabsContent value="deliver" className="p-4 space-y-4 m-0">
+            {deliverItems.length === 0 ? (
               <div className="text-center py-12">
-                <Check className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-                <p className="text-muted-foreground">No completed deliveries</p>
+                <Truck className="h-12 w-12 text-green-500/30 mx-auto mb-3" />
+                <p className="text-muted-foreground font-medium">No deliveries pending</p>
+                <p className="text-xs text-muted-foreground mt-1">All items have been delivered</p>
               </div>
             ) : (
-              completedDeliveries.slice(0, 20).map(step => (
-                <Card key={step.id} className="bg-green-50/50 dark:bg-green-950/10 border-l-4 border-l-green-500">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium line-clamp-1">
-                          {step.supplier_name || step.location_address}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {step.task_client || step.task_title}
-                        </p>
-                      </div>
-                      <Badge className="text-xs bg-green-600 text-white">
-                        ✓ Delivered
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+              deliverItems.map(step => renderDeliverCard(step))
+            )}
+          </TabsContent>
+
+          {/* HISTORY TAB */}
+          <TabsContent value="history" className="p-4 space-y-4 m-0">
+            {/* Filter */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant={historyFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setHistoryFilter('all')}
+              >
+                All
+              </Button>
+              <Button
+                variant={historyFilter === 'at-production' ? 'default' : 'outline'}
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setHistoryFilter('at-production')}
+              >
+                🏭 At Production
+              </Button>
+              <Button
+                variant={historyFilter === 'collections' ? 'default' : 'outline'}
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setHistoryFilter('collections')}
+              >
+                📥 Collections
+              </Button>
+              <Button
+                variant={historyFilter === 'deliveries' ? 'default' : 'outline'}
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => setHistoryFilter('deliveries')}
+              >
+                🚚 Deliveries
+              </Button>
+            </div>
+
+            {historyItems.length === 0 ? (
+              <div className="text-center py-12">
+                <History className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-muted-foreground font-medium">No history yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Completed actions will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {historyItems.slice(0, 50).map(step => renderHistoryCard(step))}
+                {historyItems.length > 50 && (
+                  <p className="text-center text-xs text-muted-foreground py-2">
+                    Showing 50 of {historyItems.length} items
+                  </p>
+                )}
+              </div>
             )}
           </TabsContent>
         </ScrollArea>
