@@ -66,6 +66,7 @@ interface DayRouteData {
   collections: WorkflowStepWithTask[];
   deliveries: WorkflowStepWithTask[];
   totalSteps: number;
+  completedSteps: number;
 }
 
 interface OperationsRouteCalendarProps {
@@ -208,7 +209,8 @@ export const OperationsRouteCalendar = ({ userId, onStepClick }: OperationsRoute
             date: stepDate,
             collections: [],
             deliveries: [],
-            totalSteps: 0
+            totalSteps: 0,
+            completedSteps: 0
           });
         }
 
@@ -220,6 +222,9 @@ export const OperationsRouteCalendar = ({ userId, onStepClick }: OperationsRoute
           dayData.deliveries.push(step);
         }
         dayData.totalSteps++;
+        if (step.status === 'completed') {
+          dayData.completedSteps++;
+        }
       });
 
       setDayRoutes(routeMap);
@@ -646,18 +651,47 @@ export const OperationsRouteCalendar = ({ userId, onStepClick }: OperationsRoute
               <CardContent className="px-4 pb-4 space-y-3">
                 {selectedDayData && selectedDayData.totalSteps > 0 ? (
                   <>
+                    {/* Progress Bar */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-muted-foreground">Day Progress</span>
+                        <span className="font-semibold">
+                          {selectedDayData.completedSteps}/{selectedDayData.totalSteps} completed
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className={cn(
+                            "h-full transition-all duration-500 rounded-full",
+                            selectedDayData.completedSteps === selectedDayData.totalSteps 
+                              ? "bg-green-500" 
+                              : "bg-primary"
+                          )}
+                          style={{ 
+                            width: `${(selectedDayData.completedSteps / selectedDayData.totalSteps) * 100}%` 
+                          }}
+                        />
+                      </div>
+                      {selectedDayData.completedSteps === selectedDayData.totalSteps && (
+                        <p className="text-xs text-green-600 font-medium flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          All steps completed!
+                        </p>
+                      )}
+                    </div>
+
                     {/* Summary Badges */}
                     <div className="flex flex-wrap gap-2">
                       {selectedDayData.collections.length > 0 && (
                         <Badge variant="secondary" className="gap-1.5 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                           <Package className="h-3.5 w-3.5" />
-                          {selectedDayData.collections.length} Collection{selectedDayData.collections.length !== 1 ? 's' : ''}
+                          {selectedDayData.collections.filter(c => c.status === 'completed').length}/{selectedDayData.collections.length} Collections
                         </Badge>
                       )}
                       {selectedDayData.deliveries.length > 0 && (
                         <Badge variant="secondary" className="gap-1.5 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
                           <Truck className="h-3.5 w-3.5" />
-                          {selectedDayData.deliveries.length} Deliver{selectedDayData.deliveries.length !== 1 ? 'ies' : 'y'}
+                          {selectedDayData.deliveries.filter(d => d.status === 'completed').length}/{selectedDayData.deliveries.length} Deliveries
                         </Badge>
                       )}
                     </div>
