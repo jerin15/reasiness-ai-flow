@@ -1186,12 +1186,15 @@ export type Database = {
       }
       task_workflow_steps: {
         Row: {
+          assigned_to: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string | null
           due_date: string | null
           id: string
           location_address: string | null
+          location_lat: number | null
+          location_lng: number | null
           location_notes: string | null
           notes: string | null
           started_at: string | null
@@ -1203,12 +1206,15 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          assigned_to?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
           due_date?: string | null
           id?: string
           location_address?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
           location_notes?: string | null
           notes?: string | null
           started_at?: string | null
@@ -1220,12 +1226,15 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          assigned_to?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
           due_date?: string | null
           id?: string
           location_address?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
           location_notes?: string | null
           notes?: string | null
           started_at?: string | null

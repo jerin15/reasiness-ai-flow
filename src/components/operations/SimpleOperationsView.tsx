@@ -21,7 +21,8 @@ import {
   Clock,
   Navigation,
   ChevronRight,
-  X
+  X,
+  Map
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { OperationsRouteMap } from './OperationsRouteMap';
 
 interface CollectionItem {
   stepId: string;
@@ -83,6 +85,7 @@ interface SimpleOperationsViewProps {
 }
 
 type TabType = 'collect' | 'production' | 'deliver' | 'done';
+type ViewMode = 'list' | 'map';
 
 // Extract area from address
 const extractArea = (address: string | null): string => {
@@ -111,6 +114,8 @@ export const SimpleOperationsView = ({
   const [activeTab, setActiveTab] = useState<TabType>('collect');
   const [todayOnly, setTodayOnly] = useState(true);
   const [teamFilter, setTeamFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   
   // Swipe state
   const [swipingItem, setSwipingItem] = useState<string | null>(null);
@@ -267,6 +272,22 @@ export const SimpleOperationsView = ({
   }, [todayOnly, teamFilter, isAdmin]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Fetch mapbox token
+  useEffect(() => {
+    const fetchMapboxToken = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        if (error) throw error;
+        if (data?.token) {
+          setMapboxToken(data.token);
+        }
+      } catch (error) {
+        console.error('Error fetching mapbox token:', error);
+      }
+    };
+    fetchMapboxToken();
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -511,9 +532,31 @@ export const SimpleOperationsView = ({
             <Calendar className="h-4 w-4 text-primary" />
             <span className="font-bold text-sm">{format(new Date(), 'EEE, MMM d')}</span>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchData}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {/* View Mode Toggle */}
+            <div className="flex bg-muted rounded-lg p-0.5">
+              <Button 
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
+                size="icon" 
+                className="h-7 w-7"
+                onClick={() => setViewMode('list')}
+              >
+                <Filter className="h-3.5 w-3.5" />
+              </Button>
+              <Button 
+                variant={viewMode === 'map' ? 'secondary' : 'ghost'} 
+                size="icon" 
+                className="h-7 w-7"
+                onClick={() => setViewMode('map')}
+                disabled={!mapboxToken}
+              >
+                <Map className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchData}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -558,24 +601,37 @@ export const SimpleOperationsView = ({
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="w-full px-2 py-2 h-auto bg-background border-b rounded-none gap-1 justify-start">
-          <TabsTrigger value="collect" className="flex-1 text-xs py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-            📥 Collect
-          </TabsTrigger>
-          <TabsTrigger value="production" className="flex-1 text-xs py-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white">
-            🏭 Prod
-          </TabsTrigger>
-          <TabsTrigger value="deliver" className="flex-1 text-xs py-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
-            🚚 Deliver
-          </TabsTrigger>
-          <TabsTrigger value="done" className="flex-1 text-xs py-2 data-[state=active]:bg-gray-600 data-[state=active]:text-white">
-            ✓ Done
-          </TabsTrigger>
-        </TabsList>
+      {/* Map View */}
+      {viewMode === 'map' && mapboxToken && (
+        <div className="flex-1 min-h-[400px]">
+          <OperationsRouteMap
+            userId={userId}
+            userName={userName}
+            mapboxToken={mapboxToken}
+            operationsUsers={operationsUsers}
+          />
+        </div>
+      )}
 
-        <ScrollArea className="flex-1">
+      {/* List View - Tabs */}
+      {viewMode === 'list' && (
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)} className="flex-1 flex flex-col min-h-0">
+          <TabsList className="w-full px-2 py-2 h-auto bg-background border-b rounded-none gap-1 justify-start">
+            <TabsTrigger value="collect" className="flex-1 text-xs py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+              📥 Collect
+            </TabsTrigger>
+            <TabsTrigger value="production" className="flex-1 text-xs py-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white">
+              🏭 Prod
+            </TabsTrigger>
+            <TabsTrigger value="deliver" className="flex-1 text-xs py-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
+              🚚 Deliver
+            </TabsTrigger>
+            <TabsTrigger value="done" className="flex-1 text-xs py-2 data-[state=active]:bg-gray-600 data-[state=active]:text-white">
+              ✓ Done
+            </TabsTrigger>
+          </TabsList>
+
+          <ScrollArea className="flex-1">
           {/* COLLECT TAB - Grouped by Area */}
           <TabsContent value="collect" className="p-3 m-0">
             {collectItems.length === 0 ? (
@@ -705,7 +761,8 @@ export const SimpleOperationsView = ({
             )}
           </TabsContent>
         </ScrollArea>
-      </Tabs>
+        </Tabs>
+      )}
     </div>
   );
 };
