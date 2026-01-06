@@ -44,7 +44,7 @@ interface CollectionItem {
   address: string | null;
   dueDate: string | null;
   priority: string;
-  products: { name: string; qty: number | null; unit: string | null }[];
+  products: { name: string; qty: number | null; unit: string | null; supplier: string | null }[];
   stepType: string;
   area: string;
 }
@@ -169,7 +169,7 @@ export const SimpleOperationsView = ({
         if (isAdmin && teamFilter !== 'all' && task.assigned_to !== teamFilter) return;
 
         const taskProducts = productsMap[step.task_id] || [];
-        const stepProducts = taskProducts.map(p => ({ name: p.name, qty: p.qty, unit: p.unit }));
+        const stepProducts = taskProducts.map(p => ({ name: p.name, qty: p.qty, unit: p.unit, supplier: p.supplier }));
 
         if (step.status === 'completed') {
           completed.push({
@@ -354,7 +354,7 @@ export const SimpleOperationsView = ({
   const deliverByArea = groupByArea(deliverItems);
 
   const renderSwipeableCard = (
-    item: { stepId: string; supplierName?: string; clientName?: string; taskTitle: string; address?: string | null; dueDate: string | null; priority: string; products: { name: string; qty: number | null; unit: string | null }[] },
+    item: { stepId: string; supplierName?: string; clientName?: string; taskTitle: string; address?: string | null; dueDate: string | null; priority: string; products: { name: string; qty: number | null; unit: string | null; supplier?: string | null }[] },
     type: 'collect' | 'deliver' | 'production',
     extraContent?: React.ReactNode
   ) => {
@@ -424,19 +424,47 @@ export const SimpleOperationsView = ({
                   {type === 'deliver' ? item.taskTitle : item.clientName || item.taskTitle}
                 </p>
 
-                {/* Products - Compact */}
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {item.products.slice(0, 3).map((p, i) => (
-                    <Badge key={i} variant="secondary" className="text-[10px] h-5">
-                      {p.name} {p.qty && `(${p.qty})`}
-                    </Badge>
-                  ))}
-                  {item.products.length > 3 && (
-                    <Badge variant="outline" className="text-[10px] h-5">
-                      +{item.products.length - 3} more
-                    </Badge>
-                  )}
-                </div>
+                {/* Products grouped by supplier for collection */}
+                {type === 'collect' ? (
+                  <div className="space-y-1.5 mb-2">
+                    {(() => {
+                      const bySupplier: Record<string, { name: string; qty: number | null; unit: string | null }[]> = {};
+                      item.products.forEach(p => {
+                        const sup = p.supplier || item.supplierName || 'Unknown';
+                        if (!bySupplier[sup]) bySupplier[sup] = [];
+                        bySupplier[sup].push(p);
+                      });
+                      return Object.entries(bySupplier).map(([supplier, prods]) => (
+                        <div key={supplier} className="bg-white/60 dark:bg-black/20 rounded p-1.5 border border-border/50">
+                          <div className="text-[10px] font-semibold text-primary mb-1 flex items-center gap-1">
+                            <Factory className="h-3 w-3" />
+                            {supplier}
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {prods.map((p, i) => (
+                              <Badge key={i} variant="secondary" className="text-[10px] h-5">
+                                {p.name} {p.qty && `(${p.qty}${p.unit ? ` ${p.unit}` : ''})`}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {item.products.slice(0, 3).map((p, i) => (
+                      <Badge key={i} variant="secondary" className="text-[10px] h-5">
+                        {p.name} {p.qty && `(${p.qty})`}
+                      </Badge>
+                    ))}
+                    {item.products.length > 3 && (
+                      <Badge variant="outline" className="text-[10px] h-5">
+                        +{item.products.length - 3} more
+                      </Badge>
+                    )}
+                  </div>
+                )}
 
                 {extraContent}
 
