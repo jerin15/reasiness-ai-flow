@@ -22,7 +22,10 @@ import {
   Navigation,
   ChevronRight,
   X,
-  Map
+  Map,
+  ArrowRight,
+  User,
+  Box
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { OperationsRouteMap } from './OperationsRouteMap';
+import { SwipeConfirmDialog } from './SwipeConfirmDialog';
 
 interface CollectionItem {
   stepId: string;
@@ -74,6 +78,8 @@ interface ProductionItem {
   priority: string;
   products: { name: string; qty: number | null; unit: string | null }[];
   isAtProduction: boolean;
+  stepType: string;
+  address?: string | null;
 }
 
 interface SimpleOperationsViewProps {
@@ -121,6 +127,18 @@ export const SimpleOperationsView = ({
   const [swipingItem, setSwipingItem] = useState<string | null>(null);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const touchStartX = useRef(0);
+  
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    stepId: string;
+    label: string;
+    type: 'collect' | 'deliver' | 'production';
+    taskTitle: string;
+    supplierName?: string;
+    clientName?: string;
+    products: { name: string; qty: number | null; unit: string | null }[];
+  } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -196,7 +214,9 @@ export const SimpleOperationsView = ({
               dueDate: task.due_date,
               priority: task.priority,
               products: stepProducts,
-              isAtProduction: true
+              isAtProduction: true,
+              stepType: step.step_type,
+              address: step.location_address
             });
           }
         } else if (step.status === 'pending') {
@@ -242,7 +262,9 @@ export const SimpleOperationsView = ({
               dueDate: task.due_date,
               priority: task.priority,
               products: stepProducts,
-              isAtProduction: false
+              isAtProduction: false,
+              stepType: step.step_type,
+              address: step.location_address
             });
           }
         }
@@ -333,14 +355,53 @@ export const SimpleOperationsView = ({
     if (diff > 0) setSwipeOffset(Math.min(diff, 120));
   };
 
-  const handleTouchEnd = (item: { stepId: string; supplierName?: string; clientName?: string }, type: 'collect' | 'deliver' | 'production') => {
+  const handleTouchEnd = (
+    item: { 
+      stepId: string; 
+      supplierName?: string; 
+      clientName?: string; 
+      taskTitle: string;
+      products: { name: string; qty: number | null; unit: string | null }[] 
+    }, 
+    type: 'collect' | 'deliver' | 'production'
+  ) => {
     if (swipeOffset > 80) {
       const label = type === 'collect' ? `Collected from ${item.supplierName}` : 
-                    type === 'deliver' ? 'Delivered' : 'Sent to Production';
-      handleComplete(item.stepId, label);
+                    type === 'deliver' ? 'Delivered to client' : 'Sent to Production';
+      
+      // Show confirmation dialog instead of completing immediately
+      setConfirmDialog({
+        open: true,
+        stepId: item.stepId,
+        label,
+        type,
+        taskTitle: item.taskTitle,
+        supplierName: item.supplierName,
+        clientName: item.clientName,
+        products: item.products
+      });
+    }
+    setSwipingItem(null);
+    setSwipeOffset(0);
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!confirmDialog) return;
+    await handleComplete(confirmDialog.stepId, confirmDialog.label);
+    setConfirmDialog(null);
+  };
+
+  const getConfirmDialogDescription = () => {
+    if (!confirmDialog) return '';
+    const { type, taskTitle, supplierName, clientName, products } = confirmDialog;
+    const productList = products.slice(0, 3).map(p => `${p.name}${p.qty ? ` (${p.qty}${p.unit || ''})` : ''}`).join(', ');
+    
+    if (type === 'collect') {
+      return `Are you sure you collected all items from ${supplierName}?\n\nTask: ${taskTitle}\nProducts: ${productList}`;
+    } else if (type === 'deliver') {
+      return `Are you sure you delivered all items to ${clientName || 'the client'}?\n\nTask: ${taskTitle}\nProducts: ${productList}`;
     } else {
-      setSwipingItem(null);
-      setSwipeOffset(0);
+      return `Are you sure you sent items to production at ${supplierName}?\n\nTask: ${taskTitle}\nProducts: ${productList}`;
     }
   };
 
@@ -375,7 +436,18 @@ export const SimpleOperationsView = ({
   const deliverByArea = groupByArea(deliverItems);
 
   const renderSwipeableCard = (
-    item: { stepId: string; supplierName?: string; clientName?: string; taskTitle: string; address?: string | null; dueDate: string | null; priority: string; products: { name: string; qty: number | null; unit: string | null; supplier?: string | null }[] },
+    item: { 
+      stepId: string; 
+      taskId?: string;
+      supplierName?: string; 
+      clientName?: string; 
+      taskTitle: string; 
+      address?: string | null; 
+      dueDate: string | null; 
+      priority: string; 
+      products: { name: string; qty: number | null; unit: string | null; supplier?: string | null }[];
+      stepType?: string;
+    },
     type: 'collect' | 'deliver' | 'production',
     extraContent?: React.ReactNode
   ) => {
@@ -395,8 +467,11 @@ export const SimpleOperationsView = ({
                         type === 'deliver' ? 'bg-green-600' :
                         'bg-amber-600';
 
+    // Calculate total quantity
+    const totalQty = item.products.reduce((sum, p) => sum + (p.qty || 0), 0);
+
     return (
-      <div key={item.stepId} className="relative overflow-hidden rounded-lg mb-2">
+      <div key={item.stepId} className="relative overflow-hidden rounded-lg mb-3">
         {/* Swipe reveal background */}
         <div className={cn(
           "absolute inset-y-0 left-0 flex items-center justify-center px-4 transition-all",
@@ -425,65 +500,118 @@ export const SimpleOperationsView = ({
               </div>
             ) : (
               <>
-                {/* Header Row */}
+                {/* Header Row with Priority + Due Date */}
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className={cn("w-2 h-2 rounded-full shrink-0", getPriorityColor(item.priority))} />
+                    <div className={cn("w-2.5 h-2.5 rounded-full shrink-0", getPriorityColor(item.priority))} />
                     <span className="font-bold text-base truncate">
                       {type === 'deliver' ? (item.clientName || item.taskTitle) : (item.supplierName || item.taskTitle)}
                     </span>
                   </div>
-                  {due && (
+                  {due ? (
                     <Badge variant="outline" className={cn("text-[10px] shrink-0 font-semibold", due.color)}>
+                      <Clock className="h-3 w-3 mr-1" />
                       {due.text}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] shrink-0 font-semibold bg-red-50 text-red-600 border-red-200">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      No Due Date
                     </Badge>
                   )}
                 </div>
 
-                {/* Task/Client reference */}
-                <p className="text-xs text-muted-foreground mb-2 truncate">
-                  {type === 'deliver' ? item.taskTitle : item.clientName || item.taskTitle}
-                </p>
+                {/* Task Reference */}
+                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                  <User className="h-3 w-3" />
+                  <span className="truncate">{item.clientName || 'No client'}</span>
+                  <span className="mx-1">•</span>
+                  <span className="truncate font-medium">{item.taskTitle}</span>
+                </div>
 
-                {/* Products grouped by supplier for collection */}
-                {type === 'collect' ? (
-                  <div className="space-y-1.5 mb-2">
-                    {(() => {
-                      const bySupplier: Record<string, { name: string; qty: number | null; unit: string | null }[]> = {};
-                      item.products.forEach(p => {
-                        const sup = p.supplier || item.supplierName || 'Unknown';
-                        if (!bySupplier[sup]) bySupplier[sup] = [];
-                        bySupplier[sup].push(p);
-                      });
-                      return Object.entries(bySupplier).map(([supplier, prods]) => (
-                        <div key={supplier} className="bg-white/60 dark:bg-black/20 rounded p-1.5 border border-border/50">
-                          <div className="text-[10px] font-semibold text-primary mb-1 flex items-center gap-1">
-                            <Factory className="h-3 w-3" />
-                            {supplier}
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {prods.map((p, i) => (
-                              <Badge key={i} variant="secondary" className="text-[10px] h-5">
-                                {p.name} {p.qty && `(${p.qty}${p.unit ? ` ${p.unit}` : ''})`}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      ));
-                    })()}
+                {/* Step Type indicator for collection */}
+                {type === 'collect' && item.stepType && (
+                  <div className="mb-2">
+                    <Badge 
+                      variant="outline" 
+                      className={cn(
+                        "text-[10px]",
+                        item.stepType === 'supplier_to_supplier' 
+                          ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      )}
+                    >
+                      {item.stepType === 'supplier_to_supplier' ? (
+                        <>
+                          <ArrowRight className="h-3 w-3 mr-1" />
+                          Supplier → Supplier
+                        </>
+                      ) : (
+                        <>
+                          <Package className="h-3 w-3 mr-1" />
+                          Collect
+                        </>
+                      )}
+                    </Badge>
                   </div>
-                ) : (
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {item.products.slice(0, 3).map((p, i) => (
-                      <Badge key={i} variant="secondary" className="text-[10px] h-5">
-                        {p.name} {p.qty && `(${p.qty})`}
-                      </Badge>
-                    ))}
-                    {item.products.length > 3 && (
-                      <Badge variant="outline" className="text-[10px] h-5">
-                        +{item.products.length - 3} more
-                      </Badge>
-                    )}
+                )}
+
+                {/* Products Section */}
+                <div className="bg-white/70 dark:bg-black/20 rounded-lg p-2 border border-border/50 mb-2">
+                  <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground mb-1.5">
+                    <Box className="h-3 w-3" />
+                    PRODUCTS ({item.products.length} items, {totalQty} total qty)
+                  </div>
+                  
+                  {type === 'collect' ? (
+                    // Group by supplier for collection
+                    <div className="space-y-1.5">
+                      {(() => {
+                        const bySupplier: Record<string, { name: string; qty: number | null; unit: string | null }[]> = {};
+                        item.products.forEach(p => {
+                          const sup = p.supplier || item.supplierName || 'Unknown';
+                          if (!bySupplier[sup]) bySupplier[sup] = [];
+                          bySupplier[sup].push(p);
+                        });
+                        return Object.entries(bySupplier).map(([supplier, prods]) => (
+                          <div key={supplier} className="bg-primary/5 rounded p-1.5 border border-primary/10">
+                            <div className="text-[10px] font-semibold text-primary mb-1 flex items-center gap-1">
+                              <Factory className="h-3 w-3" />
+                              From: {supplier}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {prods.map((p, i) => (
+                                <Badge key={i} variant="secondary" className="text-[10px] h-5">
+                                  {p.name} {p.qty && `(${p.qty}${p.unit ? ` ${p.unit}` : ' pcs'})`}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  ) : (
+                    // Standard product list for delivery/production
+                    <div className="flex flex-wrap gap-1">
+                      {item.products.map((p, i) => (
+                        <Badge key={i} variant="secondary" className="text-[10px] h-5">
+                          {p.name} {p.qty && `(${p.qty}${p.unit ? ` ${p.unit}` : ' pcs'})`}
+                        </Badge>
+                      ))}
+                      {item.products.length === 0 && (
+                        <span className="text-xs text-muted-foreground italic">No products listed</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Destination for Production */}
+                {type === 'production' && item.supplierName && (
+                  <div className="bg-amber-100/50 dark:bg-amber-950/30 rounded p-2 border border-amber-200/50 mb-2">
+                    <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-700">
+                      <ArrowRight className="h-3 w-3" />
+                      Send to: {item.supplierName}
+                    </div>
                   </div>
                 )}
 
@@ -494,17 +622,30 @@ export const SimpleOperationsView = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full h-8 text-xs justify-between mt-2"
+                    className="w-full h-9 text-xs justify-between mt-2"
                     onClick={() => openMaps(item.address!)}
                   >
-                    <span className="truncate text-left flex-1">{item.address}</span>
-                    <Navigation className="h-3 w-3 shrink-0 ml-2" />
+                    <div className="flex items-center gap-1 truncate">
+                      <MapPin className="h-3 w-3 shrink-0 text-primary" />
+                      <span className="truncate text-left">{item.address}</span>
+                    </div>
+                    <Navigation className="h-3.5 w-3.5 shrink-0 ml-2 text-primary" />
                   </Button>
                 )}
 
+                {/* Due date display */}
+                {item.dueDate && (
+                  <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mt-2 bg-muted/50 rounded py-1">
+                    <Calendar className="h-3 w-3" />
+                    Due: {format(new Date(item.dueDate), 'EEE, MMM d, yyyy')}
+                  </div>
+                )}
+
                 {/* Swipe hint */}
-                <p className="text-[10px] text-muted-foreground text-center mt-2 opacity-60">
-                  ← Swipe right to complete →
+                <p className="text-[10px] text-muted-foreground text-center mt-2 opacity-60 flex items-center justify-center gap-1">
+                  <ChevronRight className="h-3 w-3" />
+                  Swipe right to complete
+                  <ChevronRight className="h-3 w-3" />
                 </p>
               </>
             )}
@@ -684,15 +825,65 @@ export const SimpleOperationsView = ({
                     <div className="flex items-center gap-2 mb-2">
                       <Factory className="h-4 w-4 text-purple-600" />
                       <span className="font-bold text-sm text-purple-700">At Production</span>
+                      <Badge variant="secondary" className="text-xs">{productionItems.filter(p => p.isAtProduction).length}</Badge>
                     </div>
                     {productionItems.filter(p => p.isAtProduction).map(item => (
-                      <Card key={item.stepId} className="border-l-4 border-l-purple-500 bg-purple-50 dark:bg-purple-950/30 mb-2">
+                      <Card key={item.stepId} className="border-l-4 border-l-purple-500 bg-purple-50 dark:bg-purple-950/30 mb-3">
                         <CardContent className="p-3">
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-purple-600 text-white text-xs">AT PRODUCTION</Badge>
-                            <span className="font-medium text-sm">{item.supplierName}</span>
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-purple-600 text-white text-xs">AT PRODUCTION</Badge>
+                              <span className="font-bold text-sm">{item.supplierName}</span>
+                            </div>
+                            {item.dueDate ? (
+                              <Badge variant="outline" className={cn(
+                                "text-[10px] shrink-0 font-semibold",
+                                isPast(new Date(item.dueDate)) && !isToday(new Date(item.dueDate)) ? "bg-red-50 text-red-600" :
+                                isToday(new Date(item.dueDate)) ? "bg-orange-50 text-orange-600" : "bg-muted text-muted-foreground"
+                              )}>
+                                <Clock className="h-3 w-3 mr-1" />
+                                {isPast(new Date(item.dueDate)) && !isToday(new Date(item.dueDate)) ? 'OVERDUE' :
+                                 isToday(new Date(item.dueDate)) ? 'TODAY' : format(new Date(item.dueDate), 'MMM d')}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] shrink-0 font-semibold bg-red-50 text-red-600 border-red-200">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                No Due Date
+                              </Badge>
+                            )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">{item.taskTitle}</p>
+                          
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                            <User className="h-3 w-3" />
+                            <span>{item.clientName || 'No client'}</span>
+                            <span className="mx-1">•</span>
+                            <span className="font-medium">{item.taskTitle}</span>
+                          </div>
+
+                          {/* Products */}
+                          <div className="bg-white/70 dark:bg-black/20 rounded p-2 border border-border/50">
+                            <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground mb-1">
+                              <Box className="h-3 w-3" />
+                              PRODUCTS ({item.products.length} items)
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {item.products.map((p, i) => (
+                                <Badge key={i} variant="secondary" className="text-[10px] h-5">
+                                  {p.name} {p.qty && `(${p.qty}${p.unit ? ` ${p.unit}` : ' pcs'})`}
+                                </Badge>
+                              ))}
+                              {item.products.length === 0 && (
+                                <span className="text-xs text-muted-foreground italic">No products listed</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {item.dueDate && (
+                            <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mt-2 bg-muted/50 rounded py-1">
+                              <Calendar className="h-3 w-3" />
+                              Due: {format(new Date(item.dueDate), 'EEE, MMM d, yyyy')}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
@@ -762,6 +953,26 @@ export const SimpleOperationsView = ({
           </TabsContent>
         </ScrollArea>
         </Tabs>
+      )}
+
+      {/* Confirmation Dialog */}
+      {confirmDialog && (
+        <SwipeConfirmDialog
+          open={confirmDialog.open}
+          onOpenChange={(open) => {
+            if (!open) setConfirmDialog(null);
+          }}
+          onConfirm={handleConfirmComplete}
+          title={
+            confirmDialog.type === 'collect' 
+              ? `Confirm Collection` 
+              : confirmDialog.type === 'deliver' 
+                ? `Confirm Delivery` 
+                : `Confirm Production`
+          }
+          description={getConfirmDialogDescription()}
+          actionType={confirmDialog.type}
+        />
       )}
     </div>
   );
