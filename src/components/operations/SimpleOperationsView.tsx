@@ -415,15 +415,39 @@ export const SimpleOperationsView = ({
     if (!deleteDialog) return;
     setDeleting(true);
     try {
-      // Soft delete the task
+      const taskId = deleteDialog.taskId;
+
+      // First, get the task to check if it has a linked_task_id (source task from other team)
+      const { data: taskData } = await supabase
+        .from('tasks')
+        .select('linked_task_id')
+        .eq('id', taskId)
+        .single();
+
+      // If this operations task is linked to a source task, clear the reference in the source
+      // This ensures the source task (from estimation/designer) is not affected
+      if (taskData?.linked_task_id) {
+        await supabase
+          .from('tasks')
+          .update({ linked_task_id: null })
+          .eq('id', taskData.linked_task_id);
+      }
+
+      // Also clear any tasks that link TO this operations task
+      await supabase
+        .from('tasks')
+        .update({ linked_task_id: null })
+        .eq('linked_task_id', taskId);
+
+      // Soft delete ONLY the operations task (not the linked source task)
       const { error } = await supabase
         .from('tasks')
         .update({ deleted_at: new Date().toISOString() })
-        .eq('id', deleteDialog.taskId);
+        .eq('id', taskId);
 
       if (error) throw error;
 
-      toast.success(`Task "${deleteDialog.taskTitle}" deleted`);
+      toast.success(`Operations task "${deleteDialog.taskTitle}" deleted`);
       setDeleteDialog(null);
       fetchData();
       onRefresh?.();
