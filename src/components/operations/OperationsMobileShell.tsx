@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAlwaysOnLocation } from '@/hooks/useAlwaysOnLocation';
 import { 
   Map, 
@@ -13,25 +11,14 @@ import {
   User,
   Radio,
   Loader2,
-  Search,
-  CheckCircle,
-  Clock,
   AlertTriangle,
   LayoutList,
   RefreshCw,
   CalendarDays,
-  Navigation,
-  Zap
+  Navigation
 } from 'lucide-react';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
 import { OperationsLocationMap } from './OperationsLocationMap';
-import { OperationsMobileTaskCard, type OperationsTaskWithSteps, type WorkflowStep, type WorkflowStepProduct } from './OperationsMobileTaskCard';
+import { type OperationsTaskWithSteps, type WorkflowStep, type WorkflowStepProduct } from './OperationsMobileTaskCard';
 import { OperationsMobileTaskSheet } from './OperationsMobileTaskSheet';
 import { OperationsRouteCalendar } from './OperationsRouteCalendar';
 import { SimpleOperationsView } from './SimpleOperationsView';
@@ -45,7 +32,7 @@ interface OperationsMobileShellProps {
   isAdmin?: boolean;
 }
 
-type ViewMode = 'simple' | 'tasks' | 'calendar' | 'map';
+type ViewMode = 'tasks' | 'calendar' | 'map';
 
 export const OperationsMobileShell = ({ 
   userId, 
@@ -53,7 +40,7 @@ export const OperationsMobileShell = ({
   operationsUsers,
   isAdmin = false
 }: OperationsMobileShellProps) => {
-  const [viewMode, setViewMode] = useState<ViewMode>('simple');
+  const [viewMode, setViewMode] = useState<ViewMode>('tasks');
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [tempToken, setTempToken] = useState('');
@@ -62,7 +49,6 @@ export const OperationsMobileShell = ({
   // Task state
   const [tasks, setTasks] = useState<OperationsTaskWithSteps[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedTask, setSelectedTask] = useState<OperationsTaskWithSteps | null>(null);
   const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -278,21 +264,9 @@ export const OperationsMobileShell = ({
     }
   };
 
-  // Filter tasks based on search
-  const filteredTasks = tasks.filter(task => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      task.title.toLowerCase().includes(query) ||
-      task.client_name?.toLowerCase().includes(query) ||
-      task.delivery_address?.toLowerCase().includes(query)
-    );
-  });
-
-  // Separate my tasks vs others
-  const myTasks = filteredTasks.filter(t => t.assigned_to === userId);
-  const otherTasks = filteredTasks.filter(t => t.assigned_to !== userId);
-  const urgentTasks = filteredTasks.filter(t => t.priority === 'urgent' || t.priority === 'high');
+  // Task counts for stats bar
+  const myTasks = tasks.filter(t => t.assigned_to === userId);
+  const urgentTasks = tasks.filter(t => t.priority === 'urgent' || t.priority === 'high');
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -343,8 +317,8 @@ export const OperationsMobileShell = ({
         </div>
       </header>
 
-      {/* Stats Bar - hide for simple view which has its own */}
-      {viewMode !== 'simple' && (
+      {/* Stats Bar - hide for tasks view which has its own summary */}
+      {viewMode !== 'tasks' && (
         <div className="px-4 py-3 bg-muted/30 border-b flex items-center gap-3 overflow-x-auto">
           <Badge variant="default" className="shrink-0 gap-1.5 py-1.5">
             <ClipboardList className="h-3.5 w-3.5" />
@@ -365,19 +339,9 @@ export const OperationsMobileShell = ({
         </div>
       )}
 
-      {/* View Toggle & Search */}
-      <div className="px-4 py-3 border-b bg-background sticky top-[68px] z-40 space-y-3">
-        {/* View Toggle */}
+      {/* View Toggle */}
+      <div className="px-4 py-2 border-b bg-background sticky top-[68px] z-40">
         <div className="flex gap-1.5">
-          <Button
-            variant={viewMode === 'simple' ? 'default' : 'outline'}
-            size="sm"
-            className="flex-1 gap-1 px-2"
-            onClick={() => setViewMode('simple')}
-          >
-            <Zap className="h-4 w-4" />
-            <span className="text-xs">Quick</span>
-          </Button>
           <Button
             variant={viewMode === 'tasks' ? 'default' : 'outline'}
             size="sm"
@@ -385,7 +349,7 @@ export const OperationsMobileShell = ({
             onClick={() => setViewMode('tasks')}
           >
             <LayoutList className="h-4 w-4" />
-            <span className="text-xs">Detail</span>
+            <span className="text-xs">Tasks</span>
           </Button>
           <Button
             variant={viewMode === 'calendar' ? 'default' : 'outline'}
@@ -406,114 +370,18 @@ export const OperationsMobileShell = ({
             <span className="text-xs">Map</span>
           </Button>
         </div>
-
-        {/* Search (only for detailed tasks view) */}
-        {viewMode === 'tasks' && (
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search tasks, clients, addresses..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-11"
-            />
-          </div>
-        )}
       </div>
 
       <main className="flex-1 overflow-hidden">
-        {viewMode === 'simple' ? (
-          // Simple Quick View - One tap actions
+        {viewMode === 'tasks' ? (
+          // Simplified Task View with action-based tabs
           <SimpleOperationsView
             userId={userId}
             userName={userName}
             isAdmin={isAdmin}
             onRefresh={fetchTasks}
+            operationsUsers={operationsUsers}
           />
-        ) : viewMode === 'tasks' ? (
-          <ScrollArea className="h-full">
-            <div className="p-4 space-y-4 pb-24">
-              {isLoadingTasks ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm text-muted-foreground mt-2">Loading tasks...</p>
-                </div>
-              ) : filteredTasks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  {searchQuery ? (
-                    <>
-                      <Search className="h-12 w-12 text-muted-foreground/50 mb-3" />
-                      <p className="text-muted-foreground">No tasks match your search</p>
-                      <Button 
-                        variant="link" 
-                        onClick={() => setSearchQuery('')}
-                        className="mt-2"
-                      >
-                        Clear search
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-12 w-12 text-green-500/50 mb-3" />
-                      <p className="text-muted-foreground">No production tasks</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        All caught up!
-                      </p>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <>
-                  {/* My Tasks Section */}
-                  {myTasks.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 px-1">
-                        <User className="h-4 w-4 text-primary" />
-                        <h2 className="font-semibold text-sm">My Tasks</h2>
-                        <Badge variant="secondary" className="text-xs">
-                          {myTasks.length}
-                        </Badge>
-                      </div>
-                      {myTasks.map(task => (
-                        <OperationsMobileTaskCard
-                          key={task.id}
-                          task={task}
-                          currentUserId={userId}
-                          isAdmin={isAdmin}
-                          onTaskClick={handleTaskClick}
-                          onStepUpdated={fetchTasks}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Other Tasks Section */}
-                  {otherTasks.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 px-1">
-                        <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                        <h2 className="font-semibold text-sm text-muted-foreground">Other Tasks</h2>
-                        <Badge variant="outline" className="text-xs">
-                          {otherTasks.length}
-                        </Badge>
-                      </div>
-                      {otherTasks.map(task => (
-                        <OperationsMobileTaskCard
-                          key={task.id}
-                          task={task}
-                          currentUserId={userId}
-                          isAdmin={isAdmin}
-                          onTaskClick={handleTaskClick}
-                          onStepUpdated={fetchTasks}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </ScrollArea>
         ) : viewMode === 'calendar' ? (
           // Calendar Route View
           <OperationsRouteCalendar 
