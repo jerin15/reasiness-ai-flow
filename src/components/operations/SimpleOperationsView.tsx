@@ -1,31 +1,27 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { 
   Package, 
   Truck, 
   MapPin, 
   Check, 
-  User,
   RefreshCw,
   AlertTriangle,
-  ArrowRight,
-  Building2,
   CheckCircle2,
   Loader2,
   Factory,
   History,
   Calendar,
   Filter,
-  Phone,
   Clock,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Navigation
+  Navigation,
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,40 +34,44 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 
-interface Product {
-  id: string;
-  product_name: string;
-  quantity: number | null;
-  unit: string | null;
-  supplier_name: string | null;
+interface CollectionItem {
+  stepId: string;
+  taskId: string;
+  taskTitle: string;
+  clientName: string | null;
+  supplierName: string;
+  address: string | null;
+  dueDate: string | null;
+  priority: string;
+  products: { name: string; qty: number | null; unit: string | null }[];
+  stepType: string;
+  area: string;
 }
 
-interface TaskData {
-  id: string;
-  title: string;
-  client_name: string | null;
-  due_date: string | null;
+interface DeliveryItem {
+  stepId: string;
+  taskId: string;
+  taskTitle: string;
+  clientName: string | null;
+  address: string | null;
+  dueDate: string | null;
   priority: string;
-  delivery_address: string | null;
-  delivery_instructions: string | null;
-  assigned_to: string | null;
-  products: Product[];
-  workflow_steps: {
-    id: string;
-    step_type: string;
-    supplier_name: string | null;
-    status: string;
-    location_address: string | null;
-    location_notes: string | null;
-    due_date: string | null;
-    completed_at: string | null;
-  }[];
+  products: { name: string; qty: number | null; unit: string | null }[];
+  area: string;
+  instructions: string | null;
+}
+
+interface ProductionItem {
+  stepId: string;
+  taskId: string;
+  taskTitle: string;
+  clientName: string | null;
+  supplierName: string;
+  dueDate: string | null;
+  priority: string;
+  products: { name: string; qty: number | null; unit: string | null }[];
+  isAtProduction: boolean;
 }
 
 interface SimpleOperationsViewProps {
@@ -82,7 +82,18 @@ interface SimpleOperationsViewProps {
   operationsUsers?: Array<{ id: string; full_name: string | null; email: string }>;
 }
 
-type TabType = 'collect' | 'production' | 'deliver' | 'history';
+type TabType = 'collect' | 'production' | 'deliver' | 'done';
+
+// Extract area from address
+const extractArea = (address: string | null): string => {
+  if (!address) return 'Other';
+  const lower = address.toLowerCase();
+  const areas = ['deira', 'bur dubai', 'satwa', 'karama', 'jumeirah', 'marina', 'downtown', 'business bay', 'al quoz', 'jebel ali', 'sharjah', 'ajman', 'abu dhabi'];
+  for (const area of areas) {
+    if (lower.includes(area)) return area.charAt(0).toUpperCase() + area.slice(1);
+  }
+  return 'Other';
+};
 
 export const SimpleOperationsView = ({ 
   userId, 
@@ -91,527 +102,366 @@ export const SimpleOperationsView = ({
   onRefresh,
   operationsUsers = []
 }: SimpleOperationsViewProps) => {
-  const [tasks, setTasks] = useState<TaskData[]>([]);
+  const [collectItems, setCollectItems] = useState<CollectionItem[]>([]);
+  const [deliverItems, setDeliverItems] = useState<DeliveryItem[]>([]);
+  const [productionItems, setProductionItems] = useState<ProductionItem[]>([]);
+  const [completedItems, setCompletedItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [updatingStep, setUpdatingStep] = useState<string | null>(null);
+  const [completingStep, setCompletingStep] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('collect');
+  const [todayOnly, setTodayOnly] = useState(true);
   const [teamFilter, setTeamFilter] = useState<string>('all');
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  
+  // Swipe state
+  const [swipingItem, setSwipingItem] = useState<string | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const touchStartX = useRef(0);
 
-  const fetchTasks = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Fetch all production tasks
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('tasks')
-        .select('id, title, client_name, due_date, priority, delivery_address, delivery_instructions, assigned_to')
-        .eq('status', 'production')
-        .is('deleted_at', null)
+      // Fetch workflow steps with task info
+      const { data: stepsData, error } = await supabase
+        .from('task_workflow_steps')
+        .select(`
+          id, step_type, supplier_name, status, location_address, due_date, task_id, completed_at,
+          tasks!inner (id, title, client_name, priority, due_date, delivery_address, delivery_instructions, assigned_to, deleted_at, status)
+        `)
+        .is('tasks.deleted_at', null)
+        .eq('tasks.status', 'production')
         .order('due_date', { ascending: true, nullsFirst: false });
 
-      if (tasksError) throw tasksError;
-      if (!tasksData || tasksData.length === 0) {
-        setTasks([]);
-        setLoading(false);
-        return;
+      if (error) throw error;
+
+      // Fetch products
+      const taskIds = [...new Set((stepsData || []).map((s: any) => s.task_id))];
+      let productsMap: Record<string, { name: string; qty: number | null; unit: string | null; supplier: string | null }[]> = {};
+      
+      if (taskIds.length > 0) {
+        const { data: productsData } = await supabase
+          .from('task_products')
+          .select('task_id, product_name, quantity, unit, supplier_name')
+          .in('task_id', taskIds);
+        
+        (productsData || []).forEach((p: any) => {
+          if (!productsMap[p.task_id]) productsMap[p.task_id] = [];
+          productsMap[p.task_id].push({ 
+            name: p.product_name, 
+            qty: p.quantity, 
+            unit: p.unit,
+            supplier: p.supplier_name 
+          });
+        });
       }
 
-      const taskIds = tasksData.map(t => t.id);
+      // Build flat lists
+      const collections: CollectionItem[] = [];
+      const deliveries: DeliveryItem[] = [];
+      const productions: ProductionItem[] = [];
+      const completed: any[] = [];
 
-      // Fetch workflow steps for all tasks
-      const { data: stepsData } = await supabase
-        .from('task_workflow_steps')
-        .select('*')
-        .in('task_id', taskIds)
-        .order('step_order', { ascending: true });
+      (stepsData || []).forEach((step: any) => {
+        const task = step.tasks;
+        if (!task) return;
 
-      // Fetch products for all tasks
-      const { data: productsData } = await supabase
-        .from('task_products')
-        .select('id, task_id, product_name, quantity, unit, supplier_name')
-        .in('task_id', taskIds);
+        // Apply team filter
+        if (isAdmin && teamFilter !== 'all' && task.assigned_to !== teamFilter) return;
 
-      // Group steps and products by task
-      const stepsMap: Record<string, any[]> = {};
-      const productsMap: Record<string, Product[]> = {};
+        const taskProducts = productsMap[step.task_id] || [];
+        const stepProducts = taskProducts.map(p => ({ name: p.name, qty: p.qty, unit: p.unit }));
 
-      (stepsData || []).forEach(step => {
-        if (!stepsMap[step.task_id]) stepsMap[step.task_id] = [];
-        stepsMap[step.task_id].push(step);
+        if (step.status === 'completed') {
+          completed.push({
+            stepId: step.id,
+            taskTitle: task.title,
+            supplierName: step.supplier_name,
+            stepType: step.step_type,
+            completedAt: step.completed_at
+          });
+          
+          // Also track S→S completed as "at production"
+          if (step.step_type === 'supplier_to_supplier') {
+            productions.push({
+              stepId: step.id,
+              taskId: step.task_id,
+              taskTitle: task.title,
+              clientName: task.client_name,
+              supplierName: step.supplier_name || 'Unknown',
+              dueDate: task.due_date,
+              priority: task.priority,
+              products: stepProducts,
+              isAtProduction: true
+            });
+          }
+        } else if (step.status === 'pending') {
+          // Apply today filter
+          if (todayOnly && task.due_date && !isToday(new Date(task.due_date)) && !isPast(new Date(task.due_date))) {
+            return;
+          }
+
+          if (step.step_type === 'collect' || step.step_type === 'supplier_to_supplier') {
+            collections.push({
+              stepId: step.id,
+              taskId: step.task_id,
+              taskTitle: task.title,
+              clientName: task.client_name,
+              supplierName: step.supplier_name || 'Unknown Supplier',
+              address: step.location_address,
+              dueDate: task.due_date,
+              priority: task.priority,
+              products: stepProducts,
+              stepType: step.step_type,
+              area: extractArea(step.location_address)
+            });
+          } else if (step.step_type === 'deliver_to_client') {
+            deliveries.push({
+              stepId: step.id,
+              taskId: step.task_id,
+              taskTitle: task.title,
+              clientName: task.client_name,
+              address: task.delivery_address,
+              dueDate: task.due_date,
+              priority: task.priority,
+              products: stepProducts,
+              area: extractArea(task.delivery_address),
+              instructions: task.delivery_instructions
+            });
+          } else if (step.step_type === 'deliver_to_supplier') {
+            productions.push({
+              stepId: step.id,
+              taskId: step.task_id,
+              taskTitle: task.title,
+              clientName: task.client_name,
+              supplierName: step.supplier_name || 'Unknown',
+              dueDate: task.due_date,
+              priority: task.priority,
+              products: stepProducts,
+              isAtProduction: false
+            });
+          }
+        }
       });
 
-      (productsData || []).forEach(product => {
-        if (!productsMap[product.task_id]) productsMap[product.task_id] = [];
-        productsMap[product.task_id].push(product);
-      });
+      // Sort by priority (urgent first) then by due date
+      const priorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+      const sortFn = (a: any, b: any) => {
+        const pA = priorityOrder[a.priority] ?? 2;
+        const pB = priorityOrder[b.priority] ?? 2;
+        if (pA !== pB) return pA - pB;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      };
 
-      const enrichedTasks: TaskData[] = tasksData.map(task => ({
-        ...task,
-        products: productsMap[task.id] || [],
-        workflow_steps: stepsMap[task.id] || []
-      }));
-
-      setTasks(enrichedTasks);
+      setCollectItems(collections.sort(sortFn));
+      setDeliverItems(deliveries.sort(sortFn));
+      setProductionItems(productions);
+      setCompletedItems(completed.slice(-20));
     } catch (error) {
-      console.error('Error fetching tasks:', error);
-      toast.error('Failed to load tasks');
+      console.error('Error:', error);
+      toast.error('Failed to load');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [todayOnly, teamFilter, isAdmin]);
 
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Real-time subscription
   useEffect(() => {
     const channel = supabase
-      .channel('ops-tasks-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchTasks())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_workflow_steps' }, () => fetchTasks())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_products' }, () => fetchTasks())
+      .channel('ops-realtime-v2')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_workflow_steps' }, () => fetchData())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
-  }, [fetchTasks]);
+  }, [fetchData]);
 
-  // Mark step as completed
-  const handleCompleteStep = async (stepId: string, actionLabel: string) => {
-    setUpdatingStep(stepId);
+  const handleComplete = async (stepId: string, label: string) => {
+    setCompletingStep(stepId);
     try {
       const { error } = await supabase
         .from('task_workflow_steps')
-        .update({ 
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          completed_by: userId
-        })
+        .update({ status: 'completed', completed_at: new Date().toISOString(), completed_by: userId })
         .eq('id', stepId);
-
       if (error) throw error;
-      toast.success(`✓ ${actionLabel}!`);
-      fetchTasks();
+      toast.success(`✓ ${label}`);
+      fetchData();
       onRefresh?.();
-    } catch (error: any) {
-      console.error('Error completing step:', error);
-      toast.error('Failed to update');
+    } catch (e) {
+      toast.error('Failed');
     } finally {
-      setUpdatingStep(null);
+      setCompletingStep(null);
+      setSwipingItem(null);
+      setSwipeOffset(0);
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Address copied!');
-  };
-
-  const openInMaps = (address: string) => {
+  const openMaps = (address: string) => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
   };
 
-  const toggleTaskExpanded = (taskId: string) => {
-    setExpandedTasks(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) {
-        next.delete(taskId);
-      } else {
-        next.add(taskId);
-      }
-      return next;
-    });
+  // Swipe handlers
+  const handleTouchStart = (e: React.TouchEvent, itemId: string) => {
+    touchStartX.current = e.touches[0].clientX;
+    setSwipingItem(itemId);
   };
 
-  // Filter tasks by team member if admin
-  const filteredTasks = isAdmin && teamFilter !== 'all'
-    ? tasks.filter(t => t.assigned_to === teamFilter)
-    : tasks;
-
-  // ======= CATEGORIZE TASKS =======
-  // COLLECT: Tasks with pending collect or S→S steps
-  const collectTasks = filteredTasks.filter(task => 
-    task.workflow_steps.some(s => 
-      (s.step_type === 'collect' || s.step_type === 'supplier_to_supplier') && 
-      s.status === 'pending'
-    )
-  );
-
-  // PRODUCTION: Tasks with pending deliver_to_supplier OR completed S→S (at production)
-  const productionTasks = filteredTasks.filter(task =>
-    task.workflow_steps.some(s =>
-      (s.step_type === 'deliver_to_supplier' && s.status === 'pending') ||
-      (s.step_type === 'supplier_to_supplier' && s.status === 'completed')
-    )
-  );
-
-  // DELIVER: Tasks with pending deliver_to_client steps
-  const deliverTasks = filteredTasks.filter(task =>
-    task.workflow_steps.some(s => 
-      s.step_type === 'deliver_to_client' && s.status === 'pending'
-    )
-  );
-
-  // HISTORY: All completed steps
-  const historyTasks = filteredTasks.filter(task =>
-    task.workflow_steps.some(s => s.status === 'completed')
-  );
-
-  // ======= RENDER FUNCTIONS =======
-
-  const getPriorityBadge = (priority: string) => {
-    const config: Record<string, { color: string; label: string }> = {
-      urgent: { color: 'bg-red-600 text-white', label: '🔴 URGENT' },
-      high: { color: 'bg-orange-500 text-white', label: '🟠 HIGH' },
-      medium: { color: 'bg-blue-500 text-white', label: '🔵 MEDIUM' },
-      low: { color: 'bg-gray-400 text-white', label: '⚪ LOW' }
-    };
-    const c = config[priority] || config.medium;
-    return <Badge className={cn("text-xs font-bold", c.color)}>{c.label}</Badge>;
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!swipingItem) return;
+    const diff = e.touches[0].clientX - touchStartX.current;
+    if (diff > 0) setSwipeOffset(Math.min(diff, 120));
   };
 
-  const getDueDateDisplay = (dueDate: string | null) => {
+  const handleTouchEnd = (item: { stepId: string; supplierName?: string; clientName?: string }, type: 'collect' | 'deliver' | 'production') => {
+    if (swipeOffset > 80) {
+      const label = type === 'collect' ? `Collected from ${item.supplierName}` : 
+                    type === 'deliver' ? 'Delivered' : 'Sent to Production';
+      handleComplete(item.stepId, label);
+    } else {
+      setSwipingItem(null);
+      setSwipeOffset(0);
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'urgent': return 'bg-red-500';
+      case 'high': return 'bg-orange-500';
+      case 'medium': return 'bg-blue-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
+  const getDueLabel = (dueDate: string | null) => {
     if (!dueDate) return null;
     const date = new Date(dueDate);
-    const isOverdue = isPast(date) && !isToday(date);
-    const isDueToday = isToday(date);
-    const isDueTomorrow = isTomorrow(date);
+    if (isPast(date) && !isToday(date)) return { text: 'OVERDUE', color: 'text-red-600 bg-red-50' };
+    if (isToday(date)) return { text: 'TODAY', color: 'text-orange-600 bg-orange-50' };
+    if (isTomorrow(date)) return { text: 'Tomorrow', color: 'text-blue-600 bg-blue-50' };
+    return { text: format(date, 'MMM d'), color: 'text-muted-foreground bg-muted' };
+  };
+
+  // Group by area
+  const groupByArea = <T extends { area: string }>(items: T[]): Record<string, T[]> => {
+    return items.reduce((acc, item) => {
+      if (!acc[item.area]) acc[item.area] = [];
+      acc[item.area].push(item);
+      return acc;
+    }, {} as Record<string, T[]>);
+  };
+
+  const collectByArea = groupByArea(collectItems);
+  const deliverByArea = groupByArea(deliverItems);
+
+  const renderSwipeableCard = (
+    item: { stepId: string; supplierName?: string; clientName?: string; taskTitle: string; address?: string | null; dueDate: string | null; priority: string; products: { name: string; qty: number | null; unit: string | null }[] },
+    type: 'collect' | 'deliver' | 'production',
+    extraContent?: React.ReactNode
+  ) => {
+    const isActive = swipingItem === item.stepId;
+    const isCompleting = completingStep === item.stepId;
+    const due = getDueLabel(item.dueDate);
+    
+    const bgColor = type === 'collect' ? 'bg-blue-50 dark:bg-blue-950/30' :
+                    type === 'deliver' ? 'bg-green-50 dark:bg-green-950/30' :
+                    'bg-amber-50 dark:bg-amber-950/30';
+    
+    const borderColor = type === 'collect' ? 'border-l-blue-500' :
+                        type === 'deliver' ? 'border-l-green-500' :
+                        'border-l-amber-500';
+
+    const actionColor = type === 'collect' ? 'bg-blue-600' :
+                        type === 'deliver' ? 'bg-green-600' :
+                        'bg-amber-600';
 
     return (
-      <div className={cn(
-        "flex items-center gap-1 text-sm font-medium",
-        isOverdue && "text-red-600",
-        isDueToday && !isOverdue && "text-orange-600",
-        isDueTomorrow && "text-blue-600"
-      )}>
-        <Clock className="h-4 w-4" />
-        {isOverdue ? '⚠️ OVERDUE - ' : isDueToday ? '📅 TODAY - ' : isDueTomorrow ? '📅 Tomorrow - ' : '📅 '}
-        {format(date, 'MMM d, yyyy')}
-      </div>
-    );
-  };
+      <div key={item.stepId} className="relative overflow-hidden rounded-lg mb-2">
+        {/* Swipe reveal background */}
+        <div className={cn(
+          "absolute inset-y-0 left-0 flex items-center justify-center px-4 transition-all",
+          actionColor,
+          isActive && swipeOffset > 0 ? "opacity-100" : "opacity-0"
+        )} style={{ width: swipeOffset }}>
+          <Check className="h-6 w-6 text-white" />
+        </div>
 
-  // Get suppliers involved in collections
-  const getCollectionSuppliers = (task: TaskData) => {
-    const collectSteps = task.workflow_steps.filter(s => 
-      (s.step_type === 'collect' || s.step_type === 'supplier_to_supplier') && 
-      s.status === 'pending'
-    );
-    return collectSteps.map(s => ({
-      stepId: s.id,
-      supplierName: s.supplier_name || 'Unknown Supplier',
-      address: s.location_address,
-      stepType: s.step_type,
-      notes: s.location_notes
-    }));
-  };
-
-  // Get products grouped by supplier
-  const getProductsBySupplier = (task: TaskData) => {
-    const grouped: Record<string, Product[]> = {};
-    task.products.forEach(p => {
-      const supplier = p.supplier_name || 'No Supplier';
-      if (!grouped[supplier]) grouped[supplier] = [];
-      grouped[supplier].push(p);
-    });
-    return grouped;
-  };
-
-  const renderTaskCard = (task: TaskData, tabType: TabType) => {
-    const isExpanded = expandedTasks.has(task.id);
-    const productsBySupplier = getProductsBySupplier(task);
-    const collectionSuppliers = getCollectionSuppliers(task);
-
-    // Get relevant steps for this tab
-    const relevantSteps = task.workflow_steps.filter(s => {
-      if (tabType === 'collect') {
-        return (s.step_type === 'collect' || s.step_type === 'supplier_to_supplier') && s.status === 'pending';
-      } else if (tabType === 'production') {
-        return (s.step_type === 'deliver_to_supplier' && s.status === 'pending') ||
-               (s.step_type === 'supplier_to_supplier' && s.status === 'completed');
-      } else if (tabType === 'deliver') {
-        return s.step_type === 'deliver_to_client' && s.status === 'pending';
-      }
-      return s.status === 'completed';
-    });
-
-    const borderColor = tabType === 'collect' ? 'border-l-blue-500' : 
-                        tabType === 'production' ? 'border-l-amber-500' : 
-                        tabType === 'deliver' ? 'border-l-green-500' : 'border-l-gray-400';
-
-    const bgColor = tabType === 'collect' ? 'bg-blue-50/50 dark:bg-blue-950/20' : 
-                    tabType === 'production' ? 'bg-amber-50/50 dark:bg-amber-950/20' : 
-                    tabType === 'deliver' ? 'bg-green-50/50 dark:bg-green-950/20' : 'bg-gray-50/50';
-
-    return (
-      <Card key={task.id} className={cn("border-l-4 overflow-hidden", borderColor, bgColor)}>
-        <CardHeader className="p-4 pb-2">
-          {/* Priority + Due Date Row */}
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-            {getPriorityBadge(task.priority)}
-            {getDueDateDisplay(task.due_date)}
-          </div>
-
-          {/* Task Title */}
-          <h3 className="font-bold text-lg leading-tight">{task.title}</h3>
-
-          {/* Client Name */}
-          {task.client_name && (
-            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-              <Building2 className="h-4 w-4" />
-              Client: <span className="font-medium text-foreground">{task.client_name}</span>
-            </p>
+        {/* Card */}
+        <Card
+          className={cn(
+            "border-l-4 transition-transform touch-pan-y",
+            borderColor,
+            bgColor
           )}
-        </CardHeader>
-
-        <CardContent className="p-4 pt-2 space-y-4">
-          {/* ALL PRODUCTS - Always Show */}
-          <div className="bg-white dark:bg-background rounded-lg border p-3">
-            <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-              <Package className="h-4 w-4 text-primary" />
-              Products ({task.products.length})
-            </h4>
-            {task.products.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No products listed</p>
+          style={{ transform: isActive ? `translateX(${swipeOffset}px)` : 'translateX(0)' }}
+          onTouchStart={(e) => handleTouchStart(e, item.stepId)}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={() => handleTouchEnd(item as any, type)}
+        >
+          <CardContent className="p-3">
+            {isCompleting ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
             ) : (
-              <div className="space-y-2">
-                {Object.entries(productsBySupplier).map(([supplier, products]) => (
-                  <div key={supplier} className="space-y-1">
-                    <p className="text-xs font-semibold text-primary uppercase tracking-wide">
-                      {supplier}
-                    </p>
-                    {products.map((product, idx) => (
-                      <div key={product.id || idx} className="flex items-center justify-between text-sm bg-muted/50 rounded px-2 py-1">
-                        <span className="font-medium">{product.product_name}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {product.quantity || '?'} {product.unit || 'pcs'}
-                        </Badge>
-                      </div>
-                    ))}
+              <>
+                {/* Header Row */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className={cn("w-2 h-2 rounded-full shrink-0", getPriorityColor(item.priority))} />
+                    <span className="font-bold text-base truncate">
+                      {type === 'deliver' ? (item.clientName || item.taskTitle) : (item.supplierName || item.taskTitle)}
+                    </span>
                   </div>
-                ))}
-              </div>
+                  {due && (
+                    <Badge variant="outline" className={cn("text-[10px] shrink-0 font-semibold", due.color)}>
+                      {due.text}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Task/Client reference */}
+                <p className="text-xs text-muted-foreground mb-2 truncate">
+                  {type === 'deliver' ? item.taskTitle : item.clientName || item.taskTitle}
+                </p>
+
+                {/* Products - Compact */}
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {item.products.slice(0, 3).map((p, i) => (
+                    <Badge key={i} variant="secondary" className="text-[10px] h-5">
+                      {p.name} {p.qty && `(${p.qty})`}
+                    </Badge>
+                  ))}
+                  {item.products.length > 3 && (
+                    <Badge variant="outline" className="text-[10px] h-5">
+                      +{item.products.length - 3} more
+                    </Badge>
+                  )}
+                </div>
+
+                {extraContent}
+
+                {/* Address + Navigate */}
+                {item.address && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-8 text-xs justify-between mt-2"
+                    onClick={() => openMaps(item.address!)}
+                  >
+                    <span className="truncate text-left flex-1">{item.address}</span>
+                    <Navigation className="h-3 w-3 shrink-0 ml-2" />
+                  </Button>
+                )}
+
+                {/* Swipe hint */}
+                <p className="text-[10px] text-muted-foreground text-center mt-2 opacity-60">
+                  ← Swipe right to complete →
+                </p>
+              </>
             )}
-          </div>
-
-          {/* SUPPLIERS TO COLLECT FROM (for collect tab) */}
-          {tabType === 'collect' && collectionSuppliers.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="font-semibold text-sm flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-blue-600" />
-                Collect From ({collectionSuppliers.length} suppliers)
-              </h4>
-              {collectionSuppliers.map((supplier, idx) => (
-                <div key={supplier.stepId} className="bg-blue-100/50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-base">{supplier.supplierName}</span>
-                    {supplier.stepType === 'supplier_to_supplier' && (
-                      <Badge className="bg-purple-600 text-white text-xs">S→S Transfer</Badge>
-                    )}
-                  </div>
-                  
-                  {supplier.address && (
-                    <div className="flex items-start gap-2 mb-2">
-                      <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-                      <span className="text-sm">{supplier.address}</span>
-                    </div>
-                  )}
-
-                  {supplier.address && (
-                    <div className="flex gap-2 mt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs h-8"
-                        onClick={() => copyToClipboard(supplier.address!)}
-                      >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copy Address
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs h-8"
-                        onClick={() => openInMaps(supplier.address!)}
-                      >
-                        <Navigation className="h-3 w-3 mr-1" />
-                        Navigate
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Action Button */}
-                  <Button
-                    className="w-full mt-3 h-11 text-base font-bold bg-blue-600 hover:bg-blue-700"
-                    disabled={updatingStep === supplier.stepId}
-                    onClick={() => handleCompleteStep(supplier.stepId, `Collected from ${supplier.supplierName}`)}
-                  >
-                    {updatingStep === supplier.stepId ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <>
-                        <Check className="h-5 w-5 mr-2" />
-                        ✓ COLLECTED FROM {supplier.supplierName.toUpperCase()}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* PRODUCTION STEPS (for production tab) */}
-          {tabType === 'production' && relevantSteps.length > 0 && (
-            <div className="space-y-3">
-              {relevantSteps.map(step => {
-                const isAtProduction = step.step_type === 'supplier_to_supplier' && step.status === 'completed';
-                
-                return (
-                  <div 
-                    key={step.id} 
-                    className={cn(
-                      "rounded-lg p-3 border",
-                      isAtProduction ? "bg-purple-100/50 border-purple-200" : "bg-amber-100/50 border-amber-200"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-base">
-                        {step.supplier_name || 'Unknown Supplier'}
-                      </span>
-                      {isAtProduction ? (
-                        <Badge className="bg-purple-600 text-white text-xs">
-                          <Factory className="h-3 w-3 mr-1" />
-                          AT PRODUCTION
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-amber-600 text-white text-xs">
-                          SEND TO PRODUCTION
-                        </Badge>
-                      )}
-                    </div>
-
-                    {step.location_address && (
-                      <div className="flex items-start gap-2 mb-2">
-                        <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-                        <span className="text-sm">{step.location_address}</span>
-                      </div>
-                    )}
-
-                    {!isAtProduction && (
-                      <Button
-                        className="w-full mt-2 h-11 text-base font-bold bg-amber-600 hover:bg-amber-700"
-                        disabled={updatingStep === step.id}
-                        onClick={() => handleCompleteStep(step.id, `Sent to ${step.supplier_name}`)}
-                      >
-                        {updatingStep === step.id ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <>
-                            <Check className="h-5 w-5 mr-2" />
-                            ✓ SENT TO PRODUCTION
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* DELIVERY SECTION (for deliver tab) */}
-          {tabType === 'deliver' && (
-            <div className="space-y-3">
-              <div className="bg-green-100/50 dark:bg-green-900/20 rounded-lg p-3 border border-green-200">
-                <h4 className="font-semibold text-sm flex items-center gap-2 mb-2">
-                  <Truck className="h-4 w-4 text-green-600" />
-                  Delivery Details
-                </h4>
-                
-                {task.delivery_address ? (
-                  <>
-                    <div className="flex items-start gap-2 mb-2">
-                      <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-                      <span className="text-sm font-medium">{task.delivery_address}</span>
-                    </div>
-                    <div className="flex gap-2 mb-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs h-8"
-                        onClick={() => copyToClipboard(task.delivery_address!)}
-                      >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copy Address
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs h-8"
-                        onClick={() => openInMaps(task.delivery_address!)}
-                      >
-                        <Navigation className="h-3 w-3 mr-1" />
-                        Navigate
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic mb-2">No delivery address set</p>
-                )}
-
-                {task.delivery_instructions && (
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 rounded p-2 mb-3">
-                    <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-1">📝 Instructions:</p>
-                    <p className="text-sm">{task.delivery_instructions}</p>
-                  </div>
-                )}
-
-                {relevantSteps.map(step => (
-                  <Button
-                    key={step.id}
-                    className="w-full h-12 text-base font-bold bg-green-600 hover:bg-green-700"
-                    disabled={updatingStep === step.id}
-                    onClick={() => handleCompleteStep(step.id, 'Delivered')}
-                  >
-                    {updatingStep === step.id ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <>
-                        <Check className="h-5 w-5 mr-2" />
-                        ✓ DELIVERED TO CLIENT
-                      </>
-                    )}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* HISTORY VIEW */}
-          {tabType === 'history' && (
-            <div className="space-y-2">
-              {task.workflow_steps.filter(s => s.status === 'completed').map(step => (
-                <div key={step.id} className="flex items-center justify-between bg-muted/50 rounded p-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium">
-                      {step.step_type === 'collect' ? 'Collected' : 
-                       step.step_type === 'deliver_to_client' ? 'Delivered' : 
-                       step.step_type === 'supplier_to_supplier' ? 'S→S Transfer' : 'To Supplier'}
-                      {step.supplier_name && ` - ${step.supplier_name}`}
-                    </span>
-                  </div>
-                  {step.completed_at && (
-                    <span className="text-xs text-muted-foreground">
-                      {format(new Date(step.completed_at), 'MMM d, h:mm a')}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     );
   };
 
@@ -619,139 +469,211 @@ export const SimpleOperationsView = ({
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground mt-2">Loading tasks...</p>
       </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col">
-      {/* Summary Header */}
-      <div className="px-4 py-3 bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-bold text-sm flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            {format(new Date(), 'EEEE, MMMM d, yyyy')}
-          </h2>
-          <Button variant="ghost" size="icon" onClick={fetchTasks}>
+      {/* Header */}
+      <div className="px-4 py-3 bg-gradient-to-r from-primary/5 to-primary/10 border-b space-y-3">
+        {/* Date + Refresh */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-primary" />
+            <span className="font-bold text-sm">{format(new Date(), 'EEE, MMM d')}</span>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchData}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
+
+        {/* Stats */}
         <div className="grid grid-cols-4 gap-2">
-          <div className="bg-blue-100 dark:bg-blue-950/50 rounded-lg p-2 text-center">
-            <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{collectTasks.length}</p>
-            <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">📥 COLLECT</p>
+          <div className="bg-blue-500 text-white rounded-lg p-2 text-center">
+            <p className="text-xl font-bold">{collectItems.length}</p>
+            <p className="text-[9px] opacity-90">COLLECT</p>
           </div>
-          <div className="bg-amber-100 dark:bg-amber-950/50 rounded-lg p-2 text-center">
-            <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{productionTasks.length}</p>
-            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">🏭 PRODUCTION</p>
+          <div className="bg-amber-500 text-white rounded-lg p-2 text-center">
+            <p className="text-xl font-bold">{productionItems.filter(p => !p.isAtProduction).length}</p>
+            <p className="text-[9px] opacity-90">PRODUCTION</p>
           </div>
-          <div className="bg-green-100 dark:bg-green-950/50 rounded-lg p-2 text-center">
-            <p className="text-xl font-bold text-green-700 dark:text-green-300">{deliverTasks.length}</p>
-            <p className="text-[10px] text-green-600 dark:text-green-400 font-medium">🚚 DELIVER</p>
+          <div className="bg-green-500 text-white rounded-lg p-2 text-center">
+            <p className="text-xl font-bold">{deliverItems.length}</p>
+            <p className="text-[9px] opacity-90">DELIVER</p>
           </div>
-          <div className="bg-gray-100 dark:bg-gray-800/50 rounded-lg p-2 text-center">
-            <p className="text-xl font-bold text-gray-700 dark:text-gray-300">{tasks.length}</p>
-            <p className="text-[10px] text-gray-600 dark:text-gray-400 font-medium">📋 TOTAL</p>
+          <div className="bg-purple-500 text-white rounded-lg p-2 text-center">
+            <p className="text-xl font-bold">{productionItems.filter(p => p.isAtProduction).length}</p>
+            <p className="text-[9px] opacity-90">AT PROD</p>
           </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Switch checked={todayOnly} onCheckedChange={setTodayOnly} id="today" />
+            <label htmlFor="today" className="text-xs font-medium">Today + Overdue only</label>
+          </div>
+          {isAdmin && operationsUsers.length > 0 && (
+            <Select value={teamFilter} onValueChange={setTeamFilter}>
+              <SelectTrigger className="h-7 w-28 text-xs">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Team</SelectItem>
+                {operationsUsers.map(u => (
+                  <SelectItem key={u.id} value={u.id}>{u.full_name || u.email}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
-      {/* Admin Filter */}
-      {isAdmin && operationsUsers.length > 0 && (
-        <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={teamFilter} onValueChange={setTeamFilter}>
-            <SelectTrigger className="h-8 w-40 text-xs">
-              <SelectValue placeholder="All Team" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Team</SelectItem>
-              {operationsUsers.map(user => (
-                <SelectItem key={user.id} value={user.id}>
-                  {user.full_name || user.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="w-full justify-start px-2 py-2 h-auto bg-background border-b rounded-none gap-1">
-          <TabsTrigger 
-            value="collect" 
-            className="flex-1 text-xs px-2 py-2.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-          >
-            📥 Collect ({collectTasks.length})
+        <TabsList className="w-full px-2 py-2 h-auto bg-background border-b rounded-none gap-1 justify-start">
+          <TabsTrigger value="collect" className="flex-1 text-xs py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+            📥 Collect
           </TabsTrigger>
-          <TabsTrigger 
-            value="production" 
-            className="flex-1 text-xs px-2 py-2.5 data-[state=active]:bg-amber-600 data-[state=active]:text-white"
-          >
-            🏭 Prod ({productionTasks.length})
+          <TabsTrigger value="production" className="flex-1 text-xs py-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white">
+            🏭 Prod
           </TabsTrigger>
-          <TabsTrigger 
-            value="deliver" 
-            className="flex-1 text-xs px-2 py-2.5 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-          >
-            🚚 Deliver ({deliverTasks.length})
+          <TabsTrigger value="deliver" className="flex-1 text-xs py-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
+            🚚 Deliver
           </TabsTrigger>
-          <TabsTrigger 
-            value="history" 
-            className="flex-1 text-xs px-2 py-2.5 data-[state=active]:bg-gray-600 data-[state=active]:text-white"
-          >
-            📋 History
+          <TabsTrigger value="done" className="flex-1 text-xs py-2 data-[state=active]:bg-gray-600 data-[state=active]:text-white">
+            ✓ Done
           </TabsTrigger>
         </TabsList>
 
         <ScrollArea className="flex-1">
-          <TabsContent value="collect" className="p-4 space-y-4 m-0">
-            {collectTasks.length === 0 ? (
+          {/* COLLECT TAB - Grouped by Area */}
+          <TabsContent value="collect" className="p-3 m-0">
+            {collectItems.length === 0 ? (
               <div className="text-center py-12">
-                <CheckCircle2 className="h-16 w-16 text-green-500/50 mx-auto mb-3" />
-                <p className="font-medium text-lg">All Collected! 🎉</p>
-                <p className="text-sm text-muted-foreground mt-1">No pending collections</p>
+                <CheckCircle2 className="h-12 w-12 text-green-500/50 mx-auto mb-2" />
+                <p className="font-medium">All Collected! 🎉</p>
               </div>
             ) : (
-              collectTasks.map(task => renderTaskCard(task, 'collect'))
+              Object.entries(collectByArea).map(([area, items]) => (
+                <div key={area} className="mb-4">
+                  <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
+                    <MapPin className="h-4 w-4 text-blue-600" />
+                    <span className="font-bold text-sm text-blue-700">{area}</span>
+                    <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+                  </div>
+                  {items.map(item => renderSwipeableCard(item, 'collect'))}
+                </div>
+              ))
             )}
           </TabsContent>
 
-          <TabsContent value="production" className="p-4 space-y-4 m-0">
-            {productionTasks.length === 0 ? (
+          {/* PRODUCTION TAB */}
+          <TabsContent value="production" className="p-3 m-0">
+            {productionItems.length === 0 ? (
               <div className="text-center py-12">
-                <Factory className="h-16 w-16 text-amber-500/30 mx-auto mb-3" />
-                <p className="font-medium text-lg">Nothing for Production</p>
-                <p className="text-sm text-muted-foreground mt-1">No items to send or track</p>
+                <Factory className="h-12 w-12 text-amber-500/30 mx-auto mb-2" />
+                <p className="font-medium">Nothing for Production</p>
               </div>
             ) : (
-              productionTasks.map(task => renderTaskCard(task, 'production'))
+              <>
+                {/* To Send */}
+                {productionItems.filter(p => !p.isAtProduction).length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Factory className="h-4 w-4 text-amber-600" />
+                      <span className="font-bold text-sm text-amber-700">To Send</span>
+                    </div>
+                    {productionItems.filter(p => !p.isAtProduction).map(item => 
+                      renderSwipeableCard({
+                        ...item,
+                        address: null
+                      }, 'production')
+                    )}
+                  </div>
+                )}
+                
+                {/* At Production */}
+                {productionItems.filter(p => p.isAtProduction).length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Factory className="h-4 w-4 text-purple-600" />
+                      <span className="font-bold text-sm text-purple-700">At Production</span>
+                    </div>
+                    {productionItems.filter(p => p.isAtProduction).map(item => (
+                      <Card key={item.stepId} className="border-l-4 border-l-purple-500 bg-purple-50 dark:bg-purple-950/30 mb-2">
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-purple-600 text-white text-xs">AT PRODUCTION</Badge>
+                            <span className="font-medium text-sm">{item.supplierName}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{item.taskTitle}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
 
-          <TabsContent value="deliver" className="p-4 space-y-4 m-0">
-            {deliverTasks.length === 0 ? (
+          {/* DELIVER TAB - Grouped by Area */}
+          <TabsContent value="deliver" className="p-3 m-0">
+            {deliverItems.length === 0 ? (
               <div className="text-center py-12">
-                <Truck className="h-16 w-16 text-green-500/30 mx-auto mb-3" />
-                <p className="font-medium text-lg">No Deliveries Pending</p>
-                <p className="text-sm text-muted-foreground mt-1">All items delivered</p>
+                <Truck className="h-12 w-12 text-green-500/30 mx-auto mb-2" />
+                <p className="font-medium">No Deliveries 🎉</p>
               </div>
             ) : (
-              deliverTasks.map(task => renderTaskCard(task, 'deliver'))
+              Object.entries(deliverByArea).map(([area, items]) => (
+                <div key={area} className="mb-4">
+                  <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background py-1">
+                    <MapPin className="h-4 w-4 text-green-600" />
+                    <span className="font-bold text-sm text-green-700">{area}</span>
+                    <Badge variant="secondary" className="text-xs">{items.length}</Badge>
+                  </div>
+                  {items.map(item => renderSwipeableCard(
+                    item, 
+                    'deliver',
+                    item.instructions && (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-xs mt-2">
+                        <span className="font-semibold">📝 </span>{item.instructions}
+                      </div>
+                    )
+                  ))}
+                </div>
+              ))
             )}
           </TabsContent>
 
-          <TabsContent value="history" className="p-4 space-y-4 m-0">
-            {historyTasks.length === 0 ? (
+          {/* DONE TAB */}
+          <TabsContent value="done" className="p-3 m-0">
+            {completedItems.length === 0 ? (
               <div className="text-center py-12">
-                <History className="h-16 w-16 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="font-medium text-lg">No History Yet</p>
-                <p className="text-sm text-muted-foreground mt-1">Completed actions appear here</p>
+                <History className="h-12 w-12 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="font-medium">No History Yet</p>
               </div>
             ) : (
-              historyTasks.map(task => renderTaskCard(task, 'history'))
+              completedItems.map(item => (
+                <Card key={item.stepId} className="mb-2 bg-muted/30">
+                  <CardContent className="p-3 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.taskTitle}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.stepType === 'collect' ? 'Collected' : item.stepType === 'deliver_to_client' ? 'Delivered' : 'Production'}
+                        {item.supplierName && ` - ${item.supplierName}`}
+                      </p>
+                    </div>
+                    {item.completedAt && (
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {format(new Date(item.completedAt), 'h:mm a')}
+                      </span>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
             )}
           </TabsContent>
         </ScrollArea>
