@@ -123,8 +123,7 @@ export const OperationsRouteMap = ({
         .is('tasks.deleted_at', null)
         .eq('tasks.status', 'production')
         .eq('status', 'pending')
-        .in('step_type', ['collect', 'supplier_to_supplier'])
-        .order('tasks.due_date', { ascending: true });
+        .in('step_type', ['collect', 'supplier_to_supplier']);
 
       if (error) throw error;
 
@@ -189,7 +188,14 @@ export const OperationsRouteMap = ({
         }
       });
 
-      setSuppliers(Array.from(supplierMap.values()));
+      // Sort by due date
+      const sortedSuppliers = Array.from(supplierMap.values()).sort((a, b) => {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      });
+
+      setSuppliers(sortedSuppliers);
     } catch (error) {
       console.error('Error fetching suppliers:', error);
       toast.error('Failed to load suppliers');
