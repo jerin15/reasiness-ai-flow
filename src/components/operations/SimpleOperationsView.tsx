@@ -26,7 +26,8 @@ import {
   ArrowRight,
   User,
   Box,
-  Trash2
+  Trash2,
+  Edit2
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -51,6 +52,7 @@ import {
 } from "@/components/ui/select";
 import { OperationsRouteMap } from './OperationsRouteMap';
 import { SwipeConfirmDialog } from './SwipeConfirmDialog';
+import { OperationsProductEditor } from './OperationsProductEditor';
 
 interface CollectionItem {
   stepId: string;
@@ -158,6 +160,13 @@ export const SimpleOperationsView = ({
     taskTitle: string;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Product editor dialog state
+  const [productEditor, setProductEditor] = useState<{
+    open: boolean;
+    taskId: string;
+    taskTitle: string;
+  } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -626,9 +635,30 @@ export const SimpleOperationsView = ({
 
                 {/* Products Section */}
                 <div className="bg-white/70 dark:bg-black/20 rounded-lg p-2 border border-border/50 mb-2">
-                  <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground mb-1.5">
-                    <Box className="h-3 w-3" />
-                    PRODUCTS ({item.products.length} items, {totalQty} total qty)
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                    <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+                      <Box className="h-3 w-3" />
+                      PRODUCTS ({item.products.length} items, {totalQty} total qty)
+                    </div>
+                    {/* Edit Products Button */}
+                    {item.taskId && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] text-primary hover:text-primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProductEditor({
+                            open: true,
+                            taskId: item.taskId!,
+                            taskTitle: item.taskTitle
+                          });
+                        }}
+                      >
+                        <Edit2 className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                    )}
                   </div>
                   
                   {type === 'collect' ? (
@@ -1132,6 +1162,17 @@ export const SimpleOperationsView = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Product Editor Dialog */}
+      {productEditor && (
+        <OperationsProductEditor
+          open={productEditor.open}
+          onOpenChange={(open) => !open && setProductEditor(null)}
+          taskId={productEditor.taskId}
+          taskTitle={productEditor.taskTitle}
+          onProductsUpdated={fetchData}
+        />
+      )}
     </div>
   );
 };
