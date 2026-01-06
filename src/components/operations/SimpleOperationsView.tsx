@@ -110,27 +110,40 @@ export const SimpleOperationsView = ({
 
       if (error) throw error;
 
-      // Fetch products for all steps
+      // Get unique task IDs
+      const taskIds = [...new Set((stepsData || []).map((s: any) => s.task_id))];
       const stepIds = (stepsData || []).map((s: any) => s.id);
-      let productsMap: Record<string, StepProduct[]> = {};
       
-      if (stepIds.length > 0) {
+      let productsMap: Record<string, StepProduct[]> = {};
+      let taskProductsMap: Record<string, StepProduct[]> = {}; // Products without workflow_step_id
+      
+      if (taskIds.length > 0) {
+        // Fetch ALL products for these tasks
         const { data: productsData } = await supabase
           .from('task_products')
-          .select('id, workflow_step_id, product_name, quantity, unit')
-          .in('workflow_step_id', stepIds);
+          .select('id, task_id, workflow_step_id, product_name, quantity, unit')
+          .in('task_id', taskIds);
         
         (productsData || []).forEach((p: any) => {
+          const product = {
+            id: p.id,
+            product_name: p.product_name,
+            quantity: p.quantity,
+            unit: p.unit
+          };
+          
           if (p.workflow_step_id) {
+            // Product is linked to specific step
             if (!productsMap[p.workflow_step_id]) {
               productsMap[p.workflow_step_id] = [];
             }
-            productsMap[p.workflow_step_id].push({
-              id: p.id,
-              product_name: p.product_name,
-              quantity: p.quantity,
-              unit: p.unit
-            });
+            productsMap[p.workflow_step_id].push(product);
+          } else {
+            // Product is linked to task only (no specific step)
+            if (!taskProductsMap[p.task_id]) {
+              taskProductsMap[p.task_id] = [];
+            }
+            taskProductsMap[p.task_id].push(product);
           }
         });
       }
@@ -147,13 +160,18 @@ export const SimpleOperationsView = ({
           if (toLine) toSupplier = toLine.replace('TO:', '').split('(')[0].trim();
         }
 
+        // Get products: prefer step-specific products, fallback to task-level products
+        const stepProducts = productsMap[step.id] || [];
+        const taskProducts = taskProductsMap[step.task_id] || [];
+        const allProducts = stepProducts.length > 0 ? stepProducts : taskProducts;
+
         return {
           ...step,
           task_title: step.tasks?.title,
           task_client: step.tasks?.client_name,
           task_priority: step.tasks?.priority,
           task_assigned_to: step.tasks?.assigned_to,
-          products: productsMap[step.id] || [],
+          products: allProducts,
           fromSupplier,
           toSupplier
         };
