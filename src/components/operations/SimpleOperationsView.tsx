@@ -25,8 +25,19 @@ import {
   Map,
   ArrowRight,
   User,
-  Box
+  Box,
+  Trash2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -140,6 +151,14 @@ export const SimpleOperationsView = ({
     products: { name: string; qty: number | null; unit: string | null }[];
   } | null>(null);
 
+  // Delete confirmation dialog state
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    taskId: string;
+    taskTitle: string;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -197,6 +216,7 @@ export const SimpleOperationsView = ({
         if (step.status === 'completed') {
           completed.push({
             stepId: step.id,
+            taskId: step.task_id,
             taskTitle: task.title,
             supplierName: step.supplier_name,
             stepType: step.step_type,
@@ -389,6 +409,30 @@ export const SimpleOperationsView = ({
     if (!confirmDialog) return;
     await handleComplete(confirmDialog.stepId, confirmDialog.label);
     setConfirmDialog(null);
+  };
+
+  const handleDeleteTask = async () => {
+    if (!deleteDialog) return;
+    setDeleting(true);
+    try {
+      // Soft delete the task
+      const { error } = await supabase
+        .from('tasks')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', deleteDialog.taskId);
+
+      if (error) throw error;
+
+      toast.success(`Task "${deleteDialog.taskTitle}" deleted`);
+      setDeleteDialog(null);
+      fetchData();
+      onRefresh?.();
+    } catch (error: any) {
+      console.error('Error deleting task:', error);
+      toast.error('Failed to delete task');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const getConfirmDialogDescription = () => {
@@ -641,12 +685,33 @@ export const SimpleOperationsView = ({
                   </div>
                 )}
 
-                {/* Swipe hint */}
-                <p className="text-[10px] text-muted-foreground text-center mt-2 opacity-60 flex items-center justify-center gap-1">
-                  <ChevronRight className="h-3 w-3" />
-                  Swipe right to complete
-                  <ChevronRight className="h-3 w-3" />
-                </p>
+                {/* Footer with swipe hint and admin delete */}
+                <div className="flex items-center justify-between mt-2">
+                  {/* Swipe hint */}
+                  <p className="text-[10px] text-muted-foreground opacity-60 flex items-center gap-1 flex-1">
+                    <ChevronRight className="h-3 w-3" />
+                    Swipe right to complete
+                  </p>
+                  
+                  {/* Admin Delete Button */}
+                  {isAdmin && item.taskId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteDialog({
+                          open: true,
+                          taskId: item.taskId!,
+                          taskTitle: item.taskTitle
+                        });
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
               </>
             )}
           </CardContent>
@@ -884,6 +949,28 @@ export const SimpleOperationsView = ({
                               Due: {format(new Date(item.dueDate), 'EEE, MMM d, yyyy')}
                             </div>
                           )}
+
+                          {/* Admin Delete Button */}
+                          {isAdmin && (
+                            <div className="flex justify-end mt-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteDialog({
+                                    open: true,
+                                    taskId: item.taskId,
+                                    taskTitle: item.taskTitle
+                                  });
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                <span className="text-xs">Delete</span>
+                              </Button>
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
@@ -941,11 +1028,30 @@ export const SimpleOperationsView = ({
                         {item.supplierName && ` - ${item.supplierName}`}
                       </p>
                     </div>
-                    {item.completedAt && (
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {format(new Date(item.completedAt), 'h:mm a')}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {item.completedAt && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {format(new Date(item.completedAt), 'h:mm a')}
+                        </span>
+                      )}
+                      {isAdmin && item.taskId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteDialog({
+                              open: true,
+                              taskId: item.taskId,
+                              taskTitle: item.taskTitle
+                            });
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))
@@ -974,6 +1080,34 @@ export const SimpleOperationsView = ({
           actionType={confirmDialog.type}
         />
       )}
+
+      {/* Delete Confirmation Dialog (Admin only) */}
+      <AlertDialog open={deleteDialog?.open} onOpenChange={(open) => !open && setDeleteDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Delete Task
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the task "<strong>{deleteDialog?.taskTitle}</strong>"?
+              <br /><br />
+              This will remove the task and all its workflow steps. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTask}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
