@@ -267,9 +267,7 @@ const Dashboard = () => {
       )}
       {showTeamReport && <TeamMemberReportDialog open={showTeamReport} onOpenChange={setShowTeamReport} />}
       {showEstimationReport && <EstimationTeamReportDialog open={showEstimationReport} onOpenChange={setShowEstimationReport} />}
-      {(showChat || showChatList) && (
-        <ModernChatList open={showChat || showChatList} onOpenChange={(o) => { setShowChat(o); setShowChatList(o); }} currentUserId={currentUserId} />
-      )}
+      <ModernChatList open={showChat || showChatList} onOpenChange={(o) => { setShowChat(o); setShowChatList(o); }} currentUserId={currentUserId} />
       {chatRecipientId && (
         <ChatDialog
           open={!!chatRecipientId}
