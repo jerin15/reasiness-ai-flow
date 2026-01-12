@@ -236,14 +236,17 @@ export const ModernChatList = ({
     (chat.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleChatSelect = (chat: Chat) => {
+    setSelectedChat(chat);
+    // Close the list dialog - chat interface will open separately
+    onOpenChange(false);
+  };
+
   const renderChatItem = (chat: Chat) => (
     <div
       key={chat.id}
       className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-      onClick={() => {
-        setSelectedChat(chat);
-        onOpenChange(false);
-      }}
+      onClick={() => handleChatSelect(chat)}
     >
       <Avatar className="h-12 w-12 flex-shrink-0">
         <AvatarImage src={chat.avatar || "/rea-logo-icon.png"} />
