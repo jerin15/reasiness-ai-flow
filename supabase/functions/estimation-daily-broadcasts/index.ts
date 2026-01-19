@@ -19,41 +19,18 @@ Deno.serve(async (req) => {
 
     console.log(`📊 Running ${broadcastType} broadcast...`);
 
-    // For morning broadcasts, only target Sreeraj
-    const SREERAJ_ID = '83531b68-e733-4f2d-a0a9-702d2965c279';
-    
-    let estimationUsers;
-    if (broadcastType === 'morning') {
-      // Only get Sreeraj for morning reminders
-      const { data: sreerajUser, error: usersError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .eq('id', SREERAJ_ID)
-        .single();
+    // Get all estimation team members
+    const { data: estimationUsers, error: usersError } = await supabase
+      .from('user_roles')
+      .select('user_id, profiles:user_id(full_name)')
+      .eq('role', 'estimation');
 
-      if (usersError) throw usersError;
-      if (!sreerajUser) {
-        return new Response(
-          JSON.stringify({ message: 'Sreeraj not found' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      estimationUsers = [{ user_id: sreerajUser.id, profiles: sreerajUser }];
-    } else {
-      // For other broadcasts, get all estimation team members
-      const { data: allUsers, error: usersError } = await supabase
-        .from('user_roles')
-        .select('user_id, profiles:user_id(full_name)')
-        .eq('role', 'estimation');
-
-      if (usersError) throw usersError;
-      if (!allUsers || allUsers.length === 0) {
-        return new Response(
-          JSON.stringify({ message: 'No estimation users found' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      estimationUsers = allUsers;
+    if (usersError) throw usersError;
+    if (!estimationUsers || estimationUsers.length === 0) {
+      return new Response(
+        JSON.stringify({ message: 'No estimation users found' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     let message = '';
