@@ -40,29 +40,39 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find estimation user to assign the task to
+    // Find the Estimator user specifically (the one with 'estimation' role)
     const { data: estimationUsers, error: usersError } = await supabase
       .from('user_roles')
       .select('user_id')
-      .eq('role', 'estimation')
-      .limit(1);
+      .eq('role', 'estimation');
 
     if (usersError) {
       console.error('Error fetching estimation users:', usersError);
       throw usersError;
     }
 
-    const assignedTo = estimationUsers?.[0]?.user_id || null;
+    if (!estimationUsers || estimationUsers.length === 0) {
+      console.error('No estimation user found to assign the task');
+      return new Response(
+        JSON.stringify({ error: 'No estimation user configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Create the task in the database
+    // Assign to the first (primary) Estimator
+    const assignedTo = estimationUsers[0].user_id;
+    console.log('📋 Assigning task to Estimator:', assignedTo);
+
+    // Create the task in the Estimator's RFQ pipeline
+    // ALWAYS set type to 'quotation' and status to 'todo' for RFQ pipeline
     const taskData = {
       title: payload.title,
       description: payload.description || null,
       client_name: payload.client_name || null,
       supplier_name: payload.supplier_name || null,
       priority: payload.priority || 'medium',
-      type: payload.type || 'quotation',
-      status: 'todo',
+      type: 'quotation' as const,  // Always quotation for RFQ pipeline
+      status: 'todo' as const,     // Always start in todo for RFQ pipeline
       assigned_to: assignedTo,
       due_date: payload.due_date || null,
       source_app: payload.source_app || 'external',
