@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.ai-kpi-insights]
 verify_jwt = false
+
+[functions.receive-task-webhook]
+verify_jwt = false
+
+[functions.send-task-webhook]
+verify_jwt = false
