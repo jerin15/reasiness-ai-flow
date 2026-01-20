@@ -1,0 +1,125 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
+};
+
+Deno.serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    // Verify webhook secret if provided
+    const webhookSecret = Deno.env.get('INCOMING_WEBHOOK_SECRET');
+    const providedSecret = req.headers.get('x-webhook-secret');
+    
+    if (webhookSecret && providedSecret !== webhookSecret) {
+      console.error('Invalid webhook secret');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const payload = await req.json();
+    console.log('📥 Received task webhook payload:', JSON.stringify(payload, null, 2));
+
+    // Validate required fields
+    if (!payload.title) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required field: title' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Find estimation user to assign the task to
+    const { data: estimationUsers, error: usersError } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role', 'estimation')
+      .limit(1);
+
+    if (usersError) {
+      console.error('Error fetching estimation users:', usersError);
+      throw usersError;
+    }
+
+    const assignedTo = estimationUsers?.[0]?.user_id || null;
+
+    // Create the task in the database
+    const taskData = {
+      title: payload.title,
+      description: payload.description || null,
+      client_name: payload.client_name || null,
+      supplier_name: payload.supplier_name || null,
+      priority: payload.priority || 'medium',
+      type: payload.type || 'quotation',
+      status: 'todo',
+      assigned_to: assignedTo,
+      due_date: payload.due_date || null,
+      source_app: payload.source_app || 'external',
+      external_task_id: payload.external_task_id || null,
+    };
+
+    const { data: insertedTask, error: insertError } = await supabase
+      .from('tasks')
+      .insert(taskData)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error inserting task:', insertError);
+      throw insertError;
+    }
+
+    console.log('✅ Task created successfully:', insertedTask.id);
+
+    // If products are included, insert them too
+    if (payload.products && Array.isArray(payload.products) && payload.products.length > 0) {
+      const productsToInsert = payload.products.map((product: any, index: number) => ({
+        task_id: insertedTask.id,
+        name: product.name || 'Unnamed Product',
+        description: product.description || null,
+        quantity: product.quantity || 1,
+        unit_price: product.unit_price || null,
+        position: index,
+      }));
+
+      const { error: productsError } = await supabase
+        .from('task_products')
+        .insert(productsToInsert);
+
+      if (productsError) {
+        console.error('Error inserting products:', productsError);
+        // Don't fail the whole request, just log the error
+      } else {
+        console.log(`✅ Added ${productsToInsert.length} products to task`);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        task_id: insertedTask.id,
+        message: 'Task created successfully'
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    console.error('❌ Webhook error:', error);
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
