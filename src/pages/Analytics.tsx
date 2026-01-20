@@ -34,11 +34,8 @@ import {
   XCircle,
   MessageSquare,
   Award,
-  Star,
-  Sparkles,
-  Loader2,
-  RefreshCw,
-  AlertTriangle
+  Star
+
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
@@ -117,10 +114,7 @@ const Analytics = () => {
   const [showFromCalendar, setShowFromCalendar] = useState(false);
   const [showToCalendar, setShowToCalendar] = useState(false);
 
-  // AI Insights
-  const [aiInsights, setAiInsights] = useState<string>("");
-  const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
-  const [aiInsightsError, setAiInsightsError] = useState<string | null>(null);
+
 
   useEffect(() => {
     checkAccess();
@@ -195,45 +189,7 @@ const Analytics = () => {
     }
   };
 
-  const fetchAiInsights = async (kpiData: UserKPIData[]) => {
-    try {
-      setAiInsightsLoading(true);
-      setAiInsightsError(null);
 
-      // Prepare simplified KPI data for AI
-      const simplifiedData = kpiData.map(u => ({
-        name: u.userName,
-        role: u.userRole,
-        tasksCompleted: u.kpis.tasksCompleted,
-        rfqsReceived: u.kpis.rfqsReceived,
-        quotationsSent: u.kpis.quotationsSent,
-        mockupsCompleted: u.kpis.mockupsCompleted,
-        productionTasksCompleted: u.kpis.productionTasksCompleted,
-        avgCompletionTimeHours: u.kpis.avgCompletionTimeHours,
-        streak: u.streak,
-        efficiencyScore: u.efficiencyScore,
-      }));
-
-      const response = await supabase.functions.invoke('ai-kpi-insights', {
-        body: { 
-          kpiData: simplifiedData,
-          periodLabel: getPeriodLabel(),
-        }
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to get AI insights');
-      }
-
-      setAiInsights(response.data?.insights || 'No insights available.');
-    } catch (error: unknown) {
-      console.error('Error fetching AI insights:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate insights';
-      setAiInsightsError(errorMessage);
-    } finally {
-      setAiInsightsLoading(false);
-    }
-  };
 
   const fetchAllKPIs = async () => {
     try {
@@ -399,10 +355,8 @@ const Analytics = () => {
 
       setAllUsers(usersKPIs);
       
-      // Fetch AI insights after KPI data is loaded
-      if (usersKPIs.length > 0) {
-        fetchAiInsights(usersKPIs);
-      }
+
+
     } catch (error) {
       console.error('Error fetching KPIs:', error);
       toast.error('Failed to load analytics data');
@@ -829,56 +783,8 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* AI Insights Panel */}
-        <Card className="bg-gradient-to-br from-violet-500/10 to-purple-500/5 border-violet-200/50">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-violet-500" />
-                <CardTitle className="text-lg">AI-Powered Insights</CardTitle>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => fetchAiInsights(allUsers)}
-                disabled={aiInsightsLoading}
-              >
-                {aiInsightsLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            <CardDescription>
-              Real-time analysis of your team's performance for {getPeriodLabel()}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {aiInsightsLoading ? (
-              <div className="flex items-center gap-2 text-muted-foreground py-4">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Analyzing team performance...</span>
-              </div>
-            ) : aiInsightsError ? (
-              <div className="flex items-center gap-2 text-destructive py-4">
-                <AlertTriangle className="h-4 w-4" />
-                <span>{aiInsightsError}</span>
-                <Button variant="outline" size="sm" onClick={() => fetchAiInsights(allUsers)}>
-                  Retry
-                </Button>
-              </div>
-            ) : aiInsights ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap text-sm font-sans bg-transparent p-0 m-0 border-0">
-                  {aiInsights}
-                </pre>
-              </div>
-            ) : (
-              <p className="text-muted-foreground py-4">No insights available yet.</p>
-            )}
-          </CardContent>
-        </Card>
+
+
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-4">
