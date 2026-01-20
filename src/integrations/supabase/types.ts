@@ -1274,6 +1274,7 @@ export type Database = {
           delivery_instructions: string | null
           description: string | null
           due_date: string | null
+          external_task_id: string | null
           id: string
           is_personal_admin_task: boolean | null
           last_activity_at: string | null
@@ -1288,6 +1289,7 @@ export type Database = {
           reminder_sent: boolean | null
           sent_back_to_designer: boolean | null
           sent_to_designer_mockup: boolean | null
+          source_app: string | null
           status: Database["public"]["Enums"]["task_status"]
           status_changed_at: string | null
           supplier_name: string | null
@@ -1315,6 +1317,7 @@ export type Database = {
           delivery_instructions?: string | null
           description?: string | null
           due_date?: string | null
+          external_task_id?: string | null
           id?: string
           is_personal_admin_task?: boolean | null
           last_activity_at?: string | null
@@ -1329,6 +1332,7 @@ export type Database = {
           reminder_sent?: boolean | null
           sent_back_to_designer?: boolean | null
           sent_to_designer_mockup?: boolean | null
+          source_app?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null
@@ -1356,6 +1360,7 @@ export type Database = {
           delivery_instructions?: string | null
           description?: string | null
           due_date?: string | null
+          external_task_id?: string | null
           id?: string
           is_personal_admin_task?: boolean | null
           last_activity_at?: string | null
@@ -1370,6 +1375,7 @@ export type Database = {
           reminder_sent?: boolean | null
           sent_back_to_designer?: boolean | null
           sent_to_designer_mockup?: boolean | null
+          source_app?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null
