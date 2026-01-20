@@ -73,6 +73,7 @@ Deno.serve(async (req) => {
       priority: payload.priority || 'medium',
       type: 'quotation' as const,  // Always quotation for RFQ pipeline
       status: 'todo' as const,     // Always start in todo for RFQ pipeline
+      created_by: assignedTo,      // Required field - use estimation user as creator
       assigned_to: assignedTo,
       due_date: payload.due_date || null,
       source_app: payload.source_app || 'external',
