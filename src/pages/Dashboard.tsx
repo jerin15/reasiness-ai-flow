@@ -6,7 +6,8 @@ import reaLogo from "@/assets/rea_logo_h.jpg";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Menu } from "lucide-react";
+import { Menu, Plus } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 // Lazy load heavy components to reduce initial bundle size
@@ -75,6 +76,7 @@ const Dashboard = () => {
   const [showManageTeam, setShowManageTeam] = useState(false);
   
   const unreadCount = useUnreadMessageCount(currentUserId);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     checkAuth();
@@ -367,6 +369,17 @@ const Dashboard = () => {
               </Suspense>
             </main>
           </div>
+
+          {/* Floating Action Button for mobile admins */}
+          {isMobile && (
+            <button
+              onClick={() => setShowTaskChooser(true)}
+              className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-transform"
+              aria-label="Create Task"
+            >
+              <Plus className="h-6 w-6" />
+            </button>
+          )}
         </div>
         {renderDialogs()}
       </SidebarProvider>
@@ -427,6 +440,17 @@ const Dashboard = () => {
               )}
             </Suspense>
           </main>
+
+          {/* Floating Action Button for mobile admins */}
+          {isMobile && userRole === "admin" && (
+            <button
+              onClick={() => setShowTaskChooser(true)}
+              className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 active:scale-95 transition-transform"
+              aria-label="Create Task"
+            >
+              <Plus className="h-6 w-6" />
+            </button>
+          )}
         </div>
         {renderDialogs()}
       </div>
