@@ -720,6 +720,8 @@ export const AdminKanbanBoard = () => {
           status: 'production',
           previous_status: 'done',
           assigned_to: estimationAssigneeId,
+          // If this task was soft-deleted by weekly cleanup, restore it so Estimation can see it.
+          deleted_at: null,
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString(),
           came_from_designer_done: false,
@@ -746,6 +748,8 @@ export const AdminKanbanBoard = () => {
           status: 'production',
           previous_status: 'done',
           assigned_to: estimationAssigneeId,
+         // If this task was soft-deleted by weekly cleanup, restore it so Estimation can see it.
+         deleted_at: null,
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString(),
           came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
@@ -766,6 +770,8 @@ export const AdminKanbanBoard = () => {
           status: 'production',
           previous_status: 'done',
           assigned_to: estimationAssigneeId,
+         // If this task was soft-deleted by weekly cleanup, restore it so Estimation can see it.
+         deleted_at: null,
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString(),
           came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
