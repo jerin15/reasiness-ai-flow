@@ -672,6 +672,37 @@ export const AdminKanbanBoard = () => {
 
     // First check if a linked operations task already exists to prevent duplicates
     const targetTaskId = item.is_product && item.parent_task_id ? item.parent_task_id : taskId;
+
+    // IMPORTANT: When admin moves something out of FOR PRODUCTION, it must appear in Estimation's pipeline.
+    // Previously we were setting assigned_to = null, which made it invisible to the Estimator.
+    // Rule: assign back to the original creator if they are estimation; otherwise assign to the primary estimation user.
+    let estimationAssigneeId: string | null = null;
+    try {
+      const { data: targetTaskRow } = await supabase
+        .from('tasks')
+        .select('created_by')
+        .eq('id', targetTaskId)
+        .maybeSingle();
+
+      const preferred = targetTaskRow?.created_by && userRoles[targetTaskRow.created_by] === 'estimation'
+        ? targetTaskRow.created_by
+        : null;
+
+      if (preferred) {
+        estimationAssigneeId = preferred;
+      } else {
+        const { data: estimationUsers } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'estimation')
+          .limit(1);
+
+        estimationAssigneeId = estimationUsers?.[0]?.user_id ?? null;
+      }
+    } catch (e) {
+      console.warn('⚠️ Failed to resolve estimation assignee; continuing without assignment', e);
+      estimationAssigneeId = null;
+    }
     
     const { data: existingLinkedTask } = await supabase
       .from('tasks')
@@ -688,7 +719,7 @@ export const AdminKanbanBoard = () => {
         .update({ 
           status: 'production',
           previous_status: 'done',
-          assigned_to: null,
+          assigned_to: estimationAssigneeId,
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString(),
           came_from_designer_done: false,
@@ -714,7 +745,7 @@ export const AdminKanbanBoard = () => {
         .update({ 
           status: 'production',
           previous_status: 'done',
-          assigned_to: null,  // Unassign from designer
+          assigned_to: estimationAssigneeId,
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString(),
           came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
@@ -734,7 +765,7 @@ export const AdminKanbanBoard = () => {
         .update({ 
           status: 'production',
           previous_status: 'done',
-          assigned_to: null,  // Unassign from designer
+          assigned_to: estimationAssigneeId,
           updated_at: new Date().toISOString(),
           status_changed_at: new Date().toISOString(),
           came_from_designer_done: false  // Clear flag so it leaves FOR PRODUCTION panel
