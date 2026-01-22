@@ -245,71 +245,93 @@ const Dashboard = () => {
     </header>
   );
 
+  // Loading fallback for dialogs
+  const DialogLoadingFallback = () => (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80">
+      <div className="bg-background rounded-lg p-6 shadow-lg">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        <p className="text-sm text-muted-foreground mt-3">Loading...</p>
+      </div>
+    </div>
+  );
+
   // Lazy dialogs - only load when open
   const renderDialogs = () => (
-    <Suspense fallback={null}>
-      {showMyReport && <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />}
-      {showDueReminders && <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />}
-      {showDueDateReminder && (
-        <DueDateReminderDialog 
-          open={showDueDateReminder} 
-          onOpenChange={setShowDueDateReminder}
-          userId={currentUserId}
-        />
-      )}
-      {showDailyPending && <DailyPendingTasksDialog open={showDailyPending} onOpenChange={setShowDailyPending} />}
-      {showPendingOnSignOut && (
-        <PendingTasksDialog 
-          open={showPendingOnSignOut} 
-          onOpenChange={setShowPendingOnSignOut}
-          onConfirmSignOut={handleSignOut}
-        />
-      )}
-      {showTeamReport && <TeamMemberReportDialog open={showTeamReport} onOpenChange={setShowTeamReport} />}
-      {showEstimationReport && <EstimationTeamReportDialog open={showEstimationReport} onOpenChange={setShowEstimationReport} />}
-      <ModernChatList open={showChat || showChatList} onOpenChange={(o) => { setShowChat(o); setShowChatList(o); }} currentUserId={currentUserId} />
-      {chatRecipientId && (
-        <ChatDialog
-          open={!!chatRecipientId}
-          onOpenChange={(open) => !open && setChatRecipientId("")}
-          recipientId={chatRecipientId}
-          recipientName={chatRecipientName}
-        />
-      )}
-      {showAdminTaskReport && (userRole === "admin" || userRole === "technical_head") && (
-        <AdminTaskReportDialog open={showAdminTaskReport} onOpenChange={setShowAdminTaskReport} teamMembers={teamMembers} />
-      )}
+    <>
+      <Suspense fallback={null}>
+        {showMyReport && <MyReportDialog open={showMyReport} onOpenChange={setShowMyReport} />}
+        {showDueReminders && <DueRemindersDialog open={showDueReminders} onOpenChange={setShowDueReminders} />}
+        {showDueDateReminder && (
+          <DueDateReminderDialog 
+            open={showDueDateReminder} 
+            onOpenChange={setShowDueDateReminder}
+            userId={currentUserId}
+          />
+        )}
+        {showDailyPending && <DailyPendingTasksDialog open={showDailyPending} onOpenChange={setShowDailyPending} />}
+        {showPendingOnSignOut && (
+          <PendingTasksDialog 
+            open={showPendingOnSignOut} 
+            onOpenChange={setShowPendingOnSignOut}
+            onConfirmSignOut={handleSignOut}
+          />
+        )}
+        {showTeamReport && <TeamMemberReportDialog open={showTeamReport} onOpenChange={setShowTeamReport} />}
+        {showEstimationReport && <EstimationTeamReportDialog open={showEstimationReport} onOpenChange={setShowEstimationReport} />}
+        <ModernChatList open={showChat || showChatList} onOpenChange={(o) => { setShowChat(o); setShowChatList(o); }} currentUserId={currentUserId} />
+        {chatRecipientId && (
+          <ChatDialog
+            open={!!chatRecipientId}
+            onOpenChange={(open) => !open && setChatRecipientId("")}
+            recipientId={chatRecipientId}
+            recipientName={chatRecipientName}
+          />
+        )}
+        {showAdminTaskReport && (userRole === "admin" || userRole === "technical_head") && (
+          <AdminTaskReportDialog open={showAdminTaskReport} onOpenChange={setShowAdminTaskReport} teamMembers={teamMembers} />
+        )}
+      </Suspense>
 
+      {/* Task creation dialogs - separate Suspense with loading indicator */}
       {showTaskChooser && userRole === "admin" && (
-        <CreateTaskChooserDialog
-          open={showTaskChooser}
-          onOpenChange={setShowTaskChooser}
-          onChooseOperations={() => setShowCreateOpsTask(true)}
-          onChooseGeneral={() => setShowAddTask(true)}
-        />
+        <Suspense fallback={<DialogLoadingFallback />}>
+          <CreateTaskChooserDialog
+            open={showTaskChooser}
+            onOpenChange={setShowTaskChooser}
+            onChooseOperations={() => setShowCreateOpsTask(true)}
+            onChooseGeneral={() => setShowAddTask(true)}
+          />
+        </Suspense>
       )}
 
       {showCreateOpsTask && userRole === "admin" && (
-        <CreateOperationsTaskDialog
-          open={showCreateOpsTask}
-          onOpenChange={setShowCreateOpsTask}
-          onTaskCreated={() => {}}
-        />
+        <Suspense fallback={<DialogLoadingFallback />}>
+          <CreateOperationsTaskDialog
+            open={showCreateOpsTask}
+            onOpenChange={setShowCreateOpsTask}
+            onTaskCreated={() => {}}
+          />
+        </Suspense>
       )}
 
       {showAddTask && (
-        <AddTaskDialog 
-          open={showAddTask} 
-          onOpenChange={setShowAddTask}
-          onTaskAdded={() => {}}
-          defaultAssignedTo={currentUserId}
-        />
+        <Suspense fallback={<DialogLoadingFallback />}>
+          <AddTaskDialog 
+            open={showAddTask} 
+            onOpenChange={setShowAddTask}
+            onTaskAdded={() => {}}
+            defaultAssignedTo={currentUserId}
+          />
+        </Suspense>
       )}
-      {showCreateUser && <CreateUserDialog open={showCreateUser} onOpenChange={setShowCreateUser} />}
-      {showManageTeam && <ManageTeamDialog open={showManageTeam} onOpenChange={setShowManageTeam} />}
-      <IncomingCallNotification />
-      <ProminentMessageNotification />
-    </Suspense>
+
+      <Suspense fallback={null}>
+        {showCreateUser && <CreateUserDialog open={showCreateUser} onOpenChange={setShowCreateUser} />}
+        {showManageTeam && <ManageTeamDialog open={showManageTeam} onOpenChange={setShowManageTeam} />}
+        <IncomingCallNotification />
+        <ProminentMessageNotification />
+      </Suspense>
+    </>
   );
 
   // Admin dashboard view
