@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { AITaskInput } from "./AITaskInput";
 import { TaskProductsManager } from "./TaskProductsManager";
 import { enrichLatestAuditLog } from "@/lib/enrichAuditLog";
+import { DuplicateTaskDialog } from "./DuplicateTaskDialog";
 
 type TeamMember = {
   id: string;
@@ -20,15 +21,28 @@ type TeamMember = {
   user_roles?: { role: string }[];
 };
 
+type SimilarTask = {
+  id: string;
+  title: string;
+  client_name: string | null;
+  status: string;
+  created_at: string;
+  description: string | null;
+  type: string | null;
+  assigned_to: string | null;
+  profiles?: { full_name: string | null; email: string } | null;
+};
+
 type AddTaskDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onTaskAdded: () => void;
   defaultAssignedTo?: string;
   viewingUserRole?: string;
+  onEditTask?: (taskId: string) => void;
 };
 
-export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssignedTo, viewingUserRole }: AddTaskDialogProps) => {
+export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssignedTo, viewingUserRole, onEditTask }: AddTaskDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
@@ -48,6 +62,11 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [originalInput, setOriginalInput] = useState<string | null>(null);
   const [tempProducts, setTempProducts] = useState<any[]>([]);
+  
+  // Duplicate detection state
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [similarTasks, setSimilarTasks] = useState<SimilarTask[]>([]);
+  const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -133,8 +152,74 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
     setShowAIInput(false);
   };
 
+  // Check for similar tasks by client name
+  const checkForSimilarTasks = async (): Promise<SimilarTask[]> => {
+    if (!clientName.trim()) return [];
+    
+    // Search for tasks with matching client name (case-insensitive, partial match)
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('id, title, client_name, status, created_at, description, type, assigned_to')
+      .ilike('client_name', `%${clientName.trim()}%`)
+      .is('deleted_at', null)
+      .neq('status', 'done')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Error checking for similar tasks:', error);
+      return [];
+    }
+
+    // Fetch profile info separately for assigned users
+    const tasksWithProfiles: SimilarTask[] = [];
+    for (const task of data || []) {
+      let profile = null;
+      if (task.assigned_to) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', task.assigned_to)
+          .single();
+        profile = profileData;
+      }
+      tasksWithProfiles.push({
+        ...task,
+        profiles: profile
+      });
+    }
+
+    return tasksWithProfiles;
+
+    if (error) {
+      console.error('Error checking for similar tasks:', error);
+      return [];
+    }
+
+    return (data || []) as SimilarTask[];
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check for duplicates if client name is provided and we haven't skipped the check
+    if (clientName.trim() && !skipDuplicateCheck) {
+      setLoading(true);
+      const similar = await checkForSimilarTasks();
+      setLoading(false);
+      
+      if (similar.length > 0) {
+        setSimilarTasks(similar);
+        setShowDuplicateDialog(true);
+        return;
+      }
+    }
+    
+    // Proceed with task creation
+    await createTask();
+  };
+
+  const createTask = async () => {
     setLoading(true);
 
     try {
@@ -234,6 +319,8 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       setAiConfidence(null);
       setOriginalInput(null);
       setTempProducts([]);
+      setSkipDuplicateCheck(false);
+      setSimilarTasks([]);
     } catch (error: any) {
       console.error("Error creating task:", error);
       toast.error(error.message || "Failed to create task");
@@ -242,8 +329,34 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
     }
   };
 
+  const handleEditExisting = (taskId: string) => {
+    setShowDuplicateDialog(false);
+    onOpenChange(false);
+    if (onEditTask) {
+      onEditTask(taskId);
+    } else {
+      toast.info("Please navigate to the task in your board to edit it");
+    }
+  };
+
+  const handleCreateNewAnyway = () => {
+    setShowDuplicateDialog(false);
+    setSkipDuplicateCheck(true);
+    // Trigger task creation directly
+    createTask();
+  };
+
   return (
     <>
+      <DuplicateTaskDialog
+        open={showDuplicateDialog}
+        onOpenChange={setShowDuplicateDialog}
+        similarTasks={similarTasks}
+        clientName={clientName}
+        onEditExisting={handleEditExisting}
+        onCreateNew={handleCreateNewAnyway}
+      />
+
       <AITaskInput
         open={showAIInput}
         onOpenChange={setShowAIInput}
