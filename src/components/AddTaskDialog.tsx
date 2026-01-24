@@ -67,6 +67,8 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [similarTasks, setSimilarTasks] = useState<SimilarTask[]>([]);
   const [skipDuplicateCheck, setSkipDuplicateCheck] = useState(false);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
+  const [inlineSimilarTasks, setInlineSimilarTasks] = useState<SimilarTask[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -152,19 +154,32 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
     setShowAIInput(false);
   };
 
-  // Check for similar tasks by client name
-  const checkForSimilarTasks = async (): Promise<SimilarTask[]> => {
-    if (!clientName.trim()) return [];
+  // Check for similar tasks by title OR client name
+  const checkForSimilarTasks = async (searchTitle: string, searchClientName: string): Promise<SimilarTask[]> => {
+    const trimmedTitle = searchTitle.trim();
+    const trimmedClientName = searchClientName.trim();
     
-    // Search for tasks with matching client name (case-insensitive, partial match)
-    const { data, error } = await supabase
+    if (!trimmedTitle && !trimmedClientName) return [];
+    
+    // Build the query - search by title OR client_name
+    let query = supabase
       .from('tasks')
       .select('id, title, client_name, status, created_at, description, type, assigned_to')
-      .ilike('client_name', `%${clientName.trim()}%`)
       .is('deleted_at', null)
       .neq('status', 'done')
       .order('created_at', { ascending: false })
       .limit(10);
+
+    // Use OR logic: match title OR client_name
+    if (trimmedTitle && trimmedClientName) {
+      query = query.or(`title.ilike.%${trimmedTitle}%,client_name.ilike.%${trimmedClientName}%`);
+    } else if (trimmedTitle) {
+      query = query.ilike('title', `%${trimmedTitle}%`);
+    } else if (trimmedClientName) {
+      query = query.ilike('client_name', `%${trimmedClientName}%`);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error checking for similar tasks:', error);
@@ -190,22 +205,31 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
     }
 
     return tasksWithProfiles;
-
-    if (error) {
-      console.error('Error checking for similar tasks:', error);
-      return [];
-    }
-
-    return (data || []) as SimilarTask[];
   };
+
+  // Debounced inline duplicate check when title or client name changes
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if ((title.trim().length >= 3 || clientName.trim().length >= 3) && !skipDuplicateCheck) {
+        setIsCheckingDuplicates(true);
+        const similar = await checkForSimilarTasks(title, clientName);
+        setInlineSimilarTasks(similar);
+        setIsCheckingDuplicates(false);
+      } else {
+        setInlineSimilarTasks([]);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [title, clientName, skipDuplicateCheck]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Check for duplicates if client name is provided and we haven't skipped the check
-    if (clientName.trim() && !skipDuplicateCheck) {
+    // Check for duplicates if title or client name is provided and we haven't skipped the check
+    if ((title.trim() || clientName.trim()) && !skipDuplicateCheck) {
       setLoading(true);
-      const similar = await checkForSimilarTasks();
+      const similar = await checkForSimilarTasks(title, clientName);
       setLoading(false);
       
       if (similar.length > 0) {
@@ -394,11 +418,65 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
               <Input
                 id="title"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setSkipDuplicateCheck(false); // Reset skip when title changes
+                }}
                 placeholder="Enter task title"
                 required
               />
+              {isCheckingDuplicates && (
+                <p className="text-xs text-muted-foreground">Checking for similar tasks...</p>
+              )}
             </div>
+            
+            {/* Inline duplicate warning */}
+            {inlineSimilarTasks.length > 0 && !skipDuplicateCheck && (
+              <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 space-y-2">
+                <p className="text-sm font-medium text-warning-foreground">
+                  ⚠️ Similar task(s) found ({inlineSimilarTasks.length})
+                </p>
+                <div className="max-h-32 overflow-y-auto space-y-2">
+                  {inlineSimilarTasks.slice(0, 3).map((task) => (
+                    <div 
+                      key={task.id} 
+                      className="text-xs bg-background p-2 rounded border cursor-pointer hover:bg-muted"
+                      onClick={() => handleEditExisting(task.id)}
+                    >
+                      <p className="font-medium truncate">{task.title}</p>
+                      <p className="text-muted-foreground">
+                        {task.client_name && `Client: ${task.client_name} • `}
+                        Status: {task.status.replace(/_/g, ' ')}
+                        {task.profiles?.full_name && ` • ${task.profiles.full_name}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setSkipDuplicateCheck(true)}
+                    className="text-xs"
+                  >
+                    Create anyway
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="default" 
+                    size="sm"
+                    onClick={() => {
+                      setSimilarTasks(inlineSimilarTasks);
+                      setShowDuplicateDialog(true);
+                    }}
+                    className="text-xs"
+                  >
+                    View all matches
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -454,7 +532,10 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                 <Input
                   id="clientName"
                   value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
+                  onChange={(e) => {
+                    setClientName(e.target.value);
+                    setSkipDuplicateCheck(false); // Reset skip when client name changes
+                  }}
                   placeholder="Who is this for?"
                 />
               </div>
