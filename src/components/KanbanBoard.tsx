@@ -864,6 +864,26 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         onTaskAdded={handleTaskAdded}
         defaultAssignedTo={isAdmin && viewingUserId ? viewingUserId : undefined}
         viewingUserRole={isAdmin && viewingUserRole ? viewingUserRole : undefined}
+        onEditTask={(taskId) => {
+          const task = tasks.find(t => t.id === taskId);
+          if (task) {
+            setEditingTask(task);
+            setShowEditDialog(true);
+          } else {
+            // Fetch the task if not in current list
+            supabase
+              .from('tasks')
+              .select('*')
+              .eq('id', taskId)
+              .single()
+              .then(({ data }) => {
+                if (data) {
+                  setEditingTask(data as Task);
+                  setShowEditDialog(true);
+                }
+              });
+          }
+        }}
       />
       
       {reminderTask && (
