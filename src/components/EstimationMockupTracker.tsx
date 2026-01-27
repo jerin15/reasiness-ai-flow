@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Clock, Paintbrush, X, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Clock, Paintbrush, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
@@ -104,107 +104,9 @@ export const EstimationMockupTracker = () => {
     }
   };
 
-  const handlePullBack = async (taskId: string, taskTitle: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // TASK CLONING: Instead of modifying the original task, we create a NEW clone
-      // This allows both designer and estimator to work on independent copies
-      
-      // Step 1: Fetch the full original task details
-      const { data: originalTask, error: fetchError } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('id', taskId)
-        .single();
-
-      if (fetchError || !originalTask) {
-        console.error('Error fetching original task:', fetchError);
-        toast.error('Failed to fetch task details');
-        return;
-      }
-
-      // Step 2: Create a cloned task for the estimator
-      const { data: clonedTask, error: createError } = await supabase
-        .from('tasks')
-        .insert({
-          title: `[Post-Mockup] ${originalTask.title}`,
-          description: originalTask.description,
-          status: 'todo',
-          priority: originalTask.priority,
-          due_date: originalTask.due_date,
-          type: originalTask.type,
-          client_name: originalTask.client_name,
-          supplier_name: originalTask.supplier_name,
-          created_by: user.id,
-          assigned_to: user.id,
-          linked_task_id: taskId, // Link to original for reference
-          position: 0,
-          status_changed_at: new Date().toISOString(),
-          sent_to_designer_mockup: false,
-          mockup_completed_by_designer: false,
-          came_from_designer_done: false,
-          admin_remarks: originalTask.admin_remarks ? `Mockup remarks: ${originalTask.admin_remarks}` : null,
-        })
-        .select()
-        .single();
-
-      if (createError || !clonedTask) {
-        console.error('Error creating cloned task:', createError);
-        toast.error('Failed to create task clone');
-        return;
-      }
-
-      // Step 3: Copy all task products to the cloned task
-      const { data: originalProducts } = await supabase
-        .from('task_products')
-        .select('*')
-        .eq('task_id', taskId);
-
-      if (originalProducts && originalProducts.length > 0) {
-        const clonedProducts = originalProducts.map(product => ({
-          task_id: clonedTask.id,
-          product_name: product.product_name,
-          description: product.description,
-          quantity: product.quantity,
-          unit: product.unit,
-          estimated_price: product.estimated_price,
-          final_price: product.final_price,
-          position: product.position,
-          approval_status: 'pending', // Reset approval for new workflow
-          designer_completed: product.designer_completed,
-        }));
-
-        const { error: productsError } = await supabase
-          .from('task_products')
-          .insert(clonedProducts);
-
-        if (productsError) {
-          console.error('Error copying products:', productsError);
-          // Don't fail the whole operation, just log
-        }
-      }
-
-      // Step 4: Update original task to remove from estimator's mockup tracker
-      // but keep it in designer's pipeline (came_from_designer_done stays true)
-      await supabase
-        .from('tasks')
-        .update({
-          sent_to_designer_mockup: false,
-          mockup_completed_by_designer: false,
-          // Original task stays with designer - don't change status or assignment
-        })
-        .eq('id', taskId);
-
-      toast.success(`Created "${clonedTask.title}" in your tasks`);
-      fetchMockupTasks();
-      fetchCompletedTasks();
-    } catch (error) {
-      console.error('Error pulling back task:', error);
-      toast.error('Failed to pull back task');
-    }
-  };
+  // Note: Cloning now happens automatically when designer marks complete
+  // This section just shows the completed mockups that already have clones created
+  // The "Pull Back" button is no longer needed since clones are auto-created
 
   const pendingCount = mockupTasks.length;
   const completedCount = completedTasks.length;
@@ -340,6 +242,7 @@ export const EstimationMockupTracker = () => {
               <div className="text-center py-8 text-muted-foreground text-sm">
                 <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>No completed mockups</p>
+                <p className="text-xs mt-1">Completed mockups auto-create tasks in your TODO</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -358,7 +261,7 @@ export const EstimationMockupTracker = () => {
                           </span>
                         </div>
                       </div>
-                      <Badge variant="default" className="gap-1 text-xs whitespace-nowrap bg-green-600 hover:bg-green-700">
+                      <Badge variant="default" className="gap-1 text-xs whitespace-nowrap">
                         <CheckCircle2 className="h-3 w-3" />
                         Done
                       </Badge>
@@ -370,14 +273,10 @@ export const EstimationMockupTracker = () => {
                       </div>
                     )}
                     
-                    <Button
-                      size="sm"
-                      className="w-full gap-2"
-                      onClick={() => handlePullBack(task.id, task.title)}
-                    >
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                      Pull Back to My Tasks
-                    </Button>
+                    <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded flex items-center gap-2">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                      <span>Task auto-created in your TODO pipeline</span>
+                    </div>
                   </div>
                 ))}
               </div>
