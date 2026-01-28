@@ -1287,6 +1287,7 @@ export type Database = {
           previous_status: Database["public"]["Enums"]["task_status"] | null
           priority: Database["public"]["Enums"]["task_priority"]
           reminder_sent: boolean | null
+          revision_notes: string | null
           sent_back_to_designer: boolean | null
           sent_to_designer_mockup: boolean | null
           source_app: string | null
@@ -1330,6 +1331,7 @@ export type Database = {
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
           reminder_sent?: boolean | null
+          revision_notes?: string | null
           sent_back_to_designer?: boolean | null
           sent_to_designer_mockup?: boolean | null
           source_app?: string | null
@@ -1373,6 +1375,7 @@ export type Database = {
           previous_status?: Database["public"]["Enums"]["task_status"] | null
           priority?: Database["public"]["Enums"]["task_priority"]
           reminder_sent?: boolean | null
+          revision_notes?: string | null
           sent_back_to_designer?: boolean | null
           sent_to_designer_mockup?: boolean | null
           source_app?: string | null

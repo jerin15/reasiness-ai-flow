@@ -27,18 +27,87 @@ Deno.serve(async (req) => {
     const payload = await req.json();
     console.log('📥 Received task webhook payload:', JSON.stringify(payload, null, 2));
 
-    // Validate required fields
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Handle UPDATE action for revision notes
+    if (payload.action === 'update') {
+      if (!payload.external_task_id) {
+        return new Response(
+          JSON.stringify({ error: 'Missing required field: external_task_id for update action' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('📝 Processing update action for external_task_id:', payload.external_task_id);
+
+      // Find the task by external_task_id
+      const { data: existingTask, error: findError } = await supabase
+        .from('tasks')
+        .select('id, title')
+        .eq('external_task_id', payload.external_task_id)
+        .single();
+
+      if (findError || !existingTask) {
+        console.error('Task not found for external_task_id:', payload.external_task_id);
+        return new Response(
+          JSON.stringify({ error: 'Task not found for the given external_task_id' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Update the task with revision notes
+      const updateData: Record<string, unknown> = {
+        last_activity_at: new Date().toISOString(),
+      };
+
+      if (payload.revision_notes !== undefined) {
+        updateData.revision_notes = payload.revision_notes;
+      }
+
+      // Allow updating other fields if provided
+      if (payload.description !== undefined) {
+        updateData.description = payload.description;
+      }
+      if (payload.priority !== undefined) {
+        updateData.priority = payload.priority;
+      }
+      if (payload.due_date !== undefined) {
+        updateData.due_date = payload.due_date;
+      }
+
+      const { error: updateError } = await supabase
+        .from('tasks')
+        .update(updateData)
+        .eq('id', existingTask.id);
+
+      if (updateError) {
+        console.error('Error updating task:', updateError);
+        throw updateError;
+      }
+
+      console.log('✅ Task updated successfully:', existingTask.id, 'with revision notes');
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          task_id: existingTask.id,
+          message: 'Task updated with revision notes'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle CREATE action (default behavior)
+    // Validate required fields for create
     if (!payload.title) {
       return new Response(
         JSON.stringify({ error: 'Missing required field: title' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Find the Estimator user specifically (the one with 'estimation' role)
     const { data: estimationUsers, error: usersError } = await supabase
