@@ -47,6 +47,7 @@ type Task = {
   last_activity_at?: string;
   source_app?: string | null;
   external_task_id?: string | null;
+  revision_notes?: string | null;
 };
 
 type TaskCardProps = {
@@ -453,6 +454,18 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                     </Badge>
                   )}
                 </div>
+                
+                {/* CRM Revision Notes */}
+                {task.source_app && task.revision_notes && (
+                  <div className="mt-1.5 p-2 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-800 rounded-md">
+                    <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-0.5">
+                      📝 CRM Revision Notes:
+                    </p>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400 whitespace-pre-wrap">
+                      {task.revision_notes}
+                    </p>
+                  </div>
+                )}
                 
                 {task.sent_to_designer_mockup && task.status === 'mockup' && (
                   <Badge className="mt-1 bg-amber-500 text-white animate-pulse">
