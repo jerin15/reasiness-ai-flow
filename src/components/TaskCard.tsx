@@ -45,6 +45,8 @@ type Task = {
   sent_back_to_designer?: boolean;
   admin_remarks?: string | null;
   last_activity_at?: string;
+  source_app?: string | null;
+  external_task_id?: string | null;
 };
 
 type TaskCardProps = {
@@ -443,7 +445,14 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex-1">
-                <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
+                  {task.source_app && (
+                    <Badge className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] px-1.5 py-0.5 font-semibold shadow-sm">
+                      📥 CRM
+                    </Badge>
+                  )}
+                </div>
                 
                 {task.sent_to_designer_mockup && task.status === 'mockup' && (
                   <Badge className="mt-1 bg-amber-500 text-white animate-pulse">
