@@ -559,6 +559,57 @@ export type Database = {
           },
         ]
       }
+      mockup_tasks: {
+        Row: {
+          assigned_to: string | null
+          client_name: string | null
+          created_at: string | null
+          description: string | null
+          design_type: string | null
+          due_date: string | null
+          external_task_id: string | null
+          id: string
+          priority: string | null
+          revision_notes: string | null
+          source_app: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          client_name?: string | null
+          created_at?: string | null
+          description?: string | null
+          design_type?: string | null
+          due_date?: string | null
+          external_task_id?: string | null
+          id?: string
+          priority?: string | null
+          revision_notes?: string | null
+          source_app?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          client_name?: string | null
+          created_at?: string | null
+          description?: string | null
+          design_type?: string | null
+          due_date?: string | null
+          external_task_id?: string | null
+          id?: string
+          priority?: string | null
+          revision_notes?: string | null
+          source_app?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           created_at: string | null

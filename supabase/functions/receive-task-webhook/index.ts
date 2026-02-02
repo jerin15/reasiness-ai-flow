@@ -43,12 +43,36 @@ Deno.serve(async (req) => {
 
       console.log('📝 Processing update action for external_task_id:', payload.external_task_id);
 
-      // Find the task by external_task_id
+      // Try updating in mockup_tasks first (for JAIRAJ's pipeline)
+      const { data: mockupUpdate, error: mockupError } = await supabase
+        .from('mockup_tasks')
+        .update({ 
+          revision_notes: payload.revision_notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('external_task_id', payload.external_task_id)
+        .select()
+        .maybeSingle();
+
+      if (mockupUpdate) {
+        console.log('✅ Mockup task updated successfully:', mockupUpdate.id);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            task_id: mockupUpdate.id,
+            pipeline: 'mockup',
+            message: 'Mockup task updated with revision notes'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fallback to regular tasks table
       const { data: existingTask, error: findError } = await supabase
         .from('tasks')
         .select('id, title')
         .eq('external_task_id', payload.external_task_id)
-        .single();
+        .maybeSingle();
 
       if (findError || !existingTask) {
         console.error('Task not found for external_task_id:', payload.external_task_id);
@@ -66,8 +90,6 @@ Deno.serve(async (req) => {
       if (payload.revision_notes !== undefined) {
         updateData.revision_notes = payload.revision_notes;
       }
-
-      // Allow updating other fields if provided
       if (payload.description !== undefined) {
         updateData.description = payload.description;
       }
@@ -94,13 +116,63 @@ Deno.serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           task_id: existingTask.id,
+          pipeline: 'quotation',
           message: 'Task updated with revision notes'
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Handle CREATE action (default behavior)
+    // Handle CREATE action - Route to correct pipeline based on type
+    const isDesignTask = payload.type === 'design' || payload.assigned_to_pipeline === 'mockup';
+
+    if (isDesignTask) {
+      // INSERT into mockup_tasks for JAIRAJ
+      console.log('🎨 Routing to MOCKUP pipeline for JAIRAJ');
+
+      const { data: mockupTask, error: mockupError } = await supabase
+        .from('mockup_tasks')
+        .upsert({
+          title: payload.title,
+          description: payload.description || null,
+          client_name: payload.client_name || null,
+          priority: payload.priority || 'medium',
+          design_type: payload.design_type || 'mockup',
+          due_date: payload.due_date || null,
+          source_app: payload.source_app || 'REA FLOW',
+          external_task_id: payload.external_task_id || null,
+          status: 'pending',
+          assigned_to: 'JAIRAJ',
+        }, {
+          onConflict: 'external_task_id',
+        })
+        .select()
+        .single();
+
+      if (mockupError) {
+        console.error('Error inserting mockup task:', mockupError);
+        return new Response(
+          JSON.stringify({ error: mockupError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('✅ Mockup task created successfully:', mockupTask.id);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          task_id: mockupTask.id,
+          pipeline: 'mockup',
+          message: 'Mockup task created successfully for JAIRAJ'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Default: Regular quotation tasks (existing behavior)
+    console.log('📋 Routing to QUOTATION pipeline');
+
     // Validate required fields for create
     if (!payload.title) {
       return new Response(
@@ -133,16 +205,15 @@ Deno.serve(async (req) => {
     console.log('📋 Assigning task to Estimator:', assignedTo);
 
     // Create the task in the Estimator's RFQ pipeline
-    // ALWAYS set type to 'quotation' and status to 'todo' for RFQ pipeline
     const taskData = {
       title: payload.title,
       description: payload.description || null,
       client_name: payload.client_name || null,
       supplier_name: payload.supplier_name || null,
       priority: payload.priority || 'medium',
-      type: 'quotation' as const,  // Always quotation for RFQ pipeline
-      status: 'todo' as const,     // Always start in todo for RFQ pipeline
-      created_by: assignedTo,      // Required field - use estimation user as creator
+      type: 'quotation' as const,
+      status: 'todo' as const,
+      created_by: assignedTo,
       assigned_to: assignedTo,
       due_date: payload.due_date || null,
       source_app: payload.source_app || 'external',
@@ -179,7 +250,6 @@ Deno.serve(async (req) => {
 
       if (productsError) {
         console.error('Error inserting products:', productsError);
-        // Don't fail the whole request, just log the error
       } else {
         console.log(`✅ Added ${productsToInsert.length} products to task`);
       }
@@ -189,6 +259,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         task_id: insertedTask.id,
+        pipeline: 'quotation',
         message: 'Task created successfully'
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
