@@ -45,6 +45,10 @@ type Task = {
   mockup_completed_by_designer?: boolean;
   came_from_designer_done?: boolean;
   completed_by_designer_id?: string | null;
+  is_mockup_task?: boolean; // Flag for tasks from mockup_tasks table
+  source_app?: string | null;
+  revision_notes?: string | null;
+  design_type?: string | null;
 };
 
 type Column = {
@@ -356,8 +360,48 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         console.log('🎨 Designer: Approved products as tasks:', approvedProductTasks.length);
       }
 
-      // Combine regular tasks with approved product tasks for designers
-      const allTasks = [...transformedData, ...approvedProductTasks];
+      // FOR DESIGNERS: Also fetch mockup_tasks from REA FLOW
+      let mockupTasksFromFlow: Task[] = [];
+      if (roleToCheck === 'designer') {
+        const { data: mockupData, error: mockupError } = await supabase
+          .from('mockup_tasks')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!mockupError && mockupData) {
+          mockupTasksFromFlow = mockupData.map((mt: any) => ({
+            id: mt.id,
+            title: mt.title,
+            description: mt.description,
+            status: mt.status === 'pending' ? 'mockup' : mt.status === 'in_progress' ? 'mockup' : mt.status === 'review' ? 'with_client' : mt.status === 'completed' ? 'done' : 'mockup',
+            priority: mt.priority || 'medium',
+            due_date: mt.due_date,
+            position: 0,
+            assigned_to: null,
+            created_by: user.id,
+            created_at: mt.created_at,
+            updated_at: mt.updated_at,
+            status_changed_at: mt.updated_at,
+            assigned_by: null,
+            client_name: mt.client_name,
+            my_status: 'pending',
+            supplier_name: null,
+            suppliers: null,
+            delivery_instructions: null,
+            delivery_address: null,
+            type: 'design',
+            assigned_user_role: null,
+            is_mockup_task: true,
+            source_app: mt.source_app,
+            revision_notes: mt.revision_notes,
+            design_type: mt.design_type,
+          }));
+          console.log('🎨 Designer: Mockup tasks from REA FLOW:', mockupTasksFromFlow.length);
+        }
+      }
+
+      // Combine regular tasks with approved product tasks AND mockup tasks for designers
+      const allTasks = [...transformedData, ...approvedProductTasks, ...mockupTasksFromFlow];
       
       // Deduplicate by ID to prevent occasional double-render/ghost entries
       const seenTaskIds = new Set<string>();
@@ -430,6 +474,18 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
           },
           () => {
             // Use debounced fetch to prevent rapid updates
+            debouncedFetchTasks();
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "mockup_tasks",
+          },
+          () => {
+            // Also listen to mockup_tasks for designers
             debouncedFetchTasks();
           }
         )
