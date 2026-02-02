@@ -636,6 +636,24 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                     ✕
                   </Button>
                 )}
+
+                {/* Delete button for designers/admins for REA FLOW mockup tasks only */}
+                {!isAdminView && onDelete && !showFullCrud && (task as any).is_mockup_task && (userRole === 'designer' || userRole === 'admin') && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm('Delete this REA FLOW mockup? This action cannot be undone.')) {
+                        onDelete(task.id);
+                      }
+                    }}
+                    title="Delete mockup"
+                  >
+                    ✕
+                  </Button>
+                )}
                 {/* Remove button for FOR PRODUCTION pipeline */}
                 {showFullCrud && onDelete && (
                   <Button

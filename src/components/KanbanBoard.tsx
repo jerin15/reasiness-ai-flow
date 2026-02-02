@@ -750,11 +750,22 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
 
   const handleDeleteTask = async (taskId: string) => {
     console.log('🔍 handleDeleteTask called with:', { taskId, isAdmin, viewingUserId });
+
+    // Identify whether this is a REA FLOW mockup task (stored in mockup_tasks)
+    const taskToDelete = tasks.find((t) => t.id === taskId);
+    const isMockupTask = !!(taskToDelete as any)?.is_mockup_task;
+    const effectiveRole = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
     
-    // Only allow admins to delete tasks from team members' views
-    if (!isAdmin || !viewingUserId) {
+    // Designers can delete ONLY REA FLOW mockup tasks.
+    // Admins can delete from team member views (existing behavior).
+    if (!isMockupTask && (!isAdmin || !viewingUserId)) {
       console.error('❌ Delete blocked - isAdmin:', isAdmin, 'viewingUserId:', viewingUserId);
       toast.error('Only admins can delete tasks from team member views');
+      return;
+    }
+
+    if (isMockupTask && !(isAdmin || effectiveRole === 'designer')) {
+      toast.error('You do not have permission to delete this mockup task');
       return;
     }
 
@@ -765,10 +776,15 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       // Optimistically remove from state immediately
       setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
       
-      const { error } = await supabase
-        .from('tasks')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', taskId);
+      const { error } = isMockupTask
+        ? await supabase
+            .from('mockup_tasks')
+            .delete()
+            .eq('id', taskId)
+        : await supabase
+            .from('tasks')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', taskId);
 
       if (error) {
         console.error('❌ Error deleting task:', error);
@@ -778,8 +794,8 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         return;
       }
 
-      console.log('✅ Task marked as deleted in database');
-      toast.success('Task deleted successfully');
+      console.log('✅ Task deleted successfully');
+      toast.success(isMockupTask ? 'Mockup deleted successfully' : 'Task deleted successfully');
       
       // Force a fresh fetch to ensure state is in sync
       console.log('🔄 Forcing fresh fetch after delete...');
@@ -892,7 +908,9 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
                     userRole={(isAdmin && viewingUserRole) ? viewingUserRole : userRole}
                     isAdminOwnPanel={isAdmin && (!viewingUserId || viewingUserId === currentUserId)}
                     onDeleteTask={(() => {
-                      const deleteHandler = isAdmin && viewingUserId ? handleDeleteTask : undefined;
+                      // Admins can delete from team member views; designers can delete REA FLOW mockups in their own pipeline
+                      const roleToCheck = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
+                      const deleteHandler = (isAdmin && viewingUserId) || roleToCheck === 'designer' ? handleDeleteTask : undefined;
                       if (column.id === 'production') {
                         console.log(`🔍 KanbanBoard: Passing onDeleteTask to ${column.title}:`, {
                           isAdmin,
