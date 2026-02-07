@@ -43,6 +43,10 @@ type Task = {
   sent_back_to_designer?: boolean;
   admin_remarks?: string | null;
   admin_removed_from_production?: boolean;
+  is_mockup_task?: boolean; // Flag for CRM mockup tasks from mockup_tasks table
+  source_app?: string | null;
+  revision_notes?: string | null;
+  design_type?: string | null;
 };
 
 type Column = {
@@ -143,6 +147,53 @@ export const AdminKanbanBoard = () => {
         console.error('❌ Error fetching with_client tasks:', withClientError);
         throw withClientError;
       }
+
+      // Fetch CRM mockup tasks with 'review' status (these are in designer's "With Client" column)
+      // These need admin approval just like regular tasks
+      const { data: mockupReviewTasks, error: mockupReviewError } = await supabase
+        .from('mockup_tasks')
+        .select('*')
+        .eq('status', 'review')
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (mockupReviewError) {
+        console.error('❌ Error fetching mockup review tasks:', mockupReviewError);
+      }
+
+      // Transform mockup_tasks into task-like objects for the admin panel
+      const mockupAsWithClient: Task[] = (mockupReviewTasks || []).map((mt: any) => ({
+        id: mt.id,
+        title: mt.title,
+        description: mt.description,
+        status: 'with_client',
+        priority: mt.priority || 'medium',
+        due_date: mt.due_date,
+        position: 0,
+        assigned_to: mt.assigned_to,
+        created_by: mt.assigned_to || user.id,
+        created_at: mt.created_at,
+        updated_at: mt.updated_at,
+        status_changed_at: mt.updated_at,
+        assigned_by: null,
+        client_name: mt.client_name,
+        my_status: 'pending',
+        supplier_name: null,
+        suppliers: null,
+        delivery_instructions: null,
+        delivery_address: null,
+        type: 'design',
+        came_from_designer_done: false,
+        sent_back_to_designer: false,
+        admin_remarks: null,
+        admin_removed_from_production: false,
+        is_mockup_task: true, // Flag to identify CRM mockup tasks
+        source_app: mt.source_app,
+        revision_notes: mt.revision_notes,
+        design_type: mt.design_type,
+      } as any));
+
+      console.log('🎨 CRM Mockup tasks for admin With Client:', mockupAsWithClient.length);
 
       // CRITICAL: First, fetch ALL tasks that have approved products across ALL statuses
       // These parent tasks should NEVER appear in any column
@@ -277,7 +328,8 @@ export const AdminKanbanBoard = () => {
       }
 
       // Combine all tasks using the filtered versions (parent tasks with approved products already removed)
-      let allTasks = [...filteredApprovalTasks, ...filteredWithClientTasksFinal, ...filteredQuotationBillTasks, ...designerDoneWithStatus, ...approvedProductTasks];
+      // Include CRM mockup tasks in with_client column for admin approval
+      let allTasks = [...filteredApprovalTasks, ...filteredWithClientTasksFinal, ...filteredQuotationBillTasks, ...designerDoneWithStatus, ...approvedProductTasks, ...mockupAsWithClient];
       
       // Final deduplication by ID to ensure no duplicates
       const seenIds = new Set();
@@ -392,6 +444,18 @@ export const AdminKanbanBoard = () => {
           (payload) => {
             console.log('🔄 Admin received task change:', payload.eventType, payload.new);
             // Debounced refetch on any task change
+            debouncedFetchTasks();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'mockup_tasks'
+          },
+          (payload) => {
+            console.log('🔄 Admin received mockup_task change:', payload.eventType, payload.new);
             debouncedFetchTasks();
           }
         )
@@ -572,46 +636,71 @@ export const AdminKanbanBoard = () => {
       }
       // Handle designer approval flow: with_client → approved_designer → production (NOT production_file)
       else if (task.status === 'with_client' && newStatus === 'approved_designer') {
-        console.log('✅ Admin approving designer task - moving to production');
+        // Check if this is a CRM mockup task (from mockup_tasks table)
+        const isMockupTask = (task as any).is_mockup_task === true;
         
-        // Find designer user to assign back to
-        const assignedUserRole = task.assigned_to ? userRoles[task.assigned_to] : null;
-        let assignTo = task.assigned_to;
-        
-        // If not assigned to designer, find one
-        if (assignedUserRole !== 'designer') {
-          const { data: designerUsers } = await supabase
-            .from('user_roles')
-            .select('user_id')
-            .eq('role', 'designer')
-            .limit(1);
+        if (isMockupTask) {
+          console.log('🎨 Admin approving CRM mockup task - updating mockup_tasks table');
           
-          if (designerUsers && designerUsers.length > 0) {
-            assignTo = designerUsers[0].user_id;
-            console.log('📝 Assigning to designer user:', assignTo);
-          }
-        }
-        
-        const updates = {
-          status: 'production' as any,
-          previous_status: 'with_client' as any,
-          assigned_to: assignTo,
-          updated_at: new Date().toISOString(),
-          status_changed_at: new Date().toISOString()
-        };
-        
-        const { error } = await updateTaskOffline(taskId, updates);
+          // Update the mockup_tasks table status to 'approved' so it maps to 'production' in designer's view
+          const { error: mockupError } = await supabase
+            .from('mockup_tasks')
+            .update({
+              status: 'approved',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', task.id);
 
-        if (error) throw error;
-        
-        await fetchTasks();
-        
-        console.log('✅ Designer task approved and moved to Production');
-        
-        if (!navigator.onLine) {
-          toast.success("Task approved (offline - will sync when online)");
+          if (mockupError) {
+            console.error('Error updating mockup task:', mockupError);
+            throw mockupError;
+          }
+
+          await fetchTasks();
+          console.log('✅ CRM Mockup task approved - moved to Production in designer\'s panel');
+          toast.success("🎨 CRM Mockup task approved! Moved to Production in designer's panel");
         } else {
-          toast.success("Task approved! Moved to Production in designer's panel");
+          console.log('✅ Admin approving designer task - moving to production');
+          
+          // Find designer user to assign back to
+          const assignedUserRole = task.assigned_to ? userRoles[task.assigned_to] : null;
+          let assignTo = task.assigned_to;
+          
+          // If not assigned to designer, find one
+          if (assignedUserRole !== 'designer') {
+            const { data: designerUsers } = await supabase
+              .from('user_roles')
+              .select('user_id')
+              .eq('role', 'designer')
+              .limit(1);
+            
+            if (designerUsers && designerUsers.length > 0) {
+              assignTo = designerUsers[0].user_id;
+              console.log('📝 Assigning to designer user:', assignTo);
+            }
+          }
+          
+          const updates = {
+            status: 'production' as any,
+            previous_status: 'with_client' as any,
+            assigned_to: assignTo,
+            updated_at: new Date().toISOString(),
+            status_changed_at: new Date().toISOString()
+          };
+          
+          const { error } = await updateTaskOffline(taskId, updates);
+
+          if (error) throw error;
+          
+          await fetchTasks();
+          
+          console.log('✅ Designer task approved and moved to Production');
+          
+          if (!navigator.onLine) {
+            toast.success("Task approved (offline - will sync when online)");
+          } else {
+            toast.success("Task approved! Moved to Production in designer's panel");
+          }
         }
       }
       else {

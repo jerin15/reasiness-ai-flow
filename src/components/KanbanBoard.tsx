@@ -379,7 +379,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
             id: mt.id,
             title: mt.title,
             description: mt.description,
-            status: mt.status === 'pending' ? 'mockup' : mt.status === 'in_progress' ? 'mockup' : mt.status === 'review' ? 'with_client' : mt.status === 'completed' ? 'done' : 'mockup',
+            status: mt.status === 'pending' ? 'mockup' : mt.status === 'in_progress' ? 'mockup' : mt.status === 'review' ? 'with_client' : mt.status === 'completed' ? 'done' : mt.status === 'approved' ? 'production' : 'mockup',
             priority: mt.priority || 'medium',
             due_date: mt.due_date,
             position: 0,
