@@ -4,6 +4,8 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Download, X, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { generateWeeklyPdfReport } from "@/lib/generateWeeklyPdfReport";
+import { format } from "date-fns";
 
 export const WeeklyReportNotification = () => {
   const [showNotification, setShowNotification] = useState(false);
@@ -95,25 +97,20 @@ export const WeeklyReportNotification = () => {
   };
 
   const handleDownloadAndClear = async () => {
-    if (!latestReport) return;
-    
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Download the HTML report
-      const { data, error } = await supabase.storage
-        .from('task-reports')
-        .download(`reports/${latestReport.name}`);
-
-      if (error) throw error;
+      // Generate PDF report client-side
+      toast.info("Generating PDF report...");
+      const pdfBlob = await generateWeeklyPdfReport();
 
       // Create download link
-      const url = URL.createObjectURL(data);
+      const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = latestReport.name;
+      a.download = `weekly-report-${format(new Date(), "yyyy-MM-dd")}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -147,7 +144,7 @@ export const WeeklyReportNotification = () => {
       setShowNotification(false);
     } catch (error: any) {
       console.error('Error:', error);
-      toast.error(error.message || "Failed to process report");
+      toast.error(error.message || "Failed to generate report");
     } finally {
       setLoading(false);
     }
