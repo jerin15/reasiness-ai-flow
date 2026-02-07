@@ -99,8 +99,19 @@ function formatShortDate(dateStr: string | null): string {
 }
 
 export async function generateWeeklyPdfReport(): Promise<Blob> {
-  // 1. Fetch all done tasks (including archived/soft-deleted ones from weekly cleanup)
-  // The weekly cleanup soft-deletes completed tasks after 7 days, so we must include them
+  // Calculate current week boundaries (Monday to Sunday)
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon...
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() + mondayOffset);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  // 1. Fetch tasks completed THIS week (including archived ones from weekly cleanup)
   const { data: tasks, error: tasksError } = await supabase
     .from("tasks")
     .select(`
@@ -112,8 +123,9 @@ export async function generateWeeklyPdfReport(): Promise<Blob> {
       assignee:profiles!tasks_assigned_to_fkey(full_name, email)
     `)
     .eq("status", "done")
-    .order("completed_at", { ascending: false, nullsFirst: false })
-    .order("updated_at", { ascending: false })
+    .gte("status_changed_at", weekStart.toISOString())
+    .lte("status_changed_at", weekEnd.toISOString())
+    .order("status_changed_at", { ascending: false })
     .limit(1000);
 
   if (tasksError) throw tasksError;
@@ -176,7 +188,9 @@ export async function generateWeeklyPdfReport(): Promise<Blob> {
   doc.setTextColor(100, 100, 100);
   doc.text(`Report Generated: ${format(new Date(), "dd MMMM yyyy, hh:mm a")}`, margin, y);
   y += 5;
-  doc.text(`Total Completed Tasks: ${doneTasks.length}`, margin, y);
+  doc.text(`Week: ${format(weekStart, "dd MMM yyyy")} — ${format(weekEnd, "dd MMM yyyy")}`, margin, y);
+  y += 5;
+  doc.text(`Total Completed Tasks This Week: ${doneTasks.length}`, margin, y);
   y += 8;
 
   // --- SUMMARY TABLE ---
