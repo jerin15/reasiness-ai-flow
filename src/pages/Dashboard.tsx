@@ -12,6 +12,7 @@ import { generateWeeklyPdfReport } from "@/lib/generateWeeklyPdfReport";
 import { format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useEstimatorSync } from "@/hooks/useEstimatorSync";
 
 // Lazy load heavy components to reduce initial bundle size
 const KanbanBoard = lazy(() => import("@/components/KanbanBoard").then(m => ({ default: m.KanbanBoard })));
@@ -81,6 +82,9 @@ const Dashboard = () => {
   
   const unreadCount = useUnreadMessageCount(currentUserId);
   const isMobile = useIsMobile();
+  
+  // Reverse sync: bulk sync on startup + realtime per-task updates to estimator CRM
+  useEstimatorSync(currentUserId || undefined);
 
   useEffect(() => {
     checkAuth();
