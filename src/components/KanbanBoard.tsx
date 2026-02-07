@@ -12,7 +12,8 @@ import { StatusChangeNotification } from "./StatusChangeNotification";
 import { WeeklyReportNotification } from "./WeeklyReportNotification";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Plus } from "lucide-react";
+import { Badge } from "./ui/badge";
+import { Plus, Filter } from "lucide-react";
 import { updateTaskOffline } from "@/lib/offlineTaskOperations";
 import { getLocalTasks, saveTasksLocally } from "@/lib/offlineStorage";
 import { useDebouncedCallback } from "@/hooks/useVisibilityAwareSubscription";
@@ -80,6 +81,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [crmSourceFilter, setCrmSourceFilter] = useState<'all' | 'crm_pipeline' | 'direct_rfq'>('all');
 
   // Define columns based on role - use viewing user's role if admin is viewing someone else
   const getColumnsForRole = (): Column[] => {
@@ -821,15 +823,41 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
     );
   }
 
-  // Filter tasks based on search query
+  // Determine if estimation role for CRM filter
+  const effectiveRole = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
+  const isEstimationView = effectiveRole === 'estimation';
+
+  // Count CRM tasks for filter badges
+  const crmPipelineCount = tasks.filter(t => t.source_app && t.task_type === 'quotation_request').length;
+  const directRfqCount = tasks.filter(t => t.source_app && t.task_type === 'direct_rfq').length;
+  const legacyCrmCount = tasks.filter(t => t.source_app && !t.task_type).length;
+
+  // Filter tasks based on search query and CRM source filter
   const filteredTasks = tasks.filter((task) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      task.client_name?.toLowerCase().includes(query) ||
-      task.supplier_name?.toLowerCase().includes(query) ||
-      task.title?.toLowerCase().includes(query)
-    );
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch = (
+        task.client_name?.toLowerCase().includes(query) ||
+        task.supplier_name?.toLowerCase().includes(query) ||
+        task.title?.toLowerCase().includes(query)
+      );
+      if (!matchesSearch) return false;
+    }
+
+    // CRM source filter (estimation only)
+    if (isEstimationView && crmSourceFilter !== 'all') {
+      if (crmSourceFilter === 'crm_pipeline') {
+        // Show only CRM Pipeline tasks (quotation_request) + legacy CRM tasks without task_type
+        if (!task.source_app) return false;
+        if (task.task_type && task.task_type !== 'quotation_request') return false;
+      } else if (crmSourceFilter === 'direct_rfq') {
+        // Show only Direct RFQ tasks
+        if (!task.source_app || task.task_type !== 'direct_rfq') return false;
+      }
+    }
+
+    return true;
   });
 
   return (
@@ -837,22 +865,62 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       <StatusChangeNotification />
       <WeeklyReportNotification />
       
-      <div className="flex items-center justify-between mb-4 gap-4">
-        <h2 className="text-2xl font-bold">
-          {isAdmin && viewingUserId ? "Team Member Tasks" : "My Tasks"}
-        </h2>
-        <div className="flex-1 max-w-md">
-          <Input
-            placeholder="Search by client, supplier, or task name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full"
-          />
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-2xl font-bold">
+            {isAdmin && viewingUserId ? "Team Member Tasks" : "My Tasks"}
+          </h2>
+          <div className="flex-1 max-w-md">
+            <Input
+              placeholder="Search by client, supplier, or task name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <Button onClick={() => setShowAddTask(true)} size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Task
+          </Button>
         </div>
-        <Button onClick={() => setShowAddTask(true)} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Task
-        </Button>
+
+        {/* CRM Source Filter - only for estimation role */}
+        {isEstimationView && (crmPipelineCount > 0 || directRfqCount > 0 || legacyCrmCount > 0) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground mr-1">CRM Source:</span>
+            <Button
+              variant={crmSourceFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setCrmSourceFilter('all')}
+            >
+              All Tasks
+            </Button>
+            <Button
+              variant={crmSourceFilter === 'crm_pipeline' ? 'default' : 'outline'}
+              size="sm"
+              className={`h-7 text-xs ${crmSourceFilter !== 'crm_pipeline' ? 'border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/30' : 'bg-blue-600 hover:bg-blue-700'}`}
+              onClick={() => setCrmSourceFilter('crm_pipeline')}
+            >
+              📥 CRM Pipeline
+              <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
+                {crmPipelineCount + legacyCrmCount}
+              </Badge>
+            </Button>
+            <Button
+              variant={crmSourceFilter === 'direct_rfq' ? 'default' : 'outline'}
+              size="sm"
+              className={`h-7 text-xs ${crmSourceFilter !== 'direct_rfq' ? 'border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-950/30' : 'bg-orange-500 hover:bg-orange-600'}`}
+              onClick={() => setCrmSourceFilter('direct_rfq')}
+            >
+              📋 Direct RFQ
+              <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
+                {directRfqCount}
+              </Badge>
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="flex justify-center w-full">
