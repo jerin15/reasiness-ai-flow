@@ -6,7 +6,10 @@ import reaLogo from "@/assets/rea_logo_h.jpg";
 import { useUnreadMessageCount } from "@/hooks/useUnreadMessageCount";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Menu, Plus } from "lucide-react";
+import { Menu, Plus, FileDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { generateWeeklyPdfReport } from "@/lib/generateWeeklyPdfReport";
+import { format } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
@@ -74,6 +77,7 @@ const Dashboard = () => {
   const [showTaskChooser, setShowTaskChooser] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showManageTeam, setShowManageTeam] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
   
   const unreadCount = useUnreadMessageCount(currentUserId);
   const isMobile = useIsMobile();
@@ -216,7 +220,31 @@ const Dashboard = () => {
     );
   }
 
+  const handleDownloadReport = async () => {
+    setDownloadingReport(true);
+    try {
+      toast.info("Generating PDF report...");
+      const pdfBlob = await generateWeeklyPdfReport();
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `weekly-report-${format(new Date(), "yyyy-MM-dd")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Report downloaded successfully");
+    } catch (error: any) {
+      console.error("Error generating report:", error);
+      toast.error("Failed to generate report");
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
+
   // Render header component (shared)
+  const isAdminOrHead = userRole === "admin" || userRole === "technical_head";
+
   const renderHeader = () => (
     <header 
       className="border-b shadow-sm sticky top-0 z-[5] text-white"
@@ -242,6 +270,20 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+          {isAdminOrHead && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-white/20 gap-2 border border-white/30"
+              onClick={handleDownloadReport}
+              disabled={downloadingReport}
+            >
+              <FileDown className="h-4 w-4" />
+              <span className="hidden sm:inline">
+                {downloadingReport ? "Generating..." : "Download Report"}
+              </span>
+            </Button>
+          )}
         </div>
       </div>
     </header>
