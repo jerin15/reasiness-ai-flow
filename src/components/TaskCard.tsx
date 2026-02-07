@@ -401,7 +401,7 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         if (finalStatus === 'mockup') mockupStatus = 'pending';
         else if (finalStatus === 'with_client') mockupStatus = 'review';
         else if (finalStatus === 'done') mockupStatus = 'completed';
-        else if (finalStatus === 'production') mockupStatus = 'in_progress';
+        else if (finalStatus === 'production') mockupStatus = 'approved';
 
         const { error } = await supabase
           .from("mockup_tasks")
