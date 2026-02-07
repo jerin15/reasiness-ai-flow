@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.send-task-webhook]
 verify_jwt = false
+
+[functions.sync-to-estimator-crm]
+verify_jwt = false
