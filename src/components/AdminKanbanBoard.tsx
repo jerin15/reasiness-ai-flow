@@ -640,7 +640,7 @@ export const AdminKanbanBoard = () => {
         const isMockupTask = (task as any).is_mockup_task === true;
         
         if (isMockupTask) {
-          console.log('🎨 Admin approving CRM mockup task - updating mockup_tasks table');
+          console.log('🎨 Admin approving CRM mockup task - updating mockup_tasks table & creating estimator task');
           
           // Update the mockup_tasks table status to 'approved' so it maps to 'production' in designer's view
           const { error: mockupError } = await supabase
@@ -656,9 +656,73 @@ export const AdminKanbanBoard = () => {
             throw mockupError;
           }
 
+          // Also create a [Post-Mockup] clone in the tasks table for the estimator
+          // This follows the same pattern as DesignerSendBackButton cloning
+          const { data: estimationUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('role', 'estimation')
+            .limit(1);
+
+          const estimatorId = estimationUsers?.[0]?.user_id;
+
+          if (estimatorId) {
+            // Check if a clone already exists to prevent duplicates
+            const { data: existingClone } = await supabase
+              .from('tasks')
+              .select('id')
+              .eq('title', `[Post-Mockup] ${task.title}`)
+              .eq('assigned_to', estimatorId)
+              .is('deleted_at', null)
+              .maybeSingle();
+
+            if (!existingClone) {
+              const { data: clonedTask, error: cloneError } = await supabase
+                .from('tasks')
+                .insert({
+                  title: `[Post-Mockup] ${task.title}`,
+                  description: task.description,
+                  status: 'todo' as any,
+                  priority: (task.priority || 'medium') as any,
+                  due_date: task.due_date,
+                  type: 'quotation' as any,
+                  client_name: task.client_name,
+                  created_by: estimatorId,
+                  assigned_to: estimatorId,
+                  position: 0,
+                  status_changed_at: new Date().toISOString(),
+                  source_app: (task as any).source_app || 'REA FLOW',
+                  admin_remarks: `CRM Mockup task approved by admin.\n\nOriginal mockup task ID: ${task.id}`,
+                })
+                .select()
+                .single();
+
+              if (cloneError) {
+                console.error('⚠️ Error creating estimator clone (non-critical):', cloneError);
+              } else {
+                console.log('✅ Created [Post-Mockup] clone for estimator:', clonedTask?.id);
+
+                // Notify estimator
+                const { data: { user: adminUser } } = await supabase.auth.getUser();
+                if (adminUser) {
+                  await supabase.from('urgent_notifications').insert({
+                    recipient_id: estimatorId,
+                    sender_id: adminUser.id,
+                    title: '🎨 CRM Mockup Approved - New Task',
+                    message: `Task: ${task.title}\n\n✅ Admin has approved this CRM mockup.\n\n📋 A new task "[Post-Mockup] ${task.title}" has been created in your TODO for further processing.`,
+                    priority: 'high',
+                    is_broadcast: false,
+                  });
+                }
+              }
+            } else {
+              console.log('⚠️ Estimator clone already exists, skipping creation');
+            }
+          }
+
           await fetchTasks();
-          console.log('✅ CRM Mockup task approved - moved to Production in designer\'s panel');
-          toast.success("🎨 CRM Mockup task approved! Moved to Production in designer's panel");
+          console.log('✅ CRM Mockup task approved - moved to Production & estimator notified');
+          toast.success("🎨 CRM Mockup approved! Moved to Production + Estimator task created");
         } else {
           console.log('✅ Admin approving designer task - moving to production');
           
