@@ -4,8 +4,9 @@ import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Download, FileText, RefreshCw } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Download, FileText, RefreshCw, FilePlus } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
+import { generateWeeklyPdfReport } from "@/lib/generateWeeklyPdfReport";
 
 type ReportFile = {
   name: string;
@@ -25,6 +26,7 @@ export const ReportsDownloadDialog = ({ open, onOpenChange }: ReportsDownloadDia
   const [reports, setReports] = useState<ReportFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -101,7 +103,30 @@ export const ReportsDownloadDialog = ({ open, onOpenChange }: ReportsDownloadDia
   const getFileType = (fileName: string) => {
     if (fileName.endsWith('.csv')) return 'CSV';
     if (fileName.endsWith('.txt')) return 'TXT';
+    if (fileName.endsWith('.pdf')) return 'PDF';
     return 'File';
+  };
+
+  const handleGeneratePdf = async () => {
+    setGeneratingPdf(true);
+    try {
+      toast.info("Generating PDF report with full task details...");
+      const pdfBlob = await generateWeeklyPdfReport();
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `weekly-report-${format(new Date(), "yyyy-MM-dd")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("PDF report downloaded successfully");
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF report");
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   return (
@@ -124,10 +149,12 @@ export const ReportsDownloadDialog = ({ open, onOpenChange }: ReportsDownloadDia
               </Button>
               <Button
                 size="sm"
-                onClick={generateNewReport}
-                disabled={generating}
+                onClick={handleGeneratePdf}
+                disabled={generatingPdf}
+                className="gap-1"
               >
-                {generating ? 'Generating...' : 'Generate New'}
+                <FilePlus className="h-4 w-4" />
+                {generatingPdf ? 'Generating...' : 'Download PDF Report'}
               </Button>
             </div>
           </DialogTitle>
