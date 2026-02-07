@@ -200,7 +200,7 @@ export const AdminDashboard = () => {
     }
   }, []);
 
-  // Search across all tasks
+  // Search across approval and production tasks only
   const handleSearch = useCallback(async (query: string) => {
     setSearchQuery(query);
     if (!query.trim() || query.trim().length < 2) {
@@ -211,6 +211,8 @@ export const AdminDashboard = () => {
     setIsSearching(true);
     try {
       const searchTerm = `%${query.trim()}%`;
+      // Only search tasks in the admin's relevant pipelines: approval + production
+      const relevantStatuses = ['admin_approval', 'approved', 'with_client', 'production'];
       const { data, error } = await supabase
         .from('tasks')
         .select(`
@@ -218,7 +220,7 @@ export const AdminDashboard = () => {
           assignee:profiles!tasks_assigned_to_fkey(full_name, email),
           creator:profiles!tasks_created_by_fkey(full_name, email)
         `)
-        .is('deleted_at', null)
+        .in('status', relevantStatuses as any)
         .or(`title.ilike.${searchTerm},client_name.ilike.${searchTerm},description.ilike.${searchTerm},supplier_name.ilike.${searchTerm}`)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -356,7 +358,7 @@ export const AdminDashboard = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search any task by title, client, supplier, or description..."
+            placeholder="Search approval & production tasks by title, client, supplier..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
