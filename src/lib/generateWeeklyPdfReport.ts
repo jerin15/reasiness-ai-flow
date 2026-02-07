@@ -99,7 +99,8 @@ function formatShortDate(dateStr: string | null): string {
 }
 
 export async function generateWeeklyPdfReport(): Promise<Blob> {
-  // 1. Fetch all done tasks (not soft-deleted)
+  // 1. Fetch all done tasks (including archived/soft-deleted ones from weekly cleanup)
+  // The weekly cleanup soft-deletes completed tasks after 7 days, so we must include them
   const { data: tasks, error: tasksError } = await supabase
     .from("tasks")
     .select(`
@@ -111,8 +112,9 @@ export async function generateWeeklyPdfReport(): Promise<Blob> {
       assignee:profiles!tasks_assigned_to_fkey(full_name, email)
     `)
     .eq("status", "done")
-    .is("deleted_at", null)
-    .order("completed_at", { ascending: false });
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false })
+    .limit(1000);
 
   if (tasksError) throw tasksError;
 
