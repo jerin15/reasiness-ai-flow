@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ListTodo, Plus, MapPin, Loader2, ClipboardList } from "lucide-react";
+import { ListTodo, Plus, MapPin, Loader2, ClipboardList, Search, X } from "lucide-react";
 import { AddTaskDialog } from "./AddTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
@@ -64,6 +65,9 @@ export const AdminDashboard = () => {
   const [mapboxToken, setMapboxToken] = useState<string>('');
   const [mapLoading, setMapLoading] = useState(false);
   const [operationsUsers, setOperationsUsers] = useState<Array<{ id: string; full_name: string | null; email: string }>>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Task[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   
   // Channel ref for managing subscription lifecycle
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -196,6 +200,41 @@ export const AdminDashboard = () => {
     }
   }, []);
 
+  // Search across all tasks
+  const handleSearch = useCallback(async (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim() || query.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const searchTerm = `%${query.trim()}%`;
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          assignee:profiles!tasks_assigned_to_fkey(full_name, email),
+          creator:profiles!tasks_created_by_fkey(full_name, email)
+        `)
+        .is('deleted_at', null)
+        .or(`title.ilike.${searchTerm},client_name.ilike.${searchTerm},description.ilike.${searchTerm},supplier_name.ilike.${searchTerm}`)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      setSearchResults((data || []) as any);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Debounce search
+  const debouncedSearch = useDebouncedCallback(handleSearch, 400);
+
   useEffect(() => {
     console.log('🚀 AdminDashboard: useEffect triggered');
     
@@ -310,6 +349,83 @@ export const AdminDashboard = () => {
       <div>
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         <p className="text-muted-foreground">Manage tasks and approvals</p>
+      </div>
+
+      {/* Global Task Search */}
+      <div className="relative">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search any task by title, client, supplier, or description..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              debouncedSearch(e.target.value);
+            }}
+            className="pl-10 pr-10"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Search Results */}
+        {searchQuery.trim().length >= 2 && (
+          <Card className="mt-2 border-2 border-primary/30">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                {isSearching ? 'Searching...' : `${searchResults.length} result${searchResults.length !== 1 ? 's' : ''} found`}
+              </CardTitle>
+            </CardHeader>
+            {searchResults.length > 0 && (
+              <CardContent className="px-4 pb-3 max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Task</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {searchResults.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium text-sm">{task.title}</div>
+                            {task.description && (
+                              <div className="text-xs text-muted-foreground line-clamp-1">{task.description}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs">{task.status?.replace(/_/g, ' ')}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={`text-xs ${getPriorityColor(task.priority)}`}>{task.priority}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">{task.client_name || '-'}</TableCell>
+                        <TableCell className="text-sm">{task.assignee?.full_name || 'Unassigned'}</TableCell>
+                        <TableCell className="text-sm">
+                          {task.created_at ? format(new Date(task.created_at), 'MMM d, yyyy') : '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            )}
+          </Card>
+        )}
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
