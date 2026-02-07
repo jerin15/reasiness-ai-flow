@@ -195,6 +195,53 @@ export const AdminKanbanBoard = () => {
 
       console.log('🎨 CRM Mockup tasks for admin With Client:', mockupAsWithClient.length);
 
+      // Fetch CRM mockup tasks with 'completed' status (designer's Done pipeline)
+      // These should appear in FOR PRODUCTION so admin can send them to estimator
+      const { data: mockupCompletedTasks, error: mockupCompletedError } = await supabase
+        .from('mockup_tasks')
+        .select('*')
+        .eq('status', 'completed')
+        .order('priority', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (mockupCompletedError) {
+        console.error('❌ Error fetching completed mockup tasks:', mockupCompletedError);
+      }
+
+      // Transform completed mockup_tasks into task-like objects for FOR PRODUCTION
+      const mockupAsDone: Task[] = (mockupCompletedTasks || []).map((mt: any) => ({
+        id: mt.id,
+        title: mt.title,
+        description: mt.description,
+        status: 'done',
+        priority: mt.priority || 'medium',
+        due_date: mt.due_date,
+        position: 0,
+        assigned_to: mt.assigned_to,
+        created_by: mt.assigned_to || user.id,
+        created_at: mt.created_at,
+        updated_at: mt.updated_at,
+        status_changed_at: mt.updated_at,
+        assigned_by: null,
+        client_name: mt.client_name,
+        my_status: 'pending',
+        supplier_name: null,
+        suppliers: null,
+        delivery_instructions: null,
+        delivery_address: null,
+        type: 'design',
+        came_from_designer_done: false,
+        sent_back_to_designer: false,
+        admin_remarks: null,
+        admin_removed_from_production: false,
+        is_mockup_task: true,
+        source_app: mt.source_app,
+        revision_notes: mt.revision_notes,
+        design_type: mt.design_type,
+      } as any));
+
+      console.log('🎨 CRM Mockup tasks for admin FOR PRODUCTION:', mockupAsDone.length);
+
       // CRITICAL: First, fetch ALL tasks that have approved products across ALL statuses
       // These parent tasks should NEVER appear in any column
       const { data: allApprovedProducts } = await supabase
@@ -329,7 +376,8 @@ export const AdminKanbanBoard = () => {
 
       // Combine all tasks using the filtered versions (parent tasks with approved products already removed)
       // Include CRM mockup tasks in with_client column for admin approval
-      let allTasks = [...filteredApprovalTasks, ...filteredWithClientTasksFinal, ...filteredQuotationBillTasks, ...designerDoneWithStatus, ...approvedProductTasks, ...mockupAsWithClient];
+      // Include completed CRM mockup tasks in FOR PRODUCTION (designer's done)
+      let allTasks = [...filteredApprovalTasks, ...filteredWithClientTasksFinal, ...filteredQuotationBillTasks, ...designerDoneWithStatus, ...approvedProductTasks, ...mockupAsWithClient, ...mockupAsDone];
       
       // Final deduplication by ID to ensure no duplicates
       const seenIds = new Set();
@@ -849,6 +897,41 @@ export const AdminKanbanBoard = () => {
         console.error('Error updating parent task:', error);
         // Don't show error toast - the task may still have been sent
       }
+    } else if (item.is_mockup_task) {
+      // CRM mockup task from mockup_tasks table - create a new task in tasks table for estimator
+      console.log('🎨 Sending CRM mockup task to estimator:', taskId);
+      
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      const { error: createError } = await supabase
+        .from('tasks')
+        .insert({
+          title: `[Post-Mockup] ${item.title}`,
+          description: item.description,
+          status: 'todo',
+          priority: item.priority || 'medium',
+          assigned_to: estimationAssigneeId,
+          created_by: currentUser?.id || item.created_by,
+          client_name: item.client_name,
+          type: 'design',
+          source_app: item.source_app,
+          source_origin: 'crm_mockup',
+          origin_label: '📥 CRM Mockup',
+          due_date: item.due_date,
+        });
+
+      if (createError) {
+        console.error('Error creating task for estimator:', createError);
+        toast.error('Failed to create task for estimator');
+        return;
+      }
+
+      // Update mockup_task status to 'approved' (production) so it leaves FOR PRODUCTION
+      await supabase
+        .from('mockup_tasks')
+        .update({ status: 'approved', updated_at: new Date().toISOString() })
+        .eq('id', taskId);
+        
     } else {
       // Regular task - update it directly
       console.log('📋 Sending regular task to production:', taskId);
@@ -928,6 +1011,24 @@ export const AdminKanbanBoard = () => {
 
         console.log('✅ Product removed successfully');
         toast.success("Removed successfully");
+        await fetchTasks();
+      } else if (task.is_mockup_task) {
+        // CRM mockup task - update status in mockup_tasks to remove from FOR PRODUCTION
+        console.log('🎨 This is a CRM MOCKUP TASK - updating status to approved to remove from FOR PRODUCTION');
+        
+        const { error: mockupError } = await supabase
+          .from('mockup_tasks')
+          .update({ status: 'approved', updated_at: new Date().toISOString() })
+          .eq('id', taskId);
+
+        if (mockupError) {
+          console.error('❌ Error removing mockup task from FOR PRODUCTION:', mockupError);
+          toast.error(`Failed to remove: ${mockupError.message}`);
+          return;
+        }
+
+        console.log('✅ CRM Mockup task removed from FOR PRODUCTION view');
+        toast.success("Removed from FOR PRODUCTION");
         await fetchTasks();
       } else {
         // It's a regular task - just mark as removed from FOR PRODUCTION
