@@ -827,10 +827,11 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
   const effectiveRole = (isAdmin && viewingUserRole) ? viewingUserRole : userRole;
   const isEstimationView = effectiveRole === 'estimation';
 
-  // Count CRM tasks for filter badges
-  const crmPipelineCount = tasks.filter(t => t.source_app && t.task_type === 'quotation_request').length;
-  const directRfqCount = tasks.filter(t => t.source_app && t.task_type === 'direct_rfq').length;
-  const legacyCrmCount = tasks.filter(t => t.source_app && !t.task_type).length;
+  // Count CRM tasks for filter badges - exclude done tasks to show only active/current counts
+  const activeCrmTasks = tasks.filter(t => t.source_app && t.status !== 'done');
+  const crmPipelineCount = activeCrmTasks.filter(t => t.task_type === 'quotation_request').length;
+  const directRfqCount = activeCrmTasks.filter(t => t.task_type === 'direct_rfq').length;
+  const legacyCrmCount = activeCrmTasks.filter(t => !t.task_type).length;
 
   // Filter tasks based on search query and CRM source filter
   const filteredTasks = tasks.filter((task) => {
