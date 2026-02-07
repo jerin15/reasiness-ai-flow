@@ -49,6 +49,10 @@ type Task = {
   source_app?: string | null;
   revision_notes?: string | null;
   design_type?: string | null;
+  source_origin?: string | null;
+  task_type?: string | null;
+  origin_label?: string | null;
+  category?: string | null;
 };
 
 type Column = {

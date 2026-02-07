@@ -50,6 +50,10 @@ type Task = {
   revision_notes?: string | null;
   is_mockup_task?: boolean; // Flag for tasks from mockup_tasks table
   design_type?: string | null;
+  source_origin?: string | null;
+  task_type?: string | null;
+  origin_label?: string | null;
+  category?: string | null;
 };
 
 type TaskCardProps = {
@@ -471,12 +475,38 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className="font-medium text-sm line-clamp-2">{task.title}</h4>
-                  {task.source_app && (
+                  {/* CRM source badge - differentiate quotation_request vs direct_rfq */}
+                  {task.source_app && task.task_type === 'quotation_request' && (
+                    <Badge className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 font-semibold shadow-sm" title={task.origin_label || 'CRM Lead Pipeline'}>
+                      📥 CRM Pipeline
+                    </Badge>
+                  )}
+                  {task.source_app && task.task_type === 'direct_rfq' && (
+                    <Badge className="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 font-semibold shadow-sm" title={task.origin_label || 'Direct RFQ by SREERAJ'}>
+                      📋 Direct RFQ
+                    </Badge>
+                  )}
+                  {/* Fallback CRM badge when no task_type is set */}
+                  {task.source_app && !task.task_type && (
                     <Badge className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] px-1.5 py-0.5 font-semibold shadow-sm">
                       📥 CRM
                     </Badge>
                   )}
                 </div>
+                
+                {/* Origin label subtitle */}
+                {task.source_app && task.origin_label && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5 italic">
+                    {task.origin_label}
+                  </p>
+                )}
+
+                {/* Category badge */}
+                {task.category && (
+                  <Badge variant="outline" className="mt-1 text-[10px] border-muted-foreground/30 capitalize">
+                    {task.category}
+                  </Badge>
+                )}
                 
                 {/* CRM Revision Notes */}
                 {task.source_app && task.revision_notes && (
@@ -489,8 +519,6 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                     </p>
                   </div>
                 )}
-                
-                {/* REA FLOW Mockup Task Badge */}
                 {(task as any).is_mockup_task && (
                   <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                     <Badge className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] px-1.5 py-0.5 font-semibold shadow-sm">

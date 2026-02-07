@@ -1315,6 +1315,7 @@ export type Database = {
           assigned_by: string | null
           assigned_to: string | null
           came_from_designer_done: boolean | null
+          category: string | null
           client_name: string | null
           completed_at: string | null
           completed_by_designer_id: string | null
@@ -1333,6 +1334,7 @@ export type Database = {
           linked_task_id: string | null
           mockup_completed_by_designer: boolean | null
           my_status: Database["public"]["Enums"]["my_task_status"] | null
+          origin_label: string | null
           original_input: string | null
           position: number
           previous_status: Database["public"]["Enums"]["task_status"] | null
@@ -1342,10 +1344,12 @@ export type Database = {
           sent_back_to_designer: boolean | null
           sent_to_designer_mockup: boolean | null
           source_app: string | null
+          source_origin: string | null
           status: Database["public"]["Enums"]["task_status"]
           status_changed_at: string | null
           supplier_name: string | null
           suppliers: string[] | null
+          task_type: string | null
           title: string
           type: Database["public"]["Enums"]["task_type"] | null
           updated_at: string | null
@@ -1359,6 +1363,7 @@ export type Database = {
           assigned_by?: string | null
           assigned_to?: string | null
           came_from_designer_done?: boolean | null
+          category?: string | null
           client_name?: string | null
           completed_at?: string | null
           completed_by_designer_id?: string | null
@@ -1377,6 +1382,7 @@ export type Database = {
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
+          origin_label?: string | null
           original_input?: string | null
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
@@ -1386,10 +1392,12 @@ export type Database = {
           sent_back_to_designer?: boolean | null
           sent_to_designer_mockup?: boolean | null
           source_app?: string | null
+          source_origin?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null
           suppliers?: string[] | null
+          task_type?: string | null
           title: string
           type?: Database["public"]["Enums"]["task_type"] | null
           updated_at?: string | null
@@ -1403,6 +1411,7 @@ export type Database = {
           assigned_by?: string | null
           assigned_to?: string | null
           came_from_designer_done?: boolean | null
+          category?: string | null
           client_name?: string | null
           completed_at?: string | null
           completed_by_designer_id?: string | null
@@ -1421,6 +1430,7 @@ export type Database = {
           linked_task_id?: string | null
           mockup_completed_by_designer?: boolean | null
           my_status?: Database["public"]["Enums"]["my_task_status"] | null
+          origin_label?: string | null
           original_input?: string | null
           position?: number
           previous_status?: Database["public"]["Enums"]["task_status"] | null
@@ -1430,10 +1440,12 @@ export type Database = {
           sent_back_to_designer?: boolean | null
           sent_to_designer_mockup?: boolean | null
           source_app?: string | null
+          source_origin?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           status_changed_at?: string | null
           supplier_name?: string | null
           suppliers?: string[] | null
+          task_type?: string | null
           title?: string
           type?: Database["public"]["Enums"]["task_type"] | null
           updated_at?: string | null
