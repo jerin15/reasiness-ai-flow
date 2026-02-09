@@ -33,6 +33,7 @@ export const CreateUserDialog = ({ open, onOpenChange }: CreateUserDialogProps) 
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDisplayName, setNewRoleDisplayName] = useState("");
   const [newRoleDescription, setNewRoleDescription] = useState("");
+  const [newBaseRole, setNewBaseRole] = useState("client_service");
   const [customPipelines, setCustomPipelines] = useState<any[]>([]);
   const [showCreatePipeline, setShowCreatePipeline] = useState(false);
   const [newPipelineName, setNewPipelineName] = useState("");
@@ -130,6 +131,7 @@ export const CreateUserDialog = ({ open, onOpenChange }: CreateUserDialogProps) 
           role_name: roleNameFormatted,
           display_name: newRoleDisplayName,
           description: newRoleDescription,
+          base_role: newBaseRole,
           created_by: user?.id,
         });
 
@@ -398,6 +400,26 @@ export const CreateUserDialog = ({ open, onOpenChange }: CreateUserDialogProps) 
                   value={newRoleDescription}
                   onChange={(e) => setNewRoleDescription(e.target.value)}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="baseRole">Base Access Level *</Label>
+                <Select value={newBaseRole} onValueChange={setNewBaseRole}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select base access level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="client_service">Standard User (create & manage own tasks)</SelectItem>
+                    <SelectItem value="estimation">Estimation (can update all tasks)</SelectItem>
+                    <SelectItem value="designer">Designer (mockup workflow access)</SelectItem>
+                    <SelectItem value="operations">Operations (production workflow access)</SelectItem>
+                    <SelectItem value="technical_head">Technical Head (full task management)</SelectItem>
+                    <SelectItem value="admin">Admin (full system access)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Determines what this role can access in the system
+                </p>
               </div>
 
               <div className="space-y-3">
