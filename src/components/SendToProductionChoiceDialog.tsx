@@ -221,6 +221,7 @@ export const SendToProductionChoiceDialog = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const isMockupTask = !!(task as any).is_mockup_task;
       const targetTaskId = task.is_product && task.parent_task_id ? task.parent_task_id : task.id;
       const now = new Date().toISOString();
 
@@ -238,21 +239,51 @@ export const SendToProductionChoiceDialog = ({
 
       const estimationUserId = estimationUsers[0].user_id as string;
 
-      // Update task to production status and assign to estimation
-      const { error: updateError } = await supabase
-        .from('tasks')
-        .update({
-          status: 'production',
-          came_from_designer_done: true,
-          assigned_to: estimationUserId,
-          status_changed_at: now,
-          updated_at: now,
-          previous_status: 'done',
-          admin_removed_from_production: true,
-        })
-        .eq('id', targetTaskId);
+      if (isMockupTask) {
+        // CRM mockup task: create a NEW task in tasks table for estimator
+        console.log('🎨 CRM mockup task → creating new task for estimator:', task.id);
+        const { error: createError } = await supabase
+          .from('tasks')
+          .insert({
+            title: `[Post-Mockup] ${task.title}`,
+            description: task.description,
+            status: 'todo',
+            priority: task.priority || 'medium',
+            assigned_to: estimationUserId,
+            created_by: user.id,
+            client_name: task.client_name,
+            type: 'design',
+            source_app: task.source_app,
+            source_origin: 'crm_mockup',
+            origin_label: '📥 CRM Mockup',
+            due_date: task.due_date,
+            deleted_at: null,
+          });
 
-      if (updateError) throw updateError;
+        if (createError) throw createError;
+
+        // Mark the mockup_task as sent so it leaves FOR PRODUCTION
+        await supabase
+          .from('mockup_tasks')
+          .update({ status: 'approved', updated_at: now })
+          .eq('id', task.id);
+      } else {
+        // Regular task: update it in the tasks table
+        const { error: updateError } = await supabase
+          .from('tasks')
+          .update({
+            status: 'production',
+            came_from_designer_done: true,
+            assigned_to: estimationUserId,
+            status_changed_at: now,
+            updated_at: now,
+            previous_status: 'done',
+            admin_removed_from_production: true,
+          })
+          .eq('id', targetTaskId);
+
+        if (updateError) throw updateError;
+      }
 
       toast.success('Task sent to Estimation production pipeline!');
       onOpenChange(false);
@@ -277,9 +308,13 @@ export const SendToProductionChoiceDialog = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const isMockupTask = !!(task as any).is_mockup_task;
       const targetTaskId = task.is_product && task.parent_task_id ? task.parent_task_id : task.id;
       const now = new Date().toISOString();
       const normalizedAssignedTo = assignedTo && assignedTo !== "__unassigned__" ? assignedTo : null;
+
+      // For CRM mockup tasks, we need to create a new task first
+      let createdTaskIdForMockup: string | null = null;
 
       // 1) Send to Estimation if selected
       if (sendToEstimation) {
@@ -296,31 +331,65 @@ export const SendToProductionChoiceDialog = ({
 
         const estimationUserId = estimationUsers[0].user_id as string;
 
-        const { error: estimationUpdateError } = await supabase
-          .from('tasks')
-          .update({
-            status: 'production',
-            came_from_designer_done: true,
-            assigned_to: estimationUserId,
-            status_changed_at: now,
-            updated_at: now,
-            previous_status: 'done',
-            admin_removed_from_production: true,
-            delivery_address: deliveryAddress || null,
-            delivery_instructions: deliveryInstructions || null,
-          })
-          .eq('id', targetTaskId);
+        if (isMockupTask) {
+          // CRM mockup: create a new task for estimator
+          console.log('🎨 CRM mockup → creating task for estimator');
+          const { data: createdTask, error: createError } = await supabase
+            .from('tasks')
+            .insert({
+              title: `[Post-Mockup] ${task.title}`,
+              description: task.description,
+              status: 'todo',
+              priority: task.priority || 'medium',
+              assigned_to: estimationUserId,
+              created_by: user.id,
+              client_name: task.client_name,
+              type: 'design',
+              source_app: task.source_app,
+              source_origin: 'crm_mockup',
+              origin_label: '📥 CRM Mockup',
+              due_date: task.due_date,
+              deleted_at: null,
+              delivery_address: deliveryAddress || null,
+              delivery_instructions: deliveryInstructions || null,
+            })
+            .select('id')
+            .single();
 
-        if (estimationUpdateError) throw estimationUpdateError;
+          if (createError) throw createError;
+          createdTaskIdForMockup = createdTask?.id || null;
+        } else {
+          const { error: estimationUpdateError } = await supabase
+            .from('tasks')
+            .update({
+              status: 'production',
+              came_from_designer_done: true,
+              assigned_to: estimationUserId,
+              status_changed_at: now,
+              updated_at: now,
+              previous_status: 'done',
+              admin_removed_from_production: true,
+              delivery_address: deliveryAddress || null,
+              delivery_instructions: deliveryInstructions || null,
+            })
+            .eq('id', targetTaskId);
+
+          if (estimationUpdateError) throw estimationUpdateError;
+        }
       }
 
       // 2) Send to Operations if selected
       if (sendToOperations) {
+        // For mockup tasks, use the newly created task as the reference
+        const opsLinkedTaskId = isMockupTask && createdTaskIdForMockup 
+          ? createdTaskIdForMockup 
+          : targetTaskId;
+
         // Find or create operations task
         const { data: opsCandidates, error: opsCandidatesError } = await supabase
           .from('tasks')
           .select('id')
-          .eq('linked_task_id', targetTaskId)
+          .eq('linked_task_id', opsLinkedTaskId)
           .is('deleted_at', null)
           .order('created_at', { ascending: false })
           .limit(1);
@@ -330,31 +399,38 @@ export const SendToProductionChoiceDialog = ({
         let operationsTaskId: string | null = opsCandidates?.[0]?.id ?? null;
 
         if (!operationsTaskId) {
-          const { data: originalTask, error: originalTaskError } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('id', targetTaskId)
-            .maybeSingle();
+          // For mockup tasks, use task data directly since it doesn't exist in tasks table
+          const taskTitle = isMockupTask ? `[Post-Mockup] ${task.title}` : task.title;
+          let originalTaskData: any = task;
 
-          if (originalTaskError) throw originalTaskError;
-          if (!originalTask) throw new Error('Original task not found');
+          if (!isMockupTask) {
+            const { data: originalTask, error: originalTaskError } = await supabase
+              .from('tasks')
+              .select('*')
+              .eq('id', targetTaskId)
+              .maybeSingle();
+
+            if (originalTaskError) throw originalTaskError;
+            if (!originalTask) throw new Error('Original task not found');
+            originalTaskData = originalTask;
+          }
 
           const { data: createdOpsTask, error: createOpsError } = await supabase
             .from('tasks')
             .insert({
-              title: originalTask.title,
-              description: originalTask.description,
-              client_name: originalTask.client_name,
-              supplier_name: originalTask.supplier_name,
-              suppliers: originalTask.suppliers,
-              priority: originalTask.priority,
-              due_date: originalTask.due_date,
+              title: taskTitle,
+              description: originalTaskData.description,
+              client_name: originalTaskData.client_name,
+              supplier_name: originalTaskData.supplier_name || null,
+              suppliers: originalTaskData.suppliers || null,
+              priority: originalTaskData.priority || 'medium',
+              due_date: originalTaskData.due_date,
               status: 'production',
               type: 'production',
               created_by: user.id,
               assigned_by: user.id,
               assigned_to: normalizedAssignedTo,
-              linked_task_id: targetTaskId,
+              linked_task_id: opsLinkedTaskId,
               status_changed_at: now,
               updated_at: now,
               came_from_designer_done: true,
@@ -389,7 +465,6 @@ export const SendToProductionChoiceDialog = ({
           for (let i = 0; i < workflowSteps.length; i++) {
             const step = workflowSteps[i];
 
-            // For S→S transfers, store FROM info in location_notes
             let locationNotes = step.location_notes || '';
             if (step.step_type === 'supplier_to_supplier' && step.from_supplier_name) {
               locationNotes = `FROM: ${step.from_supplier_name}${step.from_supplier_address ? ` (${step.from_supplier_address})` : ''}\n${locationNotes}`.trim();
@@ -434,7 +509,6 @@ export const SendToProductionChoiceDialog = ({
         }
 
         // Send notifications to operations team
-        // Get the current user's profile for the notification
         const { data: senderProfile } = await supabase
           .from('profiles')
           .select('full_name')
@@ -463,7 +537,6 @@ Sent by: ${senderName}
 ${normalizedAssignedTo ? `Assigned to: ${operationsUsers.find(u => u.id === normalizedAssignedTo)?.full_name || 'Team member'}` : '⚠️ Unassigned - Please claim this task!'}`;
 
         if (normalizedAssignedTo) {
-          // Send targeted notification to assigned user
           await supabase.from('urgent_notifications').insert({
             sender_id: user.id,
             recipient_id: normalizedAssignedTo,
@@ -474,7 +547,6 @@ ${normalizedAssignedTo ? `Assigned to: ${operationsUsers.find(u => u.id === norm
             is_acknowledged: false
           });
         } else {
-          // Send broadcast to all operations team members
           await supabase.from('urgent_notifications').insert({
             sender_id: user.id,
             recipient_id: null,
@@ -486,7 +558,6 @@ ${normalizedAssignedTo ? `Assigned to: ${operationsUsers.find(u => u.id === norm
           });
         }
         
-        // Also send a chat message notification if assigned
         if (normalizedAssignedTo) {
           await supabase.from('messages').insert({
             sender_id: user.id,
@@ -495,6 +566,14 @@ ${normalizedAssignedTo ? `Assigned to: ${operationsUsers.find(u => u.id === norm
             message_type: 'notification'
           });
         }
+      }
+
+      // For CRM mockup tasks, mark as approved so it leaves FOR PRODUCTION
+      if (isMockupTask) {
+        await supabase
+          .from('mockup_tasks')
+          .update({ status: 'approved', updated_at: now })
+          .eq('id', task.id);
       }
 
       const destinations = [];
