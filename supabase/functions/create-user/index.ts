@@ -68,16 +68,20 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Password must be at least 6 characters long");
     }
 
-    // Validate that the role exists in custom_roles table
+    // Validate that the role exists in custom_roles table and get base_role for user_roles
     const { data: roleData, error: roleCheckError } = await supabaseClient
       .from("custom_roles")
-      .select("role_name")
+      .select("role_name, base_role")
       .eq("role_name", role)
       .single();
 
     if (roleCheckError || !roleData) {
       throw new Error(`Invalid role: ${role}. Role does not exist.`);
     }
+
+    // Use base_role for user_roles table (maps to app_role enum)
+    // Falls back to 'client_service' if no base_role is set
+    const baseRole = roleData.base_role || 'client_service';
 
     // Create admin client with service role key
     const supabaseAdmin = createClient(
@@ -128,12 +132,12 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Error creating profile:", profileError);
     }
 
-    // Assign the role
+    // Assign the base role (mapped to app_role enum) for RLS policies
     const { error: roleInsertError } = await supabaseAdmin
       .from("user_roles")
       .insert({
         user_id: newUser.user.id,
-        role,
+        role: baseRole,
       });
 
     if (roleInsertError) {

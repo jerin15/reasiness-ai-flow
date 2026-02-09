@@ -214,6 +214,7 @@ export type Database = {
       }
       custom_roles: {
         Row: {
+          base_role: string | null
           can_create_tasks: boolean
           can_delete_tasks: boolean
           can_edit_all_tasks: boolean
@@ -227,6 +228,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          base_role?: string | null
           can_create_tasks?: boolean
           can_delete_tasks?: boolean
           can_edit_all_tasks?: boolean
@@ -240,6 +242,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          base_role?: string | null
           can_create_tasks?: boolean
           can_delete_tasks?: boolean
           can_edit_all_tasks?: boolean
