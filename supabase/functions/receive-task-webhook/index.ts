@@ -112,6 +112,20 @@ async function handleCreateDesign(payload: Record<string, unknown>) {
   const supabase = initSupabase();
   console.log('🎨 Routing to MOCKUP pipeline for JAIRAJ');
 
+  // Idempotency guard: skip if task already exists and has progressed beyond pending
+  if (payload.external_task_id) {
+    const { data: existing } = await supabase
+      .from('mockup_tasks')
+      .select('id, status')
+      .eq('external_task_id', payload.external_task_id as string)
+      .maybeSingle();
+
+    if (existing && existing.status !== 'pending') {
+      console.log('⏭️ Mockup task already exists with status:', existing.status, '– skipping upsert');
+      return jsonResponse({ success: true, task_id: existing.id, pipeline: 'mockup', message: 'Mockup task already exists and has progressed, skipped' });
+    }
+  }
+
   const { data: mockupTask, error } = await supabase
     .from('mockup_tasks')
     .upsert({
@@ -145,6 +159,20 @@ async function handleCreateQuotation(payload: Record<string, unknown>) {
 
   if (!payload.title) {
     return jsonResponse({ error: 'Missing required field: title' }, 400);
+  }
+
+  // Idempotency guard: skip if task with same external_task_id already exists
+  if (payload.external_task_id) {
+    const { data: existing } = await supabase
+      .from('tasks')
+      .select('id')
+      .eq('external_task_id', payload.external_task_id as string)
+      .maybeSingle();
+
+    if (existing) {
+      console.log('⏭️ Quotation task already exists for external_task_id:', payload.external_task_id, '– skipping insert');
+      return jsonResponse({ success: true, task_id: existing.id, pipeline: 'quotation', message: 'Task already exists, skipped duplicate' });
+    }
   }
 
   // Find estimation user
