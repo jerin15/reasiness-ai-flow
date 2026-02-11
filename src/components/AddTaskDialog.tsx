@@ -6,7 +6,8 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
-import { Sparkles } from "lucide-react";
+import { Switch } from "./ui/switch";
+import { Sparkles, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AITaskInput } from "./AITaskInput";
@@ -62,6 +63,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
   const [aiConfidence, setAiConfidence] = useState<number | null>(null);
   const [originalInput, setOriginalInput] = useState<string | null>(null);
   const [tempProducts, setTempProducts] = useState<any[]>([]);
+  const [createForBoth, setCreateForBoth] = useState(false);
   
   // Duplicate detection state
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
@@ -320,9 +322,56 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
         if (productsError) {
           console.error('Error adding products:', productsError);
           toast.error('Task created but failed to add products');
-        } else {
-          toast.success(`Task created successfully with ${tempProducts.length} product(s)`);
         }
+      }
+
+      // Create duplicate task for the other role if toggle is on
+      let secondTaskCreated = false;
+      if (createForBoth && insertedTask && (currentUserRole === 'admin' || currentUserRole === 'technical_head')) {
+        const selectedMemberRole = teamMembers.find(m => m.id === selectedMember)?.user_roles?.[0]?.role;
+        const otherRole = selectedMemberRole === 'estimation' ? 'designer' : selectedMemberRole === 'designer' ? 'estimation' : null;
+        
+        if (otherRole) {
+          // Find first member with the other role
+          const otherMember = teamMembers.find(m => m.user_roles?.[0]?.role === otherRole);
+          if (otherMember) {
+            const secondTaskData = {
+              ...taskData,
+              assigned_to: otherMember.id,
+              status: 'todo' as const,
+            };
+
+            const { data: secondTask, error: secondError } = await supabase
+              .from('tasks')
+              .insert(secondTaskData)
+              .select()
+              .single();
+
+            if (secondError) {
+              console.error('Error creating second task:', secondError);
+              toast.error(`Task created for ${selectedMemberRole} but failed for ${otherRole}`);
+            } else {
+              secondTaskCreated = true;
+              if (secondTask) enrichLatestAuditLog(secondTask.id);
+              // Copy products to second task too
+              if (tempProducts.length > 0 && secondTask) {
+                const secondProducts = tempProducts.map((product, index) => {
+                  const { id, ...productData } = product;
+                  return { ...productData, task_id: secondTask.id, position: index };
+                });
+                await supabase.from('task_products').insert(secondProducts);
+              }
+            }
+          }
+        }
+      }
+
+      if (secondTaskCreated) {
+        const selectedMemberRole = teamMembers.find(m => m.id === selectedMember)?.user_roles?.[0]?.role;
+        const otherRole = selectedMemberRole === 'estimation' ? 'Designer' : 'Estimator';
+        toast.success(`Task created for both ${selectedMemberRole === 'estimation' ? 'Estimator' : 'Designer'} & ${otherRole}${tempProducts.length > 0 ? ` with ${tempProducts.length} product(s)` : ''}`);
+      } else if (tempProducts.length > 0) {
+        toast.success(`Task created successfully with ${tempProducts.length} product(s)`);
       } else {
         toast.success("Task created successfully");
       }
@@ -343,6 +392,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
       setAiConfidence(null);
       setOriginalInput(null);
       setTempProducts([]);
+      setCreateForBoth(false);
       setSkipDuplicateCheck(false);
       setSimilarTasks([]);
     } catch (error: any) {
@@ -662,6 +712,26 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                 </Select>
               </div>
             )}
+            {/* Create for both toggle - only for admins assigning to estimator or designer */}
+            {(currentUserRole === 'admin' || currentUserRole === 'technical_head') && selectedMember && (() => {
+              const memberRole = teamMembers.find(m => m.id === selectedMember)?.user_roles?.[0]?.role;
+              if (memberRole === 'estimation' || memberRole === 'designer') {
+                const otherRole = memberRole === 'estimation' ? 'Designer' : 'Estimator';
+                return (
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium">Also create for {otherRole}</p>
+                        <p className="text-xs text-muted-foreground">Same task will be assigned to {otherRole} too</p>
+                      </div>
+                    </div>
+                    <Switch checked={createForBoth} onCheckedChange={setCreateForBoth} />
+                  </div>
+                );
+              }
+              return null;
+            })()}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="myStatus">My Status</Label>
