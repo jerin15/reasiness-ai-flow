@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ListTodo, Plus, MapPin, Loader2, ClipboardList, Search, X } from "lucide-react";
+import { ListTodo, Plus, MapPin, Loader2, ClipboardList, Search, X, PanelRightClose, ClipboardCheck } from "lucide-react";
 import { AddTaskDialog } from "./AddTaskDialog";
 import { AdminKanbanBoard } from "./AdminKanbanBoard";
 import { PersonalAdminTasks } from "./PersonalAdminTasks";
@@ -68,6 +68,7 @@ export const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Task[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showPersonalTaskbar, setShowPersonalTaskbar] = useState(true);
   
   // Channel ref for managing subscription lifecycle
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -347,7 +348,10 @@ export const AdminDashboard = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="flex relative">
+      {/* Main content area */}
+      <div className={`flex-1 transition-all duration-300 ${showPersonalTaskbar ? 'mr-[340px]' : ''}`}>
+      <div className="container mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         <p className="text-muted-foreground">Manage tasks and approvals</p>
@@ -493,21 +497,7 @@ export const AdminDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* Production Tasks - PRIORITY #2 */}
-      <Card className="border-2 border-blue-500/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ListTodo className="h-5 w-5 text-blue-500" />
-            Production Pipeline
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Personal admin tasks and production monitoring
-          </p>
-        </CardHeader>
-        <CardContent>
-          <PersonalAdminTasks />
-        </CardContent>
-      </Card>
+      {/* Personal Tasks moved to right sidebar panel */}
 
       {/* Tasks Created by Admin */}
       <Card>
@@ -609,6 +599,49 @@ export const AdminDashboard = () => {
           )}
         </TabsContent>
       </Tabs>
+    </div>
+    </div>
+
+      {/* Floating toggle button when panel is hidden */}
+      {!showPersonalTaskbar && (
+        <button
+          onClick={() => setShowPersonalTaskbar(true)}
+          className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-primary text-primary-foreground px-2 py-3 rounded-l-lg shadow-lg hover:bg-primary/90 transition-all"
+          title="Show My Tasks"
+        >
+          <ClipboardCheck className="h-5 w-5" />
+        </button>
+      )}
+
+      {/* Right-side sliding personal tasks panel */}
+      <div
+        className={`fixed top-0 right-0 h-full w-[340px] z-30 bg-background border-l border-border shadow-xl transition-transform duration-300 ${
+          showPersonalTaskbar ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Panel Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold text-sm">My Personal Tasks</h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setShowPersonalTaskbar(false)}
+              title="Hide panel"
+            >
+              <PanelRightClose className="h-4 w-4" />
+            </Button>
+          </div>
+          {/* Panel Body */}
+          <div className="flex-1 overflow-y-auto p-3">
+            <PersonalAdminTasks />
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
