@@ -52,7 +52,7 @@ interface Stats {
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
-  const [myCreatedTasks, setMyCreatedTasks] = useState<Task[]>([]);
+  
   const [stats, setStats] = useState<Stats>({
     tasksCreatedByMe: 0,
     pendingApproval: 0,
@@ -80,29 +80,6 @@ export const AdminDashboard = () => {
       if (!user) return;
 
       setCurrentUserId(user.id);
-
-      // Fetch tasks created by this admin
-      const { data: myTasks, error: myTasksError } = await supabase
-        .from('tasks')
-        .select(`
-          *,
-          assignee:profiles!tasks_assigned_to_fkey(full_name, email),
-          creator:profiles!tasks_created_by_fkey(full_name, email)
-        `)
-        .eq('created_by', user.id)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false });
-
-      if (myTasksError) throw myTasksError;
-      
-      // Sort tasks: done tasks at the end, others at the top
-      const sortedTasks = (myTasks || []).sort((a, b) => {
-        if (a.status === 'done' && b.status !== 'done') return 1;
-        if (a.status !== 'done' && b.status === 'done') return -1;
-        return 0; // Keep original order for tasks with same done/not-done status
-      });
-      
-      setMyCreatedTasks(sortedTasks as any);
 
       // Calculate stats
       const { count: myTasksCount } = await supabase
@@ -499,65 +476,6 @@ export const AdminDashboard = () => {
 
       {/* Personal Tasks moved to right sidebar panel */}
 
-      {/* Tasks Created by Admin */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tasks I Created for Team Members</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {myCreatedTasks.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No tasks created yet
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Assigned To</TableHead>
-                  <TableHead>Due Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {myCreatedTasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{task.title}</div>
-                        <div className="text-sm text-muted-foreground line-clamp-1">
-                          {task.description}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getTypeLabel(task.type)}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getPriorityColor(task.priority)}>
-                        {task.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{task.status}</Badge>
-                    </TableCell>
-                    <TableCell>{task.client_name || '-'}</TableCell>
-                    <TableCell>
-                      {task.assignee?.full_name || 'Unassigned'}
-                    </TableCell>
-                    <TableCell>
-                      {task.due_date ? format(new Date(task.due_date), 'MMM d, yyyy') : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
 
       <AddTaskDialog
         open={showAddTask}
