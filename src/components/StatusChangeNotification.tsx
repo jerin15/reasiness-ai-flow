@@ -8,6 +8,7 @@ import { ScrollArea } from "./ui/scroll-area";
 
 type TaskNotification = {
   id: string;
+  taskId: string;
   taskTitle: string;
   type: 'status_change' | 'assignment_change' | 'task_created' | 'task_updated';
   oldStatus?: string;
@@ -131,6 +132,7 @@ export const StatusChangeNotification = () => {
 
           historicalNotifications.push({
             id: auditLog.id,
+            taskId: auditLog.task_id,
             taskTitle: taskData.title,
             type: 'status_change',
             oldStatus: formatStatus(oldStatus),
@@ -167,6 +169,7 @@ export const StatusChangeNotification = () => {
 
           historicalNotifications.push({
             id: auditLog.id,
+            taskId: auditLog.task_id,
             taskTitle: taskData.title,
             type: 'assignment_change',
             oldAssignee: oldAssigneeName,
@@ -197,6 +200,7 @@ export const StatusChangeNotification = () => {
           
           historicalNotifications.push({
             id: auditLog.id,
+            taskId: auditLog.task_id,
             taskTitle: taskData.title,
             type: 'task_created',
             changedBy: auditLog.changed_by,
@@ -211,6 +215,7 @@ export const StatusChangeNotification = () => {
           // Task update notification
           historicalNotifications.push({
             id: auditLog.id,
+            taskId: auditLog.task_id,
             taskTitle: taskData.title,
             type: 'task_updated',
             changedBy: auditLog.changed_by,
@@ -342,6 +347,7 @@ export const StatusChangeNotification = () => {
 
             notification = {
               id: auditLog.id,
+              taskId: auditLog.task_id,
               taskTitle: taskData.title,
               type: 'status_change',
               oldStatus: formatStatus(oldStatus),
@@ -381,6 +387,7 @@ export const StatusChangeNotification = () => {
 
             notification = {
               id: auditLog.id,
+              taskId: auditLog.task_id,
               taskTitle: taskData.title,
               type: 'assignment_change',
               oldAssignee: oldAssigneeName,
@@ -415,6 +422,7 @@ export const StatusChangeNotification = () => {
             
             notification = {
               id: auditLog.id,
+              taskId: auditLog.task_id,
               taskTitle: taskData.title,
               type: 'task_created',
               changedBy: auditLog.changed_by,
@@ -441,6 +449,7 @@ export const StatusChangeNotification = () => {
             // task_updated
             notification = {
               id: auditLog.id,
+              taskId: auditLog.task_id,
               taskTitle: taskData.title,
               type: 'task_updated',
               changedBy: auditLog.changed_by,
@@ -484,13 +493,13 @@ export const StatusChangeNotification = () => {
             : <Bell className="h-5 w-5 text-accent" />;
 
           toast.info(toastMessage, {
-            duration: 10000, // Longer duration (10 seconds)
+            duration: 10000,
             icon: toastIcon,
             action: {
               label: 'View',
               onClick: () => {
                 window.focus();
-                // Navigate to task or open task details if needed
+                window.dispatchEvent(new CustomEvent('highlight-task', { detail: { taskId: auditLog.task_id } }));
               }
             }
           });
@@ -627,7 +636,10 @@ export const StatusChangeNotification = () => {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className="bg-muted/50 border rounded-lg p-3 hover:bg-muted transition-colors"
+                  className="bg-muted/50 border rounded-lg p-3 hover:bg-muted transition-colors cursor-pointer"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('highlight-task', { detail: { taskId: notification.taskId } }));
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-1">

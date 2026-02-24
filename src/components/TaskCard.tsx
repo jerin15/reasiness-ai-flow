@@ -9,7 +9,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TaskAgingIndicator } from "./TaskAgingIndicator";
 import { EstimationTaskTimer } from "./EstimationTaskTimer";
 import { useTaskActivity } from "@/hooks/useTaskActivity";
@@ -78,7 +78,25 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
   const [assignedByName, setAssignedByName] = useState<string | null>(null);
   const [showSupplierQuotesCheckIn, setShowSupplierQuotesCheckIn] = useState(false);
   const [pendingMoveStatus, setPendingMoveStatus] = useState<string | null>(null);
+  const [isHighlighted, setIsHighlighted] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
   const { logActivity } = useTaskActivity();
+
+  // Listen for highlight-task events
+  useEffect(() => {
+    const handleHighlight = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.taskId === task.id) {
+        // Scroll into view
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Trigger highlight animation
+        setIsHighlighted(true);
+        setTimeout(() => setIsHighlighted(false), 3000);
+      }
+    };
+    window.addEventListener('highlight-task', handleHighlight);
+    return () => window.removeEventListener('highlight-task', handleHighlight);
+  }, [task.id]);
 
   // Debug logging for delete button visibility
   useEffect(() => {
@@ -446,13 +464,20 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
     }
   };
 
+  // Combine refs for sortable + highlight scroll
+  const combinedRef = (node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+  };
+
   return (
     <Card
-      ref={setNodeRef}
+      ref={combinedRef}
       style={style}
       className={cn(
-        "cursor-grab active:cursor-grabbing transition-shadow hover:shadow-md",
+        "cursor-grab active:cursor-grabbing transition-all hover:shadow-md",
         (isDragging || isSortableDragging) && "opacity-50 shadow-lg",
+        isHighlighted && "ring-4 ring-primary/60 shadow-xl shadow-primary/20 animate-pulse border-primary",
         task.sent_to_designer_mockup && task.status === 'mockup' && "border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/20 shadow-lg shadow-amber-500/50 animate-pulse",
         task.mockup_completed_by_designer && "border-2 border-green-500 bg-green-50 dark:bg-green-950/20 shadow-lg shadow-green-500/50",
         task.came_from_designer_done && task.status === 'production' && "border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 shadow-lg shadow-purple-500/50",
