@@ -45,7 +45,7 @@ async function handleUpdate(payload: Record<string, unknown>) {
   const supabase = initSupabase();
   console.log('📝 Processing update action for external_task_id:', payload.external_task_id);
 
-  // Try mockup_tasks first
+  // Try mockup_tasks first (skip if soft-deleted)
   const mockupUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (payload.revision_notes !== undefined) mockupUpdate.revision_notes = payload.revision_notes;
 
@@ -53,6 +53,7 @@ async function handleUpdate(payload: Record<string, unknown>) {
     .from('mockup_tasks')
     .update(mockupUpdate)
     .eq('external_task_id', payload.external_task_id)
+    .is('deleted_at', null)
     .select()
     .maybeSingle();
 
@@ -114,11 +115,18 @@ async function handleCreateDesign(payload: Record<string, unknown>) {
 
   // Idempotency guard: skip if task already exists and has progressed beyond pending
   if (payload.external_task_id) {
+    // Check for existing task (including soft-deleted ones)
     const { data: existing } = await supabase
       .from('mockup_tasks')
-      .select('id, status')
+      .select('id, status, deleted_at')
       .eq('external_task_id', payload.external_task_id as string)
       .maybeSingle();
+
+    // If task was soft-deleted, do NOT recreate it
+    if (existing && existing.deleted_at) {
+      console.log('🗑️ Mockup task was previously deleted – skipping recreation');
+      return jsonResponse({ success: true, task_id: existing.id, pipeline: 'mockup', message: 'Mockup task was deleted, skipped recreation' });
+    }
 
     if (existing && existing.status !== 'pending') {
       console.log('⏭️ Mockup task already exists with status:', existing.status, '– skipping upsert');

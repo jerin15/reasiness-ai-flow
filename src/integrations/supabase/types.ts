@@ -567,6 +567,7 @@ export type Database = {
           assigned_to: string | null
           client_name: string | null
           created_at: string | null
+          deleted_at: string | null
           description: string | null
           design_type: string | null
           due_date: string | null
@@ -583,6 +584,7 @@ export type Database = {
           assigned_to?: string | null
           client_name?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           design_type?: string | null
           due_date?: string | null
@@ -599,6 +601,7 @@ export type Database = {
           assigned_to?: string | null
           client_name?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           description?: string | null
           design_type?: string | null
           due_date?: string | null
