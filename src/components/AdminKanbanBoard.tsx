@@ -154,6 +154,7 @@ export const AdminKanbanBoard = () => {
         .from('mockup_tasks')
         .select('*')
         .eq('status', 'review')
+        .is('deleted_at', null)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -201,6 +202,7 @@ export const AdminKanbanBoard = () => {
         .from('mockup_tasks')
         .select('*')
         .eq('status', 'completed')
+        .is('deleted_at', null)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
 

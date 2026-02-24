@@ -372,6 +372,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
         const { data: mockupData, error: mockupError } = await supabase
           .from('mockup_tasks')
           .select('*')
+          .is('deleted_at', null)
           .order('created_at', { ascending: false });
 
         if (!mockupError && mockupData) {
@@ -785,7 +786,7 @@ export const KanbanBoard = ({ userRole, viewingUserId, isAdmin, viewingUserRole 
       const { error } = isMockupTask
         ? await supabase
             .from('mockup_tasks')
-            .delete()
+            .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
             .eq('id', taskId)
         : await supabase
             .from('tasks')

@@ -43,6 +43,7 @@ export const MockupPipeline = () => {
     const { data, error } = await supabase
       .from("mockup_tasks")
       .select("*")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
     
     if (!error && data) {
