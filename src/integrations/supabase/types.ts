@@ -1862,7 +1862,7 @@ export type Database = {
         | "operations"
         | "technical_head"
         | "client_service"
-      my_task_status: "pending" | "done_from_my_side"
+      my_task_status: "pending" | "done_from_my_side" | "on_hold"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status:
         | "todo"
@@ -2027,7 +2027,7 @@ export const Constants = {
         "technical_head",
         "client_service",
       ],
-      my_task_status: ["pending", "done_from_my_side"],
+      my_task_status: ["pending", "done_from_my_side", "on_hold"],
       task_priority: ["low", "medium", "high", "urgent"],
       task_status: [
         "todo",

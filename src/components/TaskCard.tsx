@@ -483,7 +483,8 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
         task.came_from_designer_done && task.status === 'production' && "border-2 border-purple-500 bg-purple-50 dark:bg-purple-950/20 shadow-lg shadow-purple-500/50",
         task.came_from_designer_done && task.status === 'todo' && "border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 shadow-lg shadow-emerald-500/50 ring-2 ring-emerald-400/50",
         task.sent_back_to_designer && task.status === 'todo' && "border-2 border-red-500 bg-red-50 dark:bg-red-950/20 shadow-lg shadow-red-500/50 animate-pulse",
-        (task as any).is_mockup_task && "border-2 border-indigo-500 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 shadow-lg shadow-indigo-500/30"
+        (task as any).is_mockup_task && "border-2 border-indigo-500 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 shadow-lg shadow-indigo-500/30",
+        task.my_status === 'on_hold' && "border-2 border-amber-500 bg-amber-50/50 dark:bg-amber-950/20"
       )}
     >
       <CardContent className="p-3">
@@ -527,6 +528,11 @@ export const TaskCard = ({ task, isDragging, onEdit, onDelete, isAdminView, onTa
                 )}
 
                 {/* Category badge */}
+                {task.my_status === 'on_hold' && (
+                  <Badge className="mt-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.5 font-bold shadow-sm animate-pulse">
+                    ⏸ ON HOLD
+                  </Badge>
+                )}
                 {task.category && (
                   <Badge variant="outline" className="mt-1 text-[10px] border-muted-foreground/30 capitalize">
                     {task.category}
