@@ -532,9 +532,7 @@ export const EditTaskDialog = ({
                 <SelectContent>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="done_from_my_side">Done From My Side</SelectItem>
-                  {(currentUserRole === 'designer' || viewingUserRole === 'designer') && (
-                    <SelectItem value="on_hold">On Hold</SelectItem>
-                  )}
+                  <SelectItem value="on_hold">On Hold</SelectItem>
                 </SelectContent>
               </Select>
             </div>
