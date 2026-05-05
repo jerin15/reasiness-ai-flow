@@ -24,8 +24,8 @@ export const ReminderNotification = () => {
   const [snoozeMinutes, setSnoozeMinutes] = useState<number>(10);
   const [showSnoozeDialog, setShowSnoozeDialog] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const alarmIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const alarmIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const checkIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const checkUserRole = async () => {
