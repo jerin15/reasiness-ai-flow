@@ -1,40 +1,54 @@
-
-
-# Fix: CRM Tasks Reappearing in Pipelines
-
 ## Problem
 
-CRM tasks keep reappearing in pipelines after being moved or worked on. There are two root causes in the `receive-task-webhook` edge function:
+The "TRANE Thermo King" task (id `e360aaf7…`) was created for **Jairaj (Designer)** and was correctly progressing through his loop (`todo → with_client`). Then **Reena (Admin)** moved it through `done → client_approval`. `client_approval` belongs to the **Estimator/Quotation** pipeline, so the task vanished from Jairaj's board even though it was never intended to enter that workflow.
 
-1. **Mockup tasks**: The webhook uses `upsert` with `status: 'pending'` on the `mockup_tasks` table. When the CRM re-sends the same task (same `external_task_id`), the upsert **resets the status back to 'pending'**, undoing all progress (review, approved, completed). This is why "Mr. Zaid Taha (RAPIDEFENCE)" keeps reappearing.
+This is a workflow-integrity issue: any admin (or any role) can today move a task into a status that belongs to a different team's pipeline, silently removing it from the original owner's view and breaking their loop.
 
-2. **Quotation tasks**: The webhook uses a plain `insert` into the `tasks` table with no duplicate check. When the CRM re-sends a task, it creates a **brand new duplicate** every time.
+## Fix
 
-## Solution
+### 1. Restore the task
+Move `e360aaf7-657d-4ae2-9167-10e407d1b972` back to Jairaj where he last had it:
+- `status = 'with_client'`
+- `assigned_to = 085a7f0e…` (Jairaj — already correct)
+- `status_changed_at = now()`, `last_activity_at = now()`
+- `came_from_designer_done = false`
+- Add an audit log entry noting the manual restoration with reason.
 
-Update the `receive-task-webhook` edge function with idempotent handling:
+### 2. Add a workflow-integrity guard (status transition validator)
 
-### 1. Mockup tasks - Skip if already exists and has progressed
+Introduce a server-side trigger `enforce_pipeline_integrity` on `public.tasks` that blocks moves which jump between pipelines unless explicitly allowed. Allowed transitions per role:
 
-Before upserting, check if a mockup task with the same `external_task_id` already exists. If it does and its status is anything other than `pending`, skip the upsert entirely (return success without modifying the task). Only create/reset if the task doesn't exist yet.
+```text
+Designer pipeline:    todo ↔ mockup ↔ with_client ↔ done
+Estimator pipeline:   todo ↔ supplier_quotes ↔ client_approval ↔ admin_approval ↔ quotation_bill ↔ final_invoice ↔ done
+Operations pipeline:  production ↔ done
+```
 
-### 2. Quotation tasks - Skip if duplicate `external_task_id`
+Rules enforced by the trigger:
+- A task whose **assigned role** is `designer` cannot be moved into estimator-only statuses (`supplier_quotes`, `client_approval`, `admin_approval`, `quotation_bill`, `final_invoice`) by anyone except an admin who explicitly reassigns it (`assigned_to` change to an estimation user in the same UPDATE).
+- A task whose assigned role is `estimation` cannot be moved into designer-only statuses (`mockup`, `with_client`) without simultaneous reassignment to a designer.
+- Any cross-pipeline jump that does **not** include a matching `assigned_to` change is rejected with a clear error.
 
-Before inserting, check if a task with the same `external_task_id` already exists in the `tasks` table. If found, return the existing task ID with a "already exists" message instead of creating a duplicate.
+This means even an admin can no longer accidentally "lose" a designer's task into the estimator board — they must consciously reassign it.
 
-## Technical Details
+### 3. Front-end safeguard (defensive)
 
-**File changed:** `supabase/functions/receive-task-webhook/index.ts`
+In `AdminKanbanBoard.tsx` and `KanbanBoard.tsx`, when an admin drags a task across pipelines:
+- Show a confirm dialog: *"This will move the task out of {currentOwner}'s pipeline and into the {targetPipeline} workflow. Reassign to whom?"*
+- Require selecting a new assignee from the matching role before the move is committed.
+- If cancelled, revert the drag.
 
-**Changes to `handleCreateDesign`:**
-- Query `mockup_tasks` for existing record with matching `external_task_id`
-- If found and status is not `pending`, return success with existing task ID (no modification)
-- If not found or status is `pending`, proceed with current upsert logic
+### 4. Audit visibility
 
-**Changes to `handleCreateQuotation`:**
-- Query `tasks` for existing record with matching `external_task_id` (when `external_task_id` is provided)
-- If found, return success with existing task ID (no duplicate created)
-- If not found, proceed with current insert logic
+Add a dedicated `pipeline_transfer` audit action so these cross-pipeline moves are easy to find later in `task_audit_log`.
 
-No other files, flows, or workflows are affected. This is purely a server-side guard in the webhook handler.
+## Technical notes
 
+- Migration: create trigger function `public.enforce_pipeline_integrity()` + `BEFORE UPDATE` trigger on `tasks`. Use a small lookup of status → pipeline. Allow service-role bypass (`current_setting('request.jwt.claim.role', true) = 'service_role'`) so webhooks/automations are not blocked.
+- Data fix: a single `UPDATE` on the TRANE task plus an `INSERT` into `task_audit_log` with `action='restored'`.
+- Front-end: small dialog component reused in both Kanban boards; no changes to existing drag/drop logic outside the cross-pipeline branch.
+
+## Out of scope
+
+- No changes to existing intra-pipeline transitions, automation rules, or webhooks.
+- No changes to Operations or Mockup pipeline behavior.
