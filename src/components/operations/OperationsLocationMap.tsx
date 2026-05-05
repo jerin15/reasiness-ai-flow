@@ -45,7 +45,7 @@ export const OperationsLocationMap = ({
   const userMarker = useRef<mapboxgl.Marker | null>(null);
   const teamMarkers = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const routeMarkers = useRef<Map<string, mapboxgl.Marker>>(new Map());
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [teamLocations, setTeamLocations] = useState<TeamMemberLocation[]>([]);
   const [mapReady, setMapReady] = useState(false);

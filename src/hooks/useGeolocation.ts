@@ -47,7 +47,7 @@ export const useGeolocation = (
   });
 
   const watchIdRef = useRef<number | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastUpdateRef = useRef<number>(0);
 
   // Check permission status
