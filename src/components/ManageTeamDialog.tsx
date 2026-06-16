@@ -180,7 +180,7 @@ export const ManageTeamDialog = ({ open, onOpenChange }: ManageTeamDialogProps) 
               </Avatar>
               <div>
                 <p className="font-medium">{selectedMember.full_name || 'Unnamed'}</p>
-                <p className="text-sm text-muted-foreground">{getRoleDisplay(selectedMember.role)}</p>
+                <p className="text-sm text-muted-foreground">{getRoleDisplay(selectedMember.role, selectedMember.is_freelancer)}</p>
               </div>
             </div>
 
@@ -291,7 +291,7 @@ export const ManageTeamDialog = ({ open, onOpenChange }: ManageTeamDialogProps) 
                     </div>
                   </div>
                   <span className="text-xs bg-muted px-2 py-1 rounded">
-                    {getRoleDisplay(member.role)}
+                    {getRoleDisplay(member.role, member.is_freelancer)}
                   </span>
                 </div>
               ))}
