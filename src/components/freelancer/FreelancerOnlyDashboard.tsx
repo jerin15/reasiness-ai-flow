@@ -118,7 +118,11 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6 max-w-4xl">
-        {loading ? (
+        {error ? (
+          <div className="p-6 text-center text-sm text-destructive border border-destructive/30 rounded-md bg-destructive/5">
+            {error}
+          </div>
+        ) : loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
