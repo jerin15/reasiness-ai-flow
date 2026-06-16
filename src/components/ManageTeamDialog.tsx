@@ -151,7 +151,8 @@ export const ManageTeamDialog = ({ open, onOpenChange }: ManageTeamDialogProps) 
     setSelectedMember(null);
   };
 
-  const getRoleDisplay = (role: string | null) => {
+  const getRoleDisplay = (role: string | null, isFreelancer?: boolean) => {
+    if (isFreelancer) return 'Freelancer';
     if (!role) return 'No Role';
     return role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
