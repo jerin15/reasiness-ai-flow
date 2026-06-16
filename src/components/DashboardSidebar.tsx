@@ -109,7 +109,7 @@ export function DashboardSidebar({
                         <div className="flex flex-col items-start">
                           <span>{user.full_name || user.email}</span>
                           <span className="text-xs text-muted-foreground">
-                            {formatRole(user.user_roles?.[0]?.role || "operations")}
+                            {user.is_freelancer ? "Freelancer" : formatRole(user.user_roles?.[0]?.role || "operations")}
                           </span>
                         </div>
                       </SelectItem>
