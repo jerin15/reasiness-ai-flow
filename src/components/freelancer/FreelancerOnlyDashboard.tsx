@@ -115,6 +115,43 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
     return set;
   }, [payments]);
 
+  type Stage = "to_do" | "awaiting_approval" | "approved" | "paid";
+  const stageOf = (t: Task): Stage => {
+    if (paidTaskIds.has(t.id)) return "paid";
+    const done = t.status === "completed";
+    const approved = (t.admin_remarks || "").includes("[approved]");
+    if (!done) return "to_do";
+    if (!approved) return "awaiting_approval";
+    return "approved";
+  };
+
+  const markDone = async (t: Task) => {
+    const { error } = await supabase
+      .from("tasks")
+      .update({ status: "completed", completed_at: new Date().toISOString() })
+      .eq("id", t.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Marked done");
+    fetchData();
+  };
+
+  const approveTask = async (t: Task) => {
+    const remarks = (t.admin_remarks || "").includes("[approved]")
+      ? t.admin_remarks
+      : `${t.admin_remarks ? t.admin_remarks + " " : ""}[approved]`;
+    const { error } = await supabase
+      .from("tasks")
+      .update({
+        status: "completed",
+        completed_at: t.completed_at || new Date().toISOString(),
+        admin_remarks: remarks,
+      })
+      .eq("id", t.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Approved — ready to pay");
+    fetchData();
+  };
+
   const totals = useMemo(() => {
     const billable = tasks.reduce((s, t) => s + Number(t.billable_amount || 0), 0);
     const paid = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
@@ -222,44 +259,63 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
                     ) : (
                       <div className="divide-y">
                         {tasks.map((t) => {
-                          const paid = paidTaskIds.has(t.id);
+                          const stage = stageOf(t);
+                          const stageBadge = {
+                            to_do: { label: "To Do", cls: "border-slate-400 text-slate-700", Icon: Clock },
+                            awaiting_approval: { label: "Awaiting Approval", cls: "border-blue-500 text-blue-700", Icon: Clock },
+                            approved: { label: "Approved · Payable", cls: "border-amber-500 text-amber-700", Icon: ThumbsUp },
+                            paid: { label: "Paid", cls: "bg-green-600 text-white border-green-600", Icon: CheckCircle2 },
+                          }[stage];
                           return (
-                            <div key={t.id} className="p-4 flex items-center gap-3">
-                              <div className="flex-1 min-w-0">
+                            <div key={t.id} className="p-4 flex items-center gap-3 flex-wrap">
+                              <div className="flex-1 min-w-[180px]">
                                 <div className="font-medium truncate">{t.title}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  {t.status}
+                                  {t.due_date && `due ${format(new Date(t.due_date), "MMM d")}`}
                                   {t.completed_at &&
-                                    ` · completed ${format(new Date(t.completed_at), "MMM d, yyyy")}`}
+                                    `${t.due_date ? " · " : ""}completed ${format(new Date(t.completed_at), "MMM d")}`}
                                 </div>
                               </div>
                               <div className="text-sm font-semibold w-24 text-right">
                                 {fmt(Number(t.billable_amount || 0))}
                               </div>
-                              <Badge
-                                variant={paid ? "default" : "outline"}
-                                className={paid ? "bg-green-600" : "border-amber-500 text-amber-700"}
-                              >
-                                {paid ? (
+                              <Badge variant="outline" className={stageBadge.cls}>
+                                <stageBadge.Icon className="h-3 w-3 mr-1" /> {stageBadge.label}
+                              </Badge>
+                              <div className="flex gap-1 flex-wrap items-center">
+                                {!isAdmin && stage === "to_do" && (
+                                  <Button size="sm" onClick={() => markDone(t)}>
+                                    <Check className="h-4 w-4 mr-1" /> Mark Done
+                                  </Button>
+                                )}
+                                {isAdmin && stage === "to_do" && (
+                                  <Button size="sm" variant="outline" onClick={() => markDone(t)}>
+                                    <Check className="h-4 w-4 mr-1" /> Mark Done
+                                  </Button>
+                                )}
+                                {isAdmin && stage === "awaiting_approval" && (
+                                  <Button size="sm" onClick={() => approveTask(t)}>
+                                    <ThumbsUp className="h-4 w-4 mr-1" /> Approve
+                                  </Button>
+                                )}
+                                {isAdmin && stage === "approved" && (
+                                  <Button size="sm" onClick={() => setShowBilling(true)}>
+                                    <Banknote className="h-4 w-4 mr-1" /> Record Payment
+                                  </Button>
+                                )}
+                                {isAdmin && (
                                   <>
-                                    <CheckCircle2 className="h-3 w-3 mr-1" /> Paid
-                                  </>
-                                ) : (
-                                  <>
-                                    <Clock className="h-3 w-3 mr-1" /> Pending
+                                    <Button size="icon" variant="ghost" onClick={() => openEdit(t.id)} aria-label="Edit">
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    {stage !== "paid" && (
+                                      <Button size="icon" variant="ghost" onClick={() => deleteTask(t.id)} aria-label="Delete">
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    )}
                                   </>
                                 )}
-                              </Badge>
-                              {isAdmin && (
-                                <div className="flex gap-1">
-                                  <Button size="icon" variant="ghost" onClick={() => openEdit(t.id)} aria-label="Edit">
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <Button size="icon" variant="ghost" onClick={() => deleteTask(t.id)} aria-label="Delete">
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </div>
-                              )}
+                              </div>
                             </div>
                           );
                         })}
@@ -305,11 +361,12 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
       </main>
 
       {isAdmin && showAdd && (
-        <AddTaskDialog
+        <FreelancerTaskDialog
           open={showAdd}
           onOpenChange={setShowAdd}
-          onTaskAdded={() => { setShowAdd(false); fetchData(); }}
-          defaultAssignedTo={userId}
+          freelancerId={userId}
+          freelancerName={userName}
+          onCreated={fetchData}
         />
       )}
       {isAdmin && editingTask && (
