@@ -380,6 +380,15 @@ const Dashboard = () => {
       <Suspense fallback={null}>
         {showCreateUser && <CreateUserDialog open={showCreateUser} onOpenChange={setShowCreateUser} />}
         {showManageTeam && <ManageTeamDialog open={showManageTeam} onOpenChange={setShowManageTeam} />}
+        {showMyEarnings && isFreelancer && (
+          <FreelancerBillingDialog
+            open={showMyEarnings}
+            onOpenChange={setShowMyEarnings}
+            freelancerId={currentUserId}
+            freelancerName={userName}
+            isAdmin={false}
+          />
+        )}
         <IncomingCallNotification />
         <ProminentMessageNotification />
       </Suspense>
