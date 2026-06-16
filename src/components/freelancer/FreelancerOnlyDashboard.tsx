@@ -38,26 +38,38 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
   const [tasks, setTasks] = useState<Task[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
 
+  const [error, setError] = useState<string | null>(null);
+
   const fetchData = async () => {
+    if (!userId) return;
     setLoading(true);
-    const [{ data: t }, { data: p }] = await Promise.all([
-      supabase
-        .from("tasks")
-        .select("id, title, status, completed_at, billable_amount")
-        .eq("assigned_to", userId)
-        .eq("is_billable", true)
-        .is("deleted_at", null)
-        .order("completed_at", { ascending: false, nullsFirst: false }),
-      supabase
-        .from("freelancer_payments")
-        .select("id, task_ids, amount, paid_at, method, reference, notes")
-        .eq("freelancer_id", userId)
-        .is("deleted_at", null)
-        .order("paid_at", { ascending: false }),
-    ]);
-    setTasks((t || []) as Task[]);
-    setPayments((p || []) as Payment[]);
-    setLoading(false);
+    setError(null);
+    try {
+      const [tRes, pRes] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("id, title, status, completed_at, billable_amount")
+          .eq("assigned_to", userId)
+          .eq("is_billable", true)
+          .is("deleted_at", null)
+          .order("completed_at", { ascending: false, nullsFirst: false }),
+        supabase
+          .from("freelancer_payments")
+          .select("id, task_ids, amount, paid_at, method, reference, notes")
+          .eq("freelancer_id", userId)
+          .is("deleted_at", null)
+          .order("paid_at", { ascending: false }),
+      ]);
+      if (tRes.error) console.error("freelancer tasks fetch:", tRes.error);
+      if (pRes.error) console.error("freelancer payments fetch:", pRes.error);
+      setTasks((tRes.data || []) as Task[]);
+      setPayments((pRes.data || []) as Payment[]);
+    } catch (e: any) {
+      console.error("FreelancerOnlyDashboard fetch failed:", e);
+      setError(e?.message || "Failed to load");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -106,7 +118,11 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6 max-w-4xl">
-        {loading ? (
+        {error ? (
+          <div className="p-6 text-center text-sm text-destructive border border-destructive/30 rounded-md bg-destructive/5">
+            {error}
+          </div>
+        ) : loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>

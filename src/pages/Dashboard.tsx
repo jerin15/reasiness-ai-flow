@@ -39,7 +39,7 @@ const CreateTaskChooserDialog = lazy(() => import("@/components/CreateTaskChoose
 const CreateUserDialog = lazy(() => import("@/components/CreateUserDialog").then(m => ({ default: m.CreateUserDialog })));
 const ManageTeamDialog = lazy(() => import("@/components/ManageTeamDialog").then(m => ({ default: m.ManageTeamDialog })));
 const FreelancerBillingDialog = lazy(() => import("@/components/freelancer/FreelancerBillingDialog").then(m => ({ default: m.FreelancerBillingDialog })));
-const FreelancerOnlyDashboard = lazy(() => import("@/components/freelancer/FreelancerOnlyDashboard").then(m => ({ default: m.FreelancerOnlyDashboard })));
+import { FreelancerOnlyDashboard } from "@/components/freelancer/FreelancerOnlyDashboard";
 const IncomingCallNotification = lazy(() => import("@/components/IncomingCallNotification").then(m => ({ default: m.IncomingCallNotification })));
 const ProminentMessageNotification = lazy(() => import("@/components/ProminentMessageNotification").then(m => ({ default: m.ProminentMessageNotification })));
 
@@ -232,14 +232,12 @@ const Dashboard = () => {
   // Freelancers get a fully simplified view — just their billable tasks and payment status.
   if (isFreelancer) {
     return (
-      <Suspense fallback={<LoadingSpinner />}>
-        <FreelancerOnlyDashboard
-          userId={currentUserId}
-          userName={userName}
-          userAvatar={userAvatar}
-          onSignOut={handleSignOut}
-        />
-      </Suspense>
+      <FreelancerOnlyDashboard
+        userId={currentUserId}
+        userName={userName}
+        userAvatar={userAvatar}
+        onSignOut={handleSignOut}
+      />
     );
   }
 
