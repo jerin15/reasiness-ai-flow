@@ -127,7 +127,7 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, user_roles(role)')
+        .select('id, full_name, email, is_freelancer, user_roles(role)')
         .order('full_name');
 
       if (error) throw error;
@@ -620,7 +620,8 @@ export const AddTaskDialog = ({ open, onOpenChange, onTaskAdded, defaultAssigned
                   <SelectContent>
                     {teamMembers.map((member) => {
                       const role = member.user_roles?.[0]?.role || 'No role';
-                      const formattedRole = role === 'technical_head' ? 'Technical Head' : 
+                      const formattedRole = (member as any).is_freelancer ? 'Freelancer' :
+                                           role === 'technical_head' ? 'Technical Head' :
                                            role === 'client_service' ? 'Client Service Executive' :
                                            role === 'No role' ? 'No role' :
                                            role.charAt(0).toUpperCase() + role.slice(1);
