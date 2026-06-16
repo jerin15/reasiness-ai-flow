@@ -459,6 +459,8 @@ const Dashboard = () => {
           onManageTeamClick={userRole === "admin" ? () => setShowManageTeam(true) : undefined}
           onSignOut={handleSignOut}
           showPersonalAnalytics={showPersonalAnalytics}
+          isFreelancer={isFreelancer}
+          onMyEarningsClick={() => setShowMyEarnings(true)}
           getSelectedUserName={getSelectedUserName}
           formatRole={formatRole}
         />
