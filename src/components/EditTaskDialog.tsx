@@ -508,6 +508,37 @@ export const EditTaskDialog = ({
             />
           </div>
 
+          {/* Freelancer billing — admin only, shows when assignee is a freelancer */}
+          {(isAdmin || currentUserRole === 'admin') && assigneeIsFreelancer && (
+            <div className="border-t pt-4 mt-4 space-y-2 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-md">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isBillable}
+                  onChange={(e) => setIsBillable(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <span className="font-medium text-sm">💰 Freelancer Billable Task</span>
+              </label>
+              {isBillable && (
+                <div className="flex items-center gap-2 pl-6">
+                  <Label className="text-xs">Amount (AED)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={billableAmount}
+                    onChange={(e) => setBillableAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-32 h-8"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground pl-6">
+                Tracked in the freelancer's billing ledger. Doesn't affect the task workflow.
+              </p>
+            </div>
+          )}
+
           {/* Assign To field - always visible for admins, estimation, and technical_head */}
           {(currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && (
             <div className="space-y-2">
