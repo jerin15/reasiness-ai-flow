@@ -5,11 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, LogOut, Wallet, CheckCircle2, Clock, Plus, Pencil, Trash2, Banknote } from "lucide-react";
+import { Loader2, LogOut, Wallet, CheckCircle2, Clock, Plus, Pencil, Trash2, Banknote, Check, ThumbsUp } from "lucide-react";
 import { format } from "date-fns";
-import { AddTaskDialog } from "@/components/AddTaskDialog";
 import { EditTaskDialog } from "@/components/EditTaskDialog";
 import { FreelancerBillingDialog } from "@/components/freelancer/FreelancerBillingDialog";
+import { FreelancerTaskDialog } from "@/components/freelancer/FreelancerTaskDialog";
 import { toast } from "sonner";
 
 type Task = {
@@ -18,6 +18,8 @@ type Task = {
   status: string;
   completed_at: string | null;
   billable_amount: number | null;
+  admin_remarks: string | null;
+  due_date: string | null;
 };
 
 type Payment = {
@@ -79,11 +81,11 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
       const [tRes, pRes] = await Promise.all([
         supabase
           .from("tasks")
-          .select("id, title, status, completed_at, billable_amount")
+          .select("id, title, status, completed_at, billable_amount, admin_remarks, due_date")
           .eq("assigned_to", userId)
           .eq("is_billable", true)
           .is("deleted_at", null)
-          .order("completed_at", { ascending: false, nullsFirst: false }),
+          .order("created_at", { ascending: false }),
         supabase
           .from("freelancer_payments")
           .select("id, task_ids, amount, paid_at, method, reference, notes")
