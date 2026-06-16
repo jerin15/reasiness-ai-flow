@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, User, Mail, Key, Camera } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { FreelancerBillingDialog } from "@/components/freelancer/FreelancerBillingDialog";
+import { Wallet } from "lucide-react";
 
 interface TeamMember {
   id: string;
@@ -15,6 +17,7 @@ interface TeamMember {
   email: string;
   avatar_url: string | null;
   role: string | null;
+  is_freelancer?: boolean;
 }
 
 interface ManageTeamDialogProps {
@@ -35,6 +38,7 @@ export const ManageTeamDialog = ({ open, onOpenChange }: ManageTeamDialogProps) 
   const [newPassword, setNewPassword] = useState("");
   const [newAvatarUrl, setNewAvatarUrl] = useState("");
   const [terminateSessions, setTerminateSessions] = useState(false);
+  const [showBilling, setShowBilling] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -51,7 +55,8 @@ export const ManageTeamDialog = ({ open, onOpenChange }: ManageTeamDialogProps) 
           id,
           full_name,
           email,
-          avatar_url
+          avatar_url,
+          is_freelancer
         `)
         .order('full_name');
 
@@ -152,6 +157,7 @@ export const ManageTeamDialog = ({ open, onOpenChange }: ManageTeamDialogProps) 
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh]">
         <DialogHeader>
@@ -189,6 +195,18 @@ export const ManageTeamDialog = ({ open, onOpenChange }: ManageTeamDialogProps) 
                   placeholder="Enter full name"
                 />
               </div>
+
+              {selectedMember.is_freelancer && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => setShowBilling(true)}
+                >
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Open Freelancer Billing
+                </Button>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
@@ -281,5 +299,15 @@ export const ManageTeamDialog = ({ open, onOpenChange }: ManageTeamDialogProps) 
         )}
       </DialogContent>
     </Dialog>
+    {selectedMember && (
+      <FreelancerBillingDialog
+        open={showBilling}
+        onOpenChange={setShowBilling}
+        freelancerId={selectedMember.id}
+        freelancerName={selectedMember.full_name || selectedMember.email}
+        isAdmin={true}
+      />
+    )}
+    </>
   );
 };

@@ -38,6 +38,7 @@ const CreateOperationsTaskDialog = lazy(() => import("@/components/CreateOperati
 const CreateTaskChooserDialog = lazy(() => import("@/components/CreateTaskChooserDialog").then(m => ({ default: m.CreateTaskChooserDialog })));
 const CreateUserDialog = lazy(() => import("@/components/CreateUserDialog").then(m => ({ default: m.CreateUserDialog })));
 const ManageTeamDialog = lazy(() => import("@/components/ManageTeamDialog").then(m => ({ default: m.ManageTeamDialog })));
+const FreelancerBillingDialog = lazy(() => import("@/components/freelancer/FreelancerBillingDialog").then(m => ({ default: m.FreelancerBillingDialog })));
 const IncomingCallNotification = lazy(() => import("@/components/IncomingCallNotification").then(m => ({ default: m.IncomingCallNotification })));
 const ProminentMessageNotification = lazy(() => import("@/components/ProminentMessageNotification").then(m => ({ default: m.ProminentMessageNotification })));
 
@@ -53,6 +54,8 @@ const Dashboard = () => {
   const [userRole, setUserRole] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const [userAvatar, setUserAvatar] = useState<string>("");
+  const [isFreelancer, setIsFreelancer] = useState<boolean>(false);
+  const [showMyEarnings, setShowMyEarnings] = useState<boolean>(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedUserRole, setSelectedUserRole] = useState<string>("");
@@ -150,6 +153,7 @@ const Dashboard = () => {
 
       setUserName(profile.full_name || profile.email);
       setUserAvatar(profile.avatar_url || "");
+      setIsFreelancer(!!(profile as any).is_freelancer);
       const role = profile.user_roles?.[0]?.role || "operations";
       setUserRole(role);
       setSelectedUserRole(role);
@@ -376,6 +380,15 @@ const Dashboard = () => {
       <Suspense fallback={null}>
         {showCreateUser && <CreateUserDialog open={showCreateUser} onOpenChange={setShowCreateUser} />}
         {showManageTeam && <ManageTeamDialog open={showManageTeam} onOpenChange={setShowManageTeam} />}
+        {showMyEarnings && isFreelancer && (
+          <FreelancerBillingDialog
+            open={showMyEarnings}
+            onOpenChange={setShowMyEarnings}
+            freelancerId={currentUserId}
+            freelancerName={userName}
+            isAdmin={false}
+          />
+        )}
         <IncomingCallNotification />
         <ProminentMessageNotification />
       </Suspense>
@@ -455,6 +468,8 @@ const Dashboard = () => {
           onManageTeamClick={userRole === "admin" ? () => setShowManageTeam(true) : undefined}
           onSignOut={handleSignOut}
           showPersonalAnalytics={showPersonalAnalytics}
+          isFreelancer={isFreelancer}
+          onMyEarningsClick={() => setShowMyEarnings(true)}
           getSelectedUserName={getSelectedUserName}
           formatRole={formatRole}
         />

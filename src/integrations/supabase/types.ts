@@ -322,6 +322,69 @@ export type Database = {
         }
         Relationships: []
       }
+      freelancer_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          currency: string
+          deleted_at: string | null
+          freelancer_id: string
+          id: string
+          method: string | null
+          notes: string | null
+          paid_at: string
+          reference: string | null
+          task_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deleted_at?: string | null
+          freelancer_id: string
+          id?: string
+          method?: string | null
+          notes?: string | null
+          paid_at?: string
+          reference?: string | null
+          task_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          deleted_at?: string | null
+          freelancer_id?: string
+          id?: string
+          method?: string | null
+          notes?: string | null
+          paid_at?: string
+          reference?: string | null
+          task_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freelancer_payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "freelancer_payments_freelancer_id_fkey"
+            columns: ["freelancer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_rooms: {
         Row: {
           created_at: string | null
@@ -801,6 +864,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          is_freelancer: boolean
           updated_at: string | null
         }
         Insert: {
@@ -809,6 +873,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
+          is_freelancer?: boolean
           updated_at?: string | null
         }
         Update: {
@@ -817,6 +882,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          is_freelancer?: boolean
           updated_at?: string | null
         }
         Relationships: []
@@ -1320,6 +1386,8 @@ export type Database = {
           ai_generated: boolean | null
           assigned_by: string | null
           assigned_to: string | null
+          billable_amount: number | null
+          billable_currency: string
           came_from_designer_done: boolean | null
           category: string | null
           client_name: string | null
@@ -1334,6 +1402,7 @@ export type Database = {
           due_date: string | null
           external_task_id: string | null
           id: string
+          is_billable: boolean
           is_personal_admin_task: boolean | null
           last_activity_at: string | null
           last_updated_by: string | null
@@ -1368,6 +1437,8 @@ export type Database = {
           ai_generated?: boolean | null
           assigned_by?: string | null
           assigned_to?: string | null
+          billable_amount?: number | null
+          billable_currency?: string
           came_from_designer_done?: boolean | null
           category?: string | null
           client_name?: string | null
@@ -1382,6 +1453,7 @@ export type Database = {
           due_date?: string | null
           external_task_id?: string | null
           id?: string
+          is_billable?: boolean
           is_personal_admin_task?: boolean | null
           last_activity_at?: string | null
           last_updated_by?: string | null
@@ -1416,6 +1488,8 @@ export type Database = {
           ai_generated?: boolean | null
           assigned_by?: string | null
           assigned_to?: string | null
+          billable_amount?: number | null
+          billable_currency?: string
           came_from_designer_done?: boolean | null
           category?: string | null
           client_name?: string | null
@@ -1430,6 +1504,7 @@ export type Database = {
           due_date?: string | null
           external_task_id?: string | null
           id?: string
+          is_billable?: boolean
           is_personal_admin_task?: boolean | null
           last_activity_at?: string | null
           last_updated_by?: string | null

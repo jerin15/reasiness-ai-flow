@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus, Brain, CalendarDays, Settings, ClipboardList } from "lucide-react";
+import { LogOut, MessageSquare, BarChart3, Users, FileText, Download, FileCheck, Plus, UserPlus, Brain, CalendarDays, Settings, ClipboardList, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,8 @@ interface DashboardSidebarProps {
   onCreateUserClick?: () => void;
   onDailyRoutingClick?: () => void;
   onManageTeamClick?: () => void;
+  onMyEarningsClick?: () => void;
+  isFreelancer?: boolean;
   onSignOut: () => void;
   showPersonalAnalytics?: boolean;
   showDailyRouting?: boolean;
@@ -63,6 +65,8 @@ export function DashboardSidebar({
   onCreateUserClick,
   onDailyRoutingClick,
   onManageTeamClick,
+  onMyEarningsClick,
+  isFreelancer,
   onSignOut,
   showPersonalAnalytics,
   showDailyRouting,
@@ -270,6 +274,16 @@ export function DashboardSidebar({
                   <span className="font-semibold">My Report</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
+              {/* My Earnings (freelancers only) */}
+              {isFreelancer && onMyEarningsClick && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={onMyEarningsClick} className="text-white font-semibold hover:bg-white/15">
+                    <Wallet className="h-4 w-4" />
+                    <span className="font-semibold">My Earnings</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
 
               {/* Team Report */}
               {isAdminOrHead && (

@@ -34,6 +34,8 @@ type Task = {
   mockup_completed_by_designer?: boolean;
   sent_back_to_designer?: boolean;
   admin_remarks?: string | null;
+  is_billable?: boolean;
+  billable_amount?: number | null;
 };
 
 type EditTaskDialogProps = {
@@ -73,6 +75,9 @@ export const EditTaskDialog = ({
   const [adminRemarks, setAdminRemarks] = useState("");
   const [assignedTo, setAssignedTo] = useState<string>("");
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [isBillable, setIsBillable] = useState(false);
+  const [billableAmount, setBillableAmount] = useState<string>("");
+  const [assigneeIsFreelancer, setAssigneeIsFreelancer] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -88,6 +93,8 @@ export const EditTaskDialog = ({
       setStatus(task.status || "todo");
       setAdminRemarks(task.admin_remarks || "");
       setAssignedTo(task.assigned_to || "");
+      setIsBillable(!!task.is_billable);
+      setBillableAmount(task.billable_amount != null ? String(task.billable_amount) : "");
     }
   }, [task]);
 
@@ -138,7 +145,7 @@ export const EditTaskDialog = ({
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, user_roles(role)')
+        .select('id, full_name, email, is_freelancer, user_roles(role)')
         .order('full_name');
 
       if (error) throw error;
@@ -147,6 +154,11 @@ export const EditTaskDialog = ({
       console.error('Error fetching team members:', error);
     }
   };
+
+  useEffect(() => {
+    const m = teamMembers.find((t) => t.id === assignedTo);
+    setAssigneeIsFreelancer(!!m?.is_freelancer);
+  }, [assignedTo, teamMembers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,6 +209,8 @@ export const EditTaskDialog = ({
         type: taskType as "quotation" | "invoice" | "design" | "general" | "production",
         status: newStatus,
         admin_remarks: adminRemarks || null,
+        is_billable: isBillable,
+        billable_amount: isBillable && billableAmount !== "" ? Number(billableAmount) : null,
         ...(statusChanged && {
           previous_status: task.status as any,
           status_changed_at: new Date().toISOString(),
@@ -493,6 +507,37 @@ export const EditTaskDialog = ({
               readOnly={false}
             />
           </div>
+
+          {/* Freelancer billing — admin only, shows when assignee is a freelancer */}
+          {(isAdmin || currentUserRole === 'admin') && assigneeIsFreelancer && (
+            <div className="border-t pt-4 mt-4 space-y-2 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-md">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isBillable}
+                  onChange={(e) => setIsBillable(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <span className="font-medium text-sm">💰 Freelancer Billable Task</span>
+              </label>
+              {isBillable && (
+                <div className="flex items-center gap-2 pl-6">
+                  <Label className="text-xs">Amount (AED)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={billableAmount}
+                    onChange={(e) => setBillableAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-32 h-8"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground pl-6">
+                Tracked in the freelancer's billing ledger. Doesn't affect the task workflow.
+              </p>
+            </div>
+          )}
 
           {/* Assign To field - always visible for admins, estimation, and technical_head */}
           {(currentUserRole === 'admin' || currentUserRole === 'technical_head' || currentUserRole === 'estimation') && (
