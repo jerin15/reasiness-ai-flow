@@ -56,6 +56,8 @@ const Dashboard = () => {
   const [userName, setUserName] = useState<string>("");
   const [userAvatar, setUserAvatar] = useState<string>("");
   const [isFreelancer, setIsFreelancer] = useState<boolean>(false);
+  const [selectedUserIsFreelancer, setSelectedUserIsFreelancer] = useState<boolean>(false);
+  const [selectedUserName, setSelectedUserName] = useState<string>("");
   const [showMyEarnings, setShowMyEarnings] = useState<boolean>(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
@@ -174,7 +176,7 @@ const Dashboard = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, avatar_url, user_roles(*)")
+        .select("id, full_name, email, avatar_url, is_freelancer, user_roles(*)")
         .order("full_name");
 
       if (error) throw error;
@@ -209,9 +211,13 @@ const Dashboard = () => {
     setSelectedUserId(userId);
     if (userId === currentUserId) {
       setSelectedUserRole(userRole);
+      setSelectedUserIsFreelancer(isFreelancer);
+      setSelectedUserName(userName);
     } else {
       const user = teamMembers.find((u) => u.id === userId);
       setSelectedUserRole(user?.user_roles?.[0]?.role || "operations");
+      setSelectedUserIsFreelancer(!!(user as any)?.is_freelancer);
+      setSelectedUserName(user?.full_name || user?.email || "");
     }
   };
 
@@ -502,7 +508,14 @@ const Dashboard = () => {
                   <PersonalAnalytics userId={currentUserId} userRole={userRole} />
                 </div>
               )}
-              {selectedUserRole === "operations" ? (
+              {selectedUserIsFreelancer && selectedUserId !== currentUserId ? (
+                <FreelancerOnlyDashboard
+                  userId={selectedUserId}
+                  userName={selectedUserName || getSelectedUserName()}
+                  userAvatar=""
+                  onSignOut={handleSignOut}
+                />
+              ) : selectedUserRole === "operations" ? (
                 <OperationsDashboard userId={selectedUserId} userRole={userRole} />
               ) : (
                 <KanbanBoard 
