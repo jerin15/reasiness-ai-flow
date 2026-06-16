@@ -118,7 +118,7 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
   type Stage = "to_do" | "awaiting_approval" | "approved" | "paid";
   const stageOf = (t: Task): Stage => {
     if (paidTaskIds.has(t.id)) return "paid";
-    const done = t.status === "completed";
+    const done = t.status === "done";
     const approved = (t.admin_remarks || "").includes("[approved]");
     if (!done) return "to_do";
     if (!approved) return "awaiting_approval";
@@ -128,7 +128,7 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
   const markDone = async (t: Task) => {
     const { error } = await supabase
       .from("tasks")
-      .update({ status: "completed", completed_at: new Date().toISOString() })
+      .update({ status: "done", completed_at: new Date().toISOString() })
       .eq("id", t.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Marked done");
@@ -142,7 +142,7 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
     const { error } = await supabase
       .from("tasks")
       .update({
-        status: "completed",
+        status: "done",
         completed_at: t.completed_at || new Date().toISOString(),
         admin_remarks: remarks,
       })
