@@ -5,8 +5,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, LogOut, Wallet, CheckCircle2, Clock } from "lucide-react";
+import { Loader2, LogOut, Wallet, CheckCircle2, Clock, Plus, Pencil, Trash2, Banknote } from "lucide-react";
 import { format } from "date-fns";
+import { AddTaskDialog } from "@/components/AddTaskDialog";
+import { EditTaskDialog } from "@/components/EditTaskDialog";
+import { FreelancerBillingDialog } from "@/components/freelancer/FreelancerBillingDialog";
+import { toast } from "sonner";
 
 type Task = {
   id: string;
@@ -31,14 +35,41 @@ interface Props {
   userName: string;
   userAvatar?: string;
   onSignOut: () => void;
+  isAdmin?: boolean;
 }
 
-export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOut }: Props) => {
+export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOut, isAdmin = false }: Props) => {
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
 
   const [error, setError] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [showBilling, setShowBilling] = useState(false);
+  const [editingTask, setEditingTask] = useState<any | null>(null);
+
+  const openEdit = async (taskId: string) => {
+    const { data, error } = await supabase.from("tasks").select("*").eq("id", taskId).single();
+    if (error || !data) {
+      toast.error("Failed to load task");
+      return;
+    }
+    setEditingTask(data);
+  };
+
+  const deleteTask = async (taskId: string) => {
+    if (!confirm("Delete this task? This is a soft delete and can be recovered.")) return;
+    const { error } = await supabase
+      .from("tasks")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", taskId);
+    if (error) {
+      toast.error("Failed to delete task");
+      return;
+    }
+    toast.success("Task deleted");
+    fetchData();
+  };
 
   const fetchData = async () => {
     if (!userId) return;
@@ -162,10 +193,22 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
             </div>
 
             <Tabs defaultValue="tasks">
-              <TabsList>
-                <TabsTrigger value="tasks">My Tasks ({tasks.length})</TabsTrigger>
-                <TabsTrigger value="payments">Payments ({payments.length})</TabsTrigger>
-              </TabsList>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <TabsList>
+                  <TabsTrigger value="tasks">{isAdmin ? "Tasks" : "My Tasks"} ({tasks.length})</TabsTrigger>
+                  <TabsTrigger value="payments">Payments ({payments.length})</TabsTrigger>
+                </TabsList>
+                {isAdmin && (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setShowBilling(true)}>
+                      <Banknote className="h-4 w-4 mr-1" /> Manage Billing
+                    </Button>
+                    <Button size="sm" onClick={() => setShowAdd(true)}>
+                      <Plus className="h-4 w-4 mr-1" /> New Task
+                    </Button>
+                  </div>
+                )}
+              </div>
 
               <TabsContent value="tasks">
                 <Card>
@@ -205,6 +248,16 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
                                   </>
                                 )}
                               </Badge>
+                              {isAdmin && (
+                                <div className="flex gap-1">
+                                  <Button size="icon" variant="ghost" onClick={() => openEdit(t.id)} aria-label="Edit">
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" onClick={() => deleteTask(t.id)} aria-label="Delete">
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -248,6 +301,34 @@ export const FreelancerOnlyDashboard = ({ userId, userName, userAvatar, onSignOu
           </>
         )}
       </main>
+
+      {isAdmin && showAdd && (
+        <AddTaskDialog
+          open={showAdd}
+          onOpenChange={setShowAdd}
+          onTaskAdded={() => { setShowAdd(false); fetchData(); }}
+          defaultAssignedTo={userId}
+        />
+      )}
+      {isAdmin && editingTask && (
+        <EditTaskDialog
+          open={!!editingTask}
+          onOpenChange={(o) => !o && setEditingTask(null)}
+          task={editingTask}
+          onTaskUpdated={() => { setEditingTask(null); fetchData(); }}
+          onTaskDeleted={() => { setEditingTask(null); fetchData(); }}
+          isAdmin
+        />
+      )}
+      {isAdmin && showBilling && (
+        <FreelancerBillingDialog
+          open={showBilling}
+          onOpenChange={(o) => { setShowBilling(o); if (!o) fetchData(); }}
+          freelancerId={userId}
+          freelancerName={userName}
+          isAdmin
+        />
+      )}
     </div>
   );
 };

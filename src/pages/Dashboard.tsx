@@ -514,6 +514,7 @@ const Dashboard = () => {
                   userName={selectedUserName || getSelectedUserName()}
                   userAvatar=""
                   onSignOut={handleSignOut}
+                  isAdmin={userRole === "admin" || userRole === "technical_head"}
                 />
               ) : selectedUserRole === "operations" ? (
                 <OperationsDashboard userId={selectedUserId} userRole={userRole} />
